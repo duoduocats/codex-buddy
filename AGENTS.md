@@ -8,6 +8,6 @@
 - Release policy is maintainer-selected metadata: none (default), notify, or silent. Set notify/silent only when explicitly requested for that release; never infer from its version number.
 - Silent releases install without confirmation. Honor previously ignored releases during background checks; verify origin, metadata digest and version, and package integrity before replacing. Never block continued use after failure.
 - Run `bash scripts/test.sh` and `BUILD_DIR=<fresh-temp-directory> bash build.sh` for code changes. Installer changes require staged-install/rollback tests.
-- `scripts/prepare-release.py VERSION` prepares ordinary releases; use `--important` only when explicitly requested.
+- `scripts/prepare-release.py VERSION` prepares ordinary releases; use `--mode notify` or `--mode silent` only when explicitly requested.
 - Publish only this repository directory. Do not publish parent workspace, personal metadata, credential stores or local debug captures.
 - Preserve GPL-3.0-only licensing and THIRD_PARTY_NOTICES.md.
