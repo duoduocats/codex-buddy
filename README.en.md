@@ -15,15 +15,11 @@ Track your remaining ChatGPT / Codex quota, usage limits, reset time, and availa
 
 The visual design takes inspiration from the **iPhone Duo signal indicator**: an arc, countdown, and four dots combine remaining quota, reset time, and available reset credits in one menu bar icon.
 
-### Menu bar icon
+### Menu bar and expanded panel
 
-<img src="docs/images/menu-bar.png" width="60" alt="Codex Buddy dark menu bar icon with a quota arc, 4h countdown, and four reset-credit dots" />
+<img src="docs/images/menu-bar.png" width="30" alt="Codex Buddy menu bar with a 3h countdown and reset-credit dots" />
 
-### Expanded panel
-
-<img src="docs/images/panel-en.png" width="340" alt="Codex Buddy English panel showing 68% remaining quota, 2 available reset credits, and the next reset time" />
-
-*Native interface snapshots use demo data only; the menu bar icon is enlarged for clarity. No real account information is shown. Panel background effects vary with macOS version and appearance settings.*
+<img src="docs/images/panel-en.png" width="340" alt="Codex Buddy native English interface with 68% remaining quota, a centered icon and countdown, and 2 available resets" />
 
 ## Download and install
 

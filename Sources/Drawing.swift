@@ -17,16 +17,18 @@ enum DuoDrawing {
         let result = NSImage(size: size, flipped: true) { rect in
             guard let ctx = NSGraphicsContext.current?.cgContext else { return false }
             ctx.saveGState()
-            let s = menu ? min(rect.width / 230, rect.height / 230) : min(rect.width / 248, rect.height / 258)
+            let s = menu ? min(rect.width / 220, rect.height / 220) : min(rect.width / 248, rect.height / 258)
             ctx.translateBy(x: rect.midX, y: rect.midY + (menu ? -1.5 : 10) * s)
             ctx.scaleBy(x: s, y: s)
             let ink = dark ? NSColor.white : NSColor.black
             ink.setStroke(); ink.setFill()
-            // Render once with optical compensation for low-contrast menu segments.
-            let deviceScale = abs(ctx.convertToDeviceSpace(CGSize(width:1,height:1)).width)
-            let strokeWidth = menu && deviceScale > 0 ? (15*deviceScale).rounded()/deviceScale : 15
+            // Keep both colors on one silhouette; avoid independent pixel rounding.
+            let strokeWidth: CGFloat = menu ? 17 : 15
             let fraction = max(0,min(1,(window?.remaining ?? 0) / 100))
-            let gray = NSColor(white:dark ? (menu ? 175.0/255 : 145.0/255) : 190.0/255,alpha:1)
+            // Opaque mid-gray keeps the detail ring visible over bright glass backdrops.
+            let gray = menu
+                ? NSColor(white:dark ? 145.0/255 : 140.0/255,alpha:1)
+                : NSColor(white:128.0/255,alpha:1)
             // Clip a single rounded silhouette, then divide its colors with a radial
             // straight edge. A tiny remainder must never become a full circular cap.
             let outline = CGMutablePath()
@@ -49,18 +51,13 @@ enum DuoDrawing {
             ink.setStroke();ink.setFill()
             for (index, degrees) in [126.0,102.0,78.0,54.0].enumerated() {
                 let angle = degrees * Double.pi / 180
-                var point = CGPoint(x:cos(angle)*100,y:sin(angle)*100)
-                var radius = 10.5
-                if menu {
-                    let pixel = ctx.convertToDeviceSpace(point)
-                    point = ctx.convertToUserSpace(CGPoint(x:pixel.x.rounded(),y:pixel.y.rounded()))
-                    let unit = abs(ctx.convertToDeviceSpace(CGSize(width:1,height:1)).width)
-                    if unit > 0 { radius = (10.5*unit).rounded()/unit }
-                }
-                if menu && index >= (credits ?? 0) { radius *= 1.12 }
+                // Equal angular steps give equal chord gaps. Keeping subpixel centers
+                // and equal radii preserves mirror symmetry in the 2x raster.
+                let point = CGPoint(x:cos(angle)*100,y:sin(angle)*100)
+                let radius: CGFloat = menu ? 12 : 10.5
                 let dot = NSBezierPath(ovalIn:NSRect(x:point.x-radius,y:point.y-radius,width:radius*2,height:radius*2))
                 if let credits, index < credits { dot.fill() }
-                else { NSColor(white:dark ? (menu ? 175.0/255 : 145.0/255) : 190.0/255,alpha:1).setFill();dot.fill();ink.setFill() }
+                else { gray.setFill();dot.fill();ink.setFill() }
             }
             let title = (menu ? window?.countdown(now:now) : window?.detailCountdown(now:now)) ?? "—"
             let fontSize: CGFloat = menu ? (title.count > 3 ? 65 : 80) : 42
@@ -75,11 +72,20 @@ enum DuoDrawing {
                 }
             }
             let textSize = text.size()
-            text.draw(at:.init(x:-textSize.width/2,y:-textSize.height/2+(menu ? 2 : 14)))
+            if menu {
+                text.draw(at:.init(x:-textSize.width/2,y:-textSize.height/2+2))
+            }
             if !menu {
-                ctx.saveGState()
-                ctx.translateBy(x:0,y:-56);ctx.scaleBy(x:0.075,y:0.075);ctx.translateBy(x:-512,y:-512)
                 let badge = silhouette()
+                let badgeScale: CGFloat = 0.075
+                let badgeHeight = badge.bounds.height * badgeScale
+                let gap: CGFloat = 12
+                // Center the badge and countdown together within the ring.
+                let groupTop = -(badgeHeight + gap + textSize.height) / 2
+                text.draw(at:.init(x:-textSize.width/2,y:groupTop+badgeHeight+gap))
+                let badgeY = groupTop - (badge.bounds.minY-512)*badgeScale
+                ctx.saveGState()
+                ctx.translateBy(x:0,y:badgeY);ctx.scaleBy(x:badgeScale,y:badgeScale);ctx.translateBy(x:-512,y:-512)
                 NSColor(calibratedRed:0.36,green:0.30,blue:1,alpha:1).setFill();badge.fill()
                 NSColor.white.setStroke()
                 let glyph=NSBezierPath();glyph.move(to:.init(x:374,y:431));glyph.line(to:.init(x:418,y:516));glyph.line(to:.init(x:374,y:598));glyph.move(to:.init(x:533,y:600));glyph.line(to:.init(x:650,y:600))

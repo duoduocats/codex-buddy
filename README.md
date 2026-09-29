@@ -14,15 +14,11 @@
 
 视觉样式借鉴 **iPhone Duo 信号栏**：用圆弧、倒计时和四个圆点，在一个顶栏图标中呈现剩余额度、重置时间和可用重置次数。
 
-### 顶栏图标
+### 顶栏与展开面板
 
-<img src="docs/images/menu-bar.png" width="60" alt="Codex Buddy 深色顶栏图标：额度圆弧、4h 倒计时和四个重置次数圆点" />
+<img src="docs/images/menu-bar.png" width="30" alt="Codex Buddy 顶栏：3h 倒计时与重置次数圆点" />
 
-### 展开面板
-
-<img src="docs/images/panel-zh.png" width="340" alt="Codex Buddy 中文展开面板：剩余额度 68%、可用重置次数 2 和下次重置时间" />
-
-*以上为原生界面的演示数据快照；顶栏图标放大展示，不包含真实账户信息。面板背景效果随 macOS 版本与外观设置变化。*
+<img src="docs/images/panel-zh.png" width="340" alt="Codex Buddy 中文原生界面：剩余额度 68%，居中排列的图标与倒计时，可用重置次数 2" />
 
 ## 安装
 
