@@ -4,6 +4,15 @@ set -eu
 WORK="$1"
 TARGET="$2"
 OLD_PID="$3"
+MODE="${4:-foreground}"
+case "$MODE" in foreground|background) ;; *) exit 1;; esac
+open_target() {
+    if [[ "$MODE" == background ]]; then
+        /usr/bin/open -g "$TARGET"
+    else
+        /usr/bin/open "$TARGET"
+    fi
+}
 case "$WORK" in */.codex-buddy-update-*.noindex) ;; *) exit 1;; esac
 [[ "$(dirname "$WORK")" == "$(dirname "$TARGET")" ]] || exit 1
 [[ "$TARGET" == */Codex\ Buddy.app ]] || exit 1
@@ -18,15 +27,15 @@ done
 if kill -0 "$OLD_PID" 2>/dev/null; then exit 1; fi
 rollback() {
     if [[ ! -e "$TARGET" && -d "$BACKUP" ]]; then /bin/mv "$BACKUP" "$TARGET"; fi
-    /usr/bin/open "$TARGET" || true
+    open_target || true
 }
 trap rollback ERR
 /bin/mv "$TARGET" "$BACKUP"
 /bin/mv "$NEW" "$TARGET"
-if ! /usr/bin/open "$TARGET"; then
+if ! open_target; then
     /bin/mv "$TARGET" "$WORK/failed.app"
     /bin/mv "$BACKUP" "$TARGET"
-    /usr/bin/open "$TARGET" || true
+    open_target || true
     exit 1
 fi
 trap - ERR

@@ -1,6 +1,16 @@
 import AppKit
 import Combine
 
+private final class UpdateRedirectDelegate: NSObject, URLSessionTaskDelegate {
+    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+                    newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
+        let hosts = ["api.github.com", "github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com"]
+        guard let url = request.url, url.scheme == "https", let host = url.host, hosts.contains(host),
+              url.user == nil, url.password == nil, url.port == nil || url.port == 443 else { completionHandler(nil); return }
+        completionHandler(request)
+    }
+}
+
 @MainActor final class UpdateManager: ObservableObject {
     static let shared = UpdateManager()
     @Published private(set) var checking = false
@@ -14,6 +24,9 @@ import Combine
     private var lastAttempt: Date?
     private var presenting = false
     private let repository: String
+    // Injectable boundaries keep policy integration tests away from installed apps and modal UI.
+    private let installOperation: ((GitHubRelease, Bool) async throws -> Void)?
+    private let presentation: ((GitHubRelease) -> Void)?
     let currentVersion: String
     var configured: Bool { UpdatePolicy.validRepository(repository) }
     var beforePresent: (() -> Void)?
@@ -21,11 +34,14 @@ import Combine
 
     init(defaults: UserDefaults = .standard, configuration: URLSessionConfiguration = .ephemeral,
          repository: String = Bundle.main.object(forInfoDictionaryKey:"GitHubRepository") as? String ?? "",
-         currentVersion: String = Bundle.main.object(forInfoDictionaryKey:"CFBundleShortVersionString") as? String ?? "0.0.0") {
+         currentVersion: String = Bundle.main.object(forInfoDictionaryKey:"CFBundleShortVersionString") as? String ?? "0.0.0",
+         installOperation: ((GitHubRelease, Bool) async throws -> Void)? = nil,
+         presentation: ((GitHubRelease) -> Void)? = nil) {
         self.defaults=defaults;self.repository=repository;self.currentVersion=currentVersion
+        self.installOperation=installOperation;self.presentation=presentation
         configuration.timeoutIntervalForRequest=15;configuration.timeoutIntervalForResource=20
         configuration.urlCache=nil;configuration.httpCookieStorage=nil
-        session=URLSession(configuration:configuration)
+        session=URLSession(configuration:configuration,delegate:UpdateRedirectDelegate(),delegateQueue:nil)
         if !UpdatePolicy.validRepository(repository) { message=L("尚未配置 GitHub 发布仓库。", "No GitHub release repository is configured.") }
     }
     func start() {
@@ -59,39 +75,54 @@ import Combine
                       let latest=AppVersion(release.tagName),let current=AppVersion(currentVersion) else { throw CheckFailure.invalid }
                 guard latest > current else {
                     available=nil;message=L("当前已是最新版本（\(currentVersion)）。", "You are up to date (\(currentVersion)).")
-                    if manual { showCurrent() };return
+                    return
                 }
                 available=release;message=L("发现新版本 \(release.tagName)。", "Update available: \(release.tagName).")
                 let ignored=defaults.stringArray(forKey:"updates.ignored") ?? []
                 let announced=defaults.stringArray(forKey:"updates.announced") ?? []
-                if manual || UpdatePolicy.shouldNotify(release:release,current:currentVersion,ignored:ignored,announced:announced) {
-                    present(release,manual:manual)
+                let mode = await mode(for:release)
+                switch UpdatePolicy.action(release:release,mode:mode,current:currentVersion,manual:manual,ignored:ignored,announced:announced) {
+                case .install: installAvailable(silent:true)
+                case .notify: present(release,manual:manual)
+                case .none: break
                 }
             } catch { if manual { message=L("检查失败，请稍后重试。", "Could not check for updates. Try again later.") } }
         }
     }
-    func installAvailable() {
+    private func mode(for release: GitHubRelease) async -> ReleaseUpdateMode {
+        // Missing metadata preserves older important releases. Invalid metadata never installs.
+        guard release.assets.contains(where:{ $0.name == "update-policy.json" }) else {
+            return release.isImportant ? .notify : .none
+        }
+        guard let asset = release.policyAsset(repository:repository),
+              let url = URL(string:asset.browserDownloadURL ?? "") else { return .none }
+        do {
+            let (data,response) = try await session.data(from:url)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return .none }
+            return UpdatePolicy.verifiedMode(data:data,asset:asset,tag:release.tagName) ?? .none
+        } catch { return .none }
+    }
+    func installAvailable(silent: Bool = false) {
         guard !installing,let release=available else { return }
         installing=true
-        beforeInstall?()
+        if !silent { beforeInstall?() }
         Task {
             do {
+                if let installOperation {
+                    try await installOperation(release,silent)
+                    installing=false
+                    return
+                }
                 let target=Bundle.main.bundleURL
                 let work=try await UpdateInstaller.stage(release:release,repository:repository,target:target) { status in self.message=status }
                 message=L("正在安装，应用即将重新启动…", "Installing. The app will restart shortly…")
-                try UpdateInstaller.replaceAndRelaunch(staged:work,target:target)
+                try UpdateInstaller.replaceAndRelaunch(staged:work,target:target,background:silent)
             } catch { message=(error as? UpdateInstallFailure)?.localizedDescription ?? L("更新失败，当前版本未被替换。", "Update failed. Your current version has not been replaced.");installing=false }
         }
     }
     func openRelease() {
         guard let url=available?.publishedURL(repository:repository) else { return }
         NSWorkspace.shared.open(url)
-    }
-    private func showCurrent() {
-        presenting=true;defer { presenting=false }
-        beforePresent?();NSApp.activate(ignoringOtherApps:true)
-        let alert=NSAlert();alert.messageText=L("已是最新版本", "You're up to date");alert.informativeText="Codex Buddy \(currentVersion)"
-        alert.addButton(withTitle:L("好", "OK"));alert.runModal()
     }
     private func present(_ release: GitHubRelease, manual: Bool) {
         guard !presenting else { return };presenting=true;defer { presenting=false }
@@ -101,6 +132,7 @@ import Combine
             if !versions.contains(release.tagName) { versions.append(release.tagName) }
             defaults.set(versions,forKey:"updates.announced")
         }
+        if let presentation { presentation(release); return }
         beforePresent?();NSApp.activate(ignoringOtherApps:true)
         let alert=NSAlert()
         alert.messageText=release.isImportant ? L("Codex Buddy 有重大更新", "Important Codex Buddy update") : L("Codex Buddy 有新版本", "Codex Buddy update available")

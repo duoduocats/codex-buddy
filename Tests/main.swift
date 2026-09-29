@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 let fixture = Data(#"{"plan_type":"pro","rate_limit":{"primary_window":{"used_percent":32,"limit_window_seconds":18000,"reset_at":15400},"secondary_window":null},"additional_rate_limits":[{"metered_feature":"extra","limit_name":"Extra","rate_limit":{"primary_window":{"used_percent":110,"limit_window_seconds":604800,"reset_at":20000}}}],"rate_limit_reset_credits":{"available_count":2}}"#.utf8)
 MainActor.assumeIsolated {
     do {
@@ -78,3 +79,33 @@ for (seconds, menu, detail) in [(396000.0,"4d","4d 14h"),(431999,"4d","4d 23h"),
     precondition(window.detailCountdown(now:fixedNow) == detail)
 }
 print("Menu/detail countdown consistency tests passed")
+
+for mode in [ReleaseUpdateMode.none, .notify, .silent] {
+    let policyData = try JSONSerialization.data(withJSONObject:["schemaVersion":1,"version":"2.0.0","mode":mode.rawValue])
+    let digest = SHA256.hash(data:policyData).map { String(format:"%02x",$0) }.joined()
+    let asset = GitHubRelease.Asset(name:"update-policy.json",state:"uploaded",browserDownloadURL:"https://github.com/example/buddy/releases/download/v2.0.0/update-policy.json",digest:"sha256:"+digest,size:policyData.count)
+    precondition(UpdatePolicy.verifiedMode(data:policyData,asset:asset,tag:"v2.0.0") == mode)
+    precondition(UpdatePolicy.verifiedMode(data:policyData,asset:asset,tag:"v2.0.1") == nil)
+    precondition(UpdatePolicy.verifiedMode(data:policyData+Data([0]),asset:asset,tag:"v2.0.0") == nil)
+    let configured = GitHubRelease(tagName:"v2.0.0",htmlURL:important.htmlURL,body:nil,draft:false,prerelease:false,assets:[asset])
+    precondition(configured.policyAsset(repository:"example/buddy") != nil)
+    precondition(configured.policyAsset(repository:"someone/else") == nil)
+    let duplicated = GitHubRelease(tagName:"v2.0.0",htmlURL:important.htmlURL,body:nil,draft:false,prerelease:false,assets:[asset,asset])
+    precondition(duplicated.policyAsset(repository:"example/buddy") == nil)
+    for version in ["2.0.0","3.0.0"] {
+        precondition(UpdatePolicy.action(release:release(),mode:mode,current:version,manual:false,ignored:[],announced:[]) == .none)
+    }
+    for invalid in [release(draft:true),release(prerelease:true)] {
+        precondition(UpdatePolicy.action(release:invalid,mode:mode,current:"1.0.0",manual:true,ignored:[],announced:[]) == .none)
+    }
+    precondition(UpdatePolicy.action(release:release(),mode:mode,current:"1.0.0",manual:false,ignored:["v2.0.0"],announced:[]) == .none)
+}
+precondition(UpdatePolicy.action(release:release(),mode:.notify,current:"1.0.0",manual:false,ignored:[],announced:["v2.0.0"]) == .none)
+let badDocuments: [[String:Any]] = [["schemaVersion":2,"version":"2.0.0","mode":"silent"],["schemaVersion":1,"version":"2.0.0","mode":"unknown"]]
+for badDocument in badDocuments {
+    let data = try JSONSerialization.data(withJSONObject:badDocument)
+    let digest = SHA256.hash(data:data).map { String(format:"%02x",$0) }.joined()
+    let asset = GitHubRelease.Asset(name:"update-policy.json",state:"uploaded",digest:"sha256:"+digest,size:data.count)
+    precondition(UpdatePolicy.verifiedMode(data:data,asset:asset,tag:"v2.0.0") == nil)
+}
+print("Release policy integrity and action tests passed")

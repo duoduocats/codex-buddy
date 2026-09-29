@@ -8,11 +8,12 @@ on:
         description: Existing version tag (vX.Y.Z)
         required: true
         type: string
-      important:
-        description: Owner explicitly requests a dismissible major-update popup
+      update_mode:
+        description: Maintainer-selected update policy
         required: true
-        default: false
-        type: boolean
+        default: none
+        type: choice
+        options: [none, notify, silent]
 permissions:
   contents: read
 concurrency:
@@ -35,7 +36,7 @@ jobs:
         env:
           RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
           EXPECTED_REPOSITORY: ${{ github.repository }}
-          IMPORTANT: ${{ inputs.important || false }}
+          UPDATE_MODE: ${{ inputs.update_mode || '' }}
         run: python3 scripts/release-metadata.py
       - name: Full history privacy scan
         run: python3 scripts/check-source.py --history
@@ -56,6 +57,7 @@ jobs:
             dist/*.dmg
             dist/*.sha256
             dist/release-notes.md
+            dist/update-policy.json
           if-no-files-found: error
   publish:
     needs: build
@@ -74,4 +76,4 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ needs.build.outputs.tag }}
         run: |
-          gh release create "$RELEASE_TAG" dist/*.dmg dist/*.sha256 --verify-tag --draft --title "Codex Buddy $RELEASE_TAG" --notes-file dist/release-notes.md
+          gh release create "$RELEASE_TAG" dist/*.dmg dist/*.sha256 dist/update-policy.json --verify-tag --draft --title "Codex Buddy $RELEASE_TAG" --notes-file dist/release-notes.md

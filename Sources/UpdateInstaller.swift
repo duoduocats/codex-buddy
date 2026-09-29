@@ -120,12 +120,12 @@ enum UpdateInstaller {
             if try file.resourceValues(forKeys:[.isSymbolicLinkKey]).isSymbolicLink == true { throw UpdateInstallFailure.verification }
         }
     }
-    @MainActor static func replaceAndRelaunch(staged work: URL, target: URL) throws {
+    @MainActor static func replaceAndRelaunch(staged work: URL, target: URL, background: Bool = false) throws {
         guard let script=Bundle.main.url(forResource:"install-update",withExtension:"sh") else { throw UpdateInstallFailure.invalid }
         let localScript=work.appendingPathComponent("install-update.sh")
         try FileManager.default.copyItem(at:script,to:localScript)
         let task=Process();task.executableURL=URL(fileURLWithPath:"/bin/bash")
-        task.arguments=[localScript.path,work.path,target.path,String(ProcessInfo.processInfo.processIdentifier)]
+        task.arguments=[localScript.path,work.path,target.path,String(ProcessInfo.processInfo.processIdentifier), background ? "background" : "foreground"]
         task.standardInput=FileHandle.nullDevice;task.standardOutput=FileHandle.nullDevice;task.standardError=FileHandle.nullDevice
         try task.run()
         NSApp.terminate(nil)
