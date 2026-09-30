@@ -8,8 +8,8 @@
 | Recovery | Disposable installer tests for success, replacement failure, and launch-command failure |
 | Update package | Real DMG fixture download, SHA-256, read-only mount, app identity/version, signature, tamper rejection |
 | Resource use | Single-flight requests, bounded timeouts, failure backoff (60–960 seconds), timer tolerance, cached menu image |
-| Size | App < 10,000,000 bytes; DMG < 8,000,000 bytes; exactly six shipping files; arm64; no bundled CLI/runtime |
-| Privacy | Working files + all reachable Git history scan; secret/path patterns; PNG metadata; credential/log/database filenames; symlinks |
+| Size | App < 4,000,000 bytes; DMG < 5,000,000 bytes; exactly seven shipping files; arm64; no bundled CLI/runtime |
+| Privacy | Working files + all reachable Git history scan; secret/path patterns; PNG metadata; decoded PDF streams/text/metadata; credential/log/database filenames; symlinks |
 | Scanner regression | Synthetic secrets only; checks detection and prevents printing secret values |
 | Native UI | Demo-only status item, panel open/close, settings smoke test on a GUI Mac |
 
@@ -35,11 +35,30 @@ A short idle sample is not a long-running soak test or a measurement of every Ma
 
 Use only synthetic screenshots. Review README, release notes, package contents, commit author/committer addresses, and metadata before publishing. Automated pattern scans cannot identify every possible personal detail. The chosen public GitHub account and noreply identity are intentional. English and Simplified Chinese documentation and UI are available; the UI follows macOS preferred languages.
 
-## 本轮结果 / Local audit results (2026-09-29)
+## 2.0.0 本机结果 / Local results (2026-10-01)
 
-- Synthetic idle sample: 63.0 seconds, average CPU 0.29%, peak resident memory 78.1 MiB on the development Mac. This excludes live network polling and does not measure long-term memory growth.
-- Locally built bilingual app: 2,237,140 bytes; DMG: 1,769,698 bytes. CI artifacts may differ slightly by compiler version. Six files in the signed app; package and source privacy gates passed.
-- Native UI smoke checks passed: status item, panel open/close, settings.
-- Unit, network-failure, privacy-fixture, replacement/rollback, real-DMG staging and tamper-rejection tests passed locally.
-- Source scan and all currently reachable local history passed known secret/path pattern checks. No real credentials were read for this audit's tests.
-- Bilingual README and privacy/security documentation are published in the public repository. GitHub description and ChatGPT / Codex topics have been configured.
+Apple Silicon, macOS 27.0. Tests use synthetic data and do not load credentials. CPU values are process CPU time divided by elapsed wall time, with 100% representing one fully occupied core. Native layout/display is forced during pressure tests even while the desktop is locked.
+
+| 场景 / Scenario | Duration | Average CPU | Operations |
+| --- | ---: | ---: | ---: |
+| 关闭面板 / Idle, panel closed | 62.3 s | 0.107% | 0 |
+| 面板展开静置 / Idle, panel open | 60.9 s | 0.093% | 0 |
+| 日期悬停压力 / Selection changes at 20 Hz | 30.2 s | 7.298% | 604 |
+| 日期范围切换 / Range changes at 2 Hz | 30.0 s | 4.353% | 60 |
+| 面板开关 / Panel toggles at 2 Hz | 30.0 s | 2.624% | 60 |
+
+The same 20 Hz selection workload used 22.135% CPU before isolating hover state, and 7.298% afterward: about 67% less. The chart remains smooth; selection updates only its overlay. Peak resident memory across the final scenarios was 90.6 MiB. A separate check of the actual shipping executable (`--performance-check`) measured 0.24% average CPU over 61.6 seconds and 86.5 MiB peak RSS; its startup costs are not warmed out in the same way as the harness.
+
+- Local signed app: **1,886,047 bytes (1.89 MB)**, seven files. Final local DMG: **1,689,504 bytes (1.69 MB)** including a 160,580-byte bilingual illustrated guide and a 42,710-byte Retina background. Compiler versions can slightly change CI artifact sizes.
+- `-Osize`, removal of nonessential local symbols and lossless icon PNG compression reduced size while retaining every icon resolution and pixel. No CLI, runtime, font files or packaging dependencies are bundled.
+- Native unit/integration/export tests, endpoint tooltip fixtures, installed-bundle checks, real DMG staging/tamper rejection and replacement/rollback scenarios passed.
+- Source and reachable Git history passed known secret/home-path checks; commit identities use the chosen public GitHub account and noreply address. All new PNG metadata was removed. Extended file attributes are scanned too; copying excludes inherited source URLs, and public assets are rebuilt on GitHub runners. macOS may still add its protected system provenance marker. Seven PDF streams, decoded Unicode text and metadata passed bounded privacy decoding; compressed-secret regression cases passed.
+
+[Reproducible native benchmark](../scripts/benchmark-native.sh) · [Machine-readable measurements](results/performance-2.0.0.json)
+
+```sh
+BENCHMARK_BUILD_DIR="$(mktemp -d /private/tmp/buddy-benchmark.XXXXXX)" \
+  bash scripts/benchmark-native.sh --idle-seconds 60 --stress-seconds 30 --output /tmp/buddy-performance.json
+```
+
+These short runs exclude live requests, real pointer input and WindowServer/GPU costs. They do not prove long-term reliability or identical performance on every Mac. The locked desktop prevented final interactive Finder and mouse checks; mounted-DMG layout checks and native component/window tests passed. Other manual gates above remain applicable.

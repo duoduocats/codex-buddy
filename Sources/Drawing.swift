@@ -13,17 +13,19 @@ enum DuoDrawing {
         p.curve(to: .init(x: 582,y: 252), controlPoint1: .init(x: 810,y: 321), controlPoint2: .init(x: 707,y: 226))
         p.close(); return p
     }
-    static func image(size: NSSize, window: LimitWindow?, credits: Int?, now: Date, menu: Bool, stale: Bool = false, dark: Bool = false) -> NSImage {
+    static func image(size: NSSize, window: LimitWindow?, credits: Int?, now: Date, menu: Bool, stale: Bool = false, dark: Bool = false, menuShowsPercentage: Bool = false, menuTheme: MenuBarTheme = .ring) -> NSImage {
         let result = NSImage(size: size, flipped: true) { rect in
             guard let ctx = NSGraphicsContext.current?.cgContext else { return false }
             ctx.saveGState()
-            let s = menu ? min(rect.width / 220, rect.height / 220) : min(rect.width / 248, rect.height / 258)
-            ctx.translateBy(x: rect.midX, y: rect.midY + (menu ? -1.5 : 10) * s)
+            let cat = menu && menuTheme == .duoDuoCat
+            let layout = MenuIconLayout.inRect(rect,theme:menuTheme)
+            let s = menu ? layout.scale : min(rect.width / 248, rect.height / 258)
+            ctx.translateBy(x: menu ? layout.origin.x : rect.midX, y: menu ? layout.origin.y : rect.midY+10*s)
             ctx.scaleBy(x: s, y: s)
             let ink = dark ? NSColor.white : NSColor.black
             ink.setStroke(); ink.setFill()
             // Keep both colors on one silhouette; avoid independent pixel rounding.
-            let strokeWidth: CGFloat = menu ? 17 : 15
+            let strokeWidth: CGFloat = cat ? DuoDuoCatGeometry.strokeWidth : menu ? 17 : 15
             let fraction = max(0,min(1,(window?.remaining ?? 0) / 100))
             // Opaque mid-gray keeps the detail ring visible over bright glass backdrops.
             let gray = menu
@@ -31,9 +33,14 @@ enum DuoDrawing {
                 : NSColor(white:128.0/255,alpha:1)
             // Clip a single rounded silhouette, then divide its colors with a radial
             // straight edge. A tiny remainder must never become a full circular cap.
-            let outline = CGMutablePath()
-            outline.addArc(center:.zero,radius:100,startAngle:150 * .pi / 180,endAngle:390 * .pi / 180,clockwise:false)
-            let ring = outline.copy(strokingWithWidth:strokeWidth,lineCap:.round,lineJoin:.round,miterLimit:10)
+            let ring: CGPath
+            if cat { ring = DuoDuoCatGeometry.silhouette }
+            else if menu { ring = MenuIconLayout.ringSilhouette }
+            else {
+                let outline = CGMutablePath()
+                outline.addArc(center:.zero,radius:100,startAngle:150 * .pi / 180,endAngle:390 * .pi / 180,clockwise:false)
+                ring = outline.copy(strokingWithWidth:strokeWidth,lineCap:.round,lineJoin:.round,miterLimit:10)
+            }
             ctx.saveGState()
             ctx.addPath(ring);ctx.clip()
             gray.setFill();NSRect(x:-120,y:-120,width:240,height:240).fill()
@@ -43,54 +50,51 @@ enum DuoDrawing {
             } else if fraction > 0 {
                 let sector = CGMutablePath()
                 sector.move(to:.zero)
-                sector.addArc(center:.zero,radius:200,startAngle:140 * .pi / 180,endAngle:(150+240*fraction) * .pi / 180,clockwise:false)
+                let start: CGFloat = cat ? DuoDuoCatGeometry.leftAngle : 150 * .pi / 180
+                let sweep: CGFloat = cat ? 2 * .pi + DuoDuoCatGeometry.capAngle - start : 240 * .pi / 180
+                sector.addArc(center:.zero,radius:200,startAngle:start - 10 * .pi / 180,endAngle:start + sweep * CGFloat(fraction),clockwise:false)
                 sector.closeSubpath()
                 ctx.addPath(sector);ctx.fillPath()
             }
             ctx.restoreGState()
             ink.setStroke();ink.setFill()
-            for (index, degrees) in [126.0,102.0,78.0,54.0].enumerated() {
-                let angle = degrees * Double.pi / 180
-                // Equal angular steps give equal chord gaps. Keeping subpixel centers
-                // and equal radii preserves mirror symmetry in the 2x raster.
-                let point = CGPoint(x:cos(angle)*100,y:sin(angle)*100)
-                let radius: CGFloat = menu ? 12 : 10.5
+            let dots = cat ? DuoDuoCatGeometry.resetDots : MenuIconLayout.ringDots
+            for (index, point) in dots.enumerated() {
+                // Preserve subpixel centers and common radii in the 2x raster.
+                let radius: CGFloat = cat ? DuoDuoCatGeometry.dotDiameter / 2 : menu ? 12 : 10.5
                 let dot = NSBezierPath(ovalIn:NSRect(x:point.x-radius,y:point.y-radius,width:radius*2,height:radius*2))
                 if let credits, index < credits { dot.fill() }
                 else { gray.setFill();dot.fill();ink.setFill() }
             }
-            let title = (menu ? window?.countdown(now:now) : window?.detailCountdown(now:now)) ?? "—"
-            let fontSize: CGFloat = menu ? (title.count > 3 ? 65 : 80) : 42
+            let title = menu && menuShowsPercentage
+                ? window.map { String(format:"%.0f%%",$0.remaining) } ?? "—"
+                : (menu ? window?.countdown(now:now) : window?.detailCountdown(now:now)) ?? "—"
+            let fontSize: CGFloat = menu
+                ? (menuShowsPercentage ? (title.count > 3 ? 48 : 58) : cat ? 76 : title.count > 3 ? 65 : 80)
+                : 42
             let font = menu
                 ? NSFont.monospacedDigitSystemFont(ofSize:fontSize,weight:.semibold)
                 : NSFont.systemFont(ofSize:fontSize,weight:.medium)
             let text = NSMutableAttributedString(string:title,attributes:[.font:font,.foregroundColor:ink])
-            if !menu {
+            if !menu || menuShowsPercentage {
                 let ratio = min(1,132 / text.size().width)
                 if ratio < 1 {
-                    text.addAttribute(.font,value:NSFont.systemFont(ofSize:fontSize*ratio,weight:.medium),range:NSRange(location:0,length:text.length))
+                    let fitted = menu ? NSFont.monospacedDigitSystemFont(ofSize:fontSize*ratio,weight:.semibold) : NSFont.systemFont(ofSize:fontSize*ratio,weight:.medium)
+                    text.addAttribute(.font,value:fitted,range:NSRange(location:0,length:text.length))
                 }
             }
             let textSize = text.size()
             if menu {
-                text.draw(at:.init(x:-textSize.width/2,y:-textSize.height/2+2))
+                text.draw(at:.init(x:-textSize.width/2,y:-textSize.height/2+(cat ? -7 : 2)))
             }
             if !menu {
-                let badge = silhouette()
-                let badgeScale: CGFloat = 0.075
-                let badgeHeight = badge.bounds.height * badgeScale
+                let badgeHeight: CGFloat = 42
                 let gap: CGFloat = 12
                 // Center the badge and countdown together within the ring.
                 let groupTop = -(badgeHeight + gap + textSize.height) / 2
                 text.draw(at:.init(x:-textSize.width/2,y:groupTop+badgeHeight+gap))
-                let badgeY = groupTop - (badge.bounds.minY-512)*badgeScale
-                ctx.saveGState()
-                ctx.translateBy(x:0,y:badgeY);ctx.scaleBy(x:badgeScale,y:badgeScale);ctx.translateBy(x:-512,y:-512)
-                NSColor(calibratedRed:0.36,green:0.30,blue:1,alpha:1).setFill();badge.fill()
-                NSColor.white.setStroke()
-                let glyph=NSBezierPath();glyph.move(to:.init(x:374,y:431));glyph.line(to:.init(x:418,y:516));glyph.line(to:.init(x:374,y:598));glyph.move(to:.init(x:533,y:600));glyph.line(to:.init(x:650,y:600))
-                glyph.lineWidth=48;glyph.lineCapStyle = .round;glyph.lineJoinStyle = .round;glyph.stroke()
-                ctx.restoreGState()
+                BuddyBrand.head(dark:dark)?.draw(in:NSRect(x:-26.5,y:groupTop,width:53,height:badgeHeight),
+                    from:.zero,operation:.sourceOver,fraction:1,respectFlipped:true,hints:nil)
             }
             if stale {
                 let p = NSBezierPath(ovalIn:NSRect(x:108,y:-3,width:10,height:10));ink.setFill();p.fill()
@@ -110,10 +114,13 @@ enum DuoDrawing {
 
 struct DuoIcon: View {
     @ObservedObject var model: AppModel
+    var compact = false
     @Environment(\.colorScheme) private var scheme
     var body: some View {
-        Image(nsImage:DuoDrawing.image(size:.init(width:210,height:218),window:model.window,credits:model.credits,now:model.now,menu:false,dark:scheme == .dark))
-            .frame(width:210,height:218)
+        let width: CGFloat = compact ? 170 : 210
+        let height: CGFloat = compact ? 176 : 218
+        Image(nsImage:DuoDrawing.image(size:.init(width:width,height:height),window:model.window,credits:model.credits,now:model.now,menu:false,dark:scheme == .dark))
+            .frame(width:width,height:height)
             .accessibilityLabel(L("下次重置 \(model.window?.detailCountdown(now:model.now) ?? "—")，剩余重置次数 \(model.credits.map(String.init) ?? "—")", "Resets in \(model.window?.detailCountdown(now:model.now) ?? "—"), \(model.credits.map(String.init) ?? "—") reset credits available"))
     }
 }

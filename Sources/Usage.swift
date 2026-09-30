@@ -63,8 +63,8 @@ struct UsageResponse: Codable, Equatable {
     }
     static var demo: UsageResponse {
         UsageResponse(rateLimits: LimitBucket(limitId: "codex", limitName: nil,
-            primary: LimitWindow(usedPercent: 32, windowDurationMins: 300, resetsAt: Date().addingTimeInterval(14400).timeIntervalSince1970),
-            secondary: LimitWindow(usedPercent: 9, windowDurationMins: 10080, resetsAt: Date().addingTimeInterval(345600).timeIntervalSince1970), planType: "pro"),
+            primary: LimitWindow(usedPercent: 45, windowDurationMins: 10080, resetsAt: Date().addingTimeInterval(396000).timeIntervalSince1970),
+            secondary:nil, planType: "test"),
             rateLimitsByLimitId: nil, rateLimitResetCredits: ResetCredits(availableCount: 2))
     }
 }
@@ -108,11 +108,17 @@ private final class NoRedirect: NSObject, URLSessionTaskDelegate {
         return URLSession(configuration:config,delegate:delegate,delegateQueue:nil)
     }()
     func read() async throws -> UsageResponse {
+        try Self.decode(await request(path:"/backend-api/wham/usage"))
+    }
+    func readStatistics() async throws -> UsageStatistics {
+        try UsageStatistics.decode(await request(path:"/backend-api/wham/profiles/me"))
+    }
+    private func request(path: String) async throws -> Data {
         guard let data = credentialProvider(),
               let auth = try? JSONSerialization.jsonObject(with:data) as? [String:Any],
               let tokens = auth["tokens"] as? [String:Any],
               let token = tokens["access_token"] as? String, !token.isEmpty else { throw UsageFailure.authentication }
-        var request = URLRequest(url:URL(string:"https://chatgpt.com/backend-api/wham/usage")!)
+        var request = URLRequest(url:URL(string:"https://chatgpt.com\(path)")!)
         request.setValue("Bearer \(token)",forHTTPHeaderField:"Authorization")
         request.setValue("codex-cli",forHTTPHeaderField:"User-Agent")
         request.setValue("application/json",forHTTPHeaderField:"Accept")
@@ -122,7 +128,7 @@ private final class NoRedirect: NSObject, URLSessionTaskDelegate {
             guard let http = response as? HTTPURLResponse else { throw UsageFailure.unavailable }
             if http.statusCode == 401 || http.statusCode == 403 { throw UsageFailure.authentication }
             guard http.statusCode == 200 else { throw UsageFailure.unavailable }
-            return try Self.decode(body)
+            return body
         } catch let error as UsageFailure { throw error }
           catch let error as URLError where error.code == .timedOut { throw UsageFailure.timeout }
           catch { throw UsageFailure.unavailable }

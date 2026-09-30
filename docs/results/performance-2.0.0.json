@@ -1,0 +1,58 @@
+{
+  "version": "2.0.0",
+  "build": "37",
+  "platform": "macOS 27.0 arm64",
+  "compilerOptimization": "-Osize; stripped local symbols",
+  "data": "synthetic; no authentication or live requests",
+  "desktopState": "locked",
+  "measurement": "clock()/wall time; process CPU percentage of one core; warm-up excluded",
+  "limits": "Native layout/display forced during stress; does not measure real pointer input, live network, compositor CPU, or long-term stability",
+  "samples": [
+    {
+      "averageCPUPercent": 0.10650102231929406,
+      "cpuSeconds": 0.06632,
+      "operations": 0,
+      "peakRSSMiB": 88.0625,
+      "scenario": "idle_closed",
+      "seconds": 62.27170270832721
+    },
+    {
+      "averageCPUPercent": 0.09290773008263684,
+      "cpuSeconds": 0.056574,
+      "operations": 0,
+      "peakRSSMiB": 89.359375,
+      "scenario": "idle_panel",
+      "seconds": 60.89267270837445
+    },
+    {
+      "averageCPUPercent": 7.298485042321967,
+      "cpuSeconds": 2.204514,
+      "operations": 604,
+      "peakRSSMiB": 90.640625,
+      "scenario": "hover_20hz",
+      "seconds": 30.205090333358385
+    },
+    {
+      "averageCPUPercent": 4.352708198285776,
+      "cpuSeconds": 1.306661,
+      "operations": 60,
+      "peakRSSMiB": 90.640625,
+      "scenario": "range_switch_2hz",
+      "seconds": 30.01949454168789
+    },
+    {
+      "averageCPUPercent": 2.6236660224797315,
+      "cpuSeconds": 0.787484,
+      "operations": 60,
+      "peakRSSMiB": 90.640625,
+      "scenario": "panel_toggle_2hz",
+      "seconds": 30.014643375063315
+    }
+  ],
+  "shippingBinaryIdle": {
+    "seconds": 61.6,
+    "averageCPUPercent": 0.24,
+    "peakRSSMiB": 86.5,
+    "method": "Installed-build executable --performance-check; separate cold synthetic idle run"
+  }
+}

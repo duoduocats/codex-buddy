@@ -11,6 +11,8 @@
 
 ## 本机开发
 
+先按 [安装包构建说明](install/README.md) 建立 Python 环境，安装测试和打包所需的构建依赖；它们不会进入应用。
+
 ```sh
 git switch -c fix/short-description
 bash scripts/test.sh

@@ -9,10 +9,42 @@ import ServiceManagement
     @Published var refreshing = false
     @Published var now = Date()
     @Published var selection = 0
-    let client = UsageClient()
+    @Published var menuBarTheme: MenuBarTheme {
+        didSet { preferences.set(menuBarTheme.rawValue,forKey:"menuBarTheme") }
+    }
+    @Published var menuShowsPercentage: Bool {
+        didSet { preferences.set(menuShowsPercentage,forKey:"menuShowsPercentage") }
+    }
+    @Published var showDailyTokenUsage: Bool {
+        didSet {
+            preferences.set(showDailyTokenUsage,forKey:"showDailyTokenUsage")
+            if showDailyTokenUsage && panelVisible { refreshStatistics() }
+        }
+    }
+    @Published var showUsageShareButton: Bool {
+        didSet { preferences.set(showUsageShareButton,forKey:"showUsageShareButton") }
+    }
+    @Published var statistics: UsageStatistics?
+    @Published var statisticsUpdated: Date?
+    @Published var statisticsError: String?
+    @Published var statisticsRefreshing = false
+    let client: UsageClient
+    private let preferences: UserDefaults
     private var timer: Timer?
     private var lastAttempt = Date.distantPast
     private var failures = 0
+    private var statisticsLastAttempt = Date.distantPast
+    private var statisticsFailures = 0
+    private var panelVisible = false
+    private var demonstration = false
+    init(preferences: UserDefaults = .standard, client: UsageClient? = nil) {
+        self.preferences = preferences
+        self.client = client ?? UsageClient()
+        self.menuBarTheme = (preferences.object(forKey:"menuBarTheme") as? String).flatMap(MenuBarTheme.init(rawValue:)) ?? .ring
+        self.menuShowsPercentage = preferences.bool(forKey:"menuShowsPercentage")
+        self.showDailyTokenUsage = preferences.object(forKey:"showDailyTokenUsage") as? Bool ?? true
+        self.showUsageShareButton = preferences.object(forKey:"showUsageShareButton") as? Bool ?? true
+    }
     var entries: [(String, LimitWindow)] {
         usage?.buckets.flatMap { key, bucket in
             bucket.windows.map { ((bucket.limitName ?? key) == "codex" ? $0.label : "\(bucket.limitName ?? key) · \($0.label)", $0) }
@@ -23,17 +55,20 @@ import ServiceManagement
     var stale: Bool { error != nil || updated.map { now.timeIntervalSince($0) > 150 } == true }
     func start(demo: Bool = false) {
         guard timer == nil else { return }
-        if demo { usage = .demo; updated = Date() } else { refresh() }
+        if demo { useDemo() } else { refresh(includeStatistics:false) }
         timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
                 self.now = Date()
-                if !demo, self.now.timeIntervalSince(self.lastAttempt) >= RefreshPolicy.interval(failures:self.failures) { self.refresh() }
+                if !demo, self.now.timeIntervalSince(self.lastAttempt) >= RefreshPolicy.interval(failures:self.failures) { self.refresh(includeStatistics:false) }
+                if !demo, self.panelVisible { self.refreshStatistics() }
             }
         }
         timer?.tolerance = 5
     }
-    func refresh() {
+    func refresh(includeStatistics: Bool = true) {
+        if includeStatistics && panelVisible { refreshStatistics(force:true) }
+        guard !demonstration else { return }
         guard !refreshing else { return }
         lastAttempt = Date()
         refreshing = true
@@ -47,6 +82,30 @@ import ServiceManagement
             } catch {
                 failures = min(failures + 1, 4)
                 self.error = error.localizedDescription
+            }
+        }
+    }
+    func useDemo() {
+        demonstration = true
+        now = Date();usage = .demo;statistics = .demo(now:now);updated = now;statisticsUpdated = now
+    }
+    func setPanelVisible(_ visible: Bool) {
+        panelVisible = visible
+        if visible { refreshStatistics() }
+    }
+    private func refreshStatistics(force: Bool = false) {
+        guard showDailyTokenUsage, !demonstration, !statisticsRefreshing,
+              UsageStatistics.shouldRefresh(now:Date(),lastAttempt:statisticsLastAttempt,failures:statisticsFailures,force:force) else { return }
+        statisticsLastAttempt = Date();statisticsRefreshing = true
+        Task {
+            defer { statisticsRefreshing = false }
+            do {
+                let result = try await client.readStatistics()
+                if statistics != result { statistics = result }
+                statisticsUpdated = Date();statisticsError = nil;statisticsFailures = 0
+            } catch {
+                statisticsFailures = min(statisticsFailures+1,4)
+                statisticsError = L("用量统计暂不可用", "Usage statistics are unavailable")
             }
         }
     }

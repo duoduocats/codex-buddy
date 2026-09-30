@@ -8,13 +8,32 @@ BUILD_DIR="$RELEASE_BUILD" bash "$ROOT/build.sh"
 python3 "$ROOT/scripts/check-package.py" "$RELEASE_BUILD/Codex Buddy.app"
 mkdir -p "$OUT"
 STAGE=$(mktemp -d /private/tmp/codex-buddy-stage.XXXXXX)
-trap 'rm -rf "$STAGE"' EXIT
+MOUNT=$(mktemp -d /private/tmp/codex-buddy-volume.XXXXXX)
+RW="$STAGE/installer-rw.dmg"
+cleanup() {
+    hdiutil detach "$MOUNT" -quiet >/dev/null 2>&1 || true
+    rm -rf "$STAGE" "$MOUNT"
+}
+trap cleanup EXIT
 # The stage is always a newly created temporary directory owned by this script.
-ditto "$RELEASE_BUILD/Codex Buddy.app" "$STAGE/Codex Buddy.app"
-ln -s /Applications "$STAGE/Applications"
-cp "$ROOT/README.md" "$STAGE/安装说明.txt"
+CONTENTS="$STAGE/contents"
+mkdir -p "$CONTENTS/.background"
+ditto --noextattr --norsrc --noqtn "$RELEASE_BUILD/Codex Buddy.app" "$CONTENTS/Codex Buddy.app"
+ln -s /Applications "$CONTENTS/Applications"
+cp -X "$ROOT/docs/install/Installation-Guide.pdf" "$CONTENTS/安装指南 Installation Guide.pdf"
+cp -X "$ROOT/docs/install/dmg-background.png" "$CONTENTS/.background/install.png"
 NAME="Codex-Buddy-$VERSION-arm64.dmg"
-hdiutil create -volname 'Codex Buddy' -srcfolder "$STAGE" -format UDZO -fs HFS+ -ov "$OUT/$NAME"
+# Finder metadata needs file IDs from the actual volume, then survives conversion.
+# ds_store/mac_alias are build-only tools from requirements-packaging.txt.
+python3 -c 'import ds_store, mac_alias, pypdf' || {
+    echo 'Install build-only tools: python3 -m pip install -r scripts/requirements-packaging.txt' >&2
+    exit 1
+}
+hdiutil create -volname 'Codex Buddy' -srcfolder "$CONTENTS" -format UDRW -fs HFS+ -ov "$RW" -quiet
+hdiutil attach "$RW" -mountpoint "$MOUNT" -nobrowse -noautoopen -quiet
+python3 "$ROOT/scripts/configure-dmg.py" "$MOUNT"
+hdiutil detach "$MOUNT" -quiet
+hdiutil convert "$RW" -format UDZO -imagekey zlib-level=9 -ov -o "$OUT/$NAME" -quiet
 (cd "$OUT" && shasum -a 256 "$NAME" > "$NAME.sha256")
 python3 "$ROOT/scripts/check-package.py" "$RELEASE_BUILD/Codex Buddy.app" --dmg "$OUT/$NAME"
 echo "$OUT/$NAME"

@@ -26,6 +26,8 @@ private final class MenuPanel: NSPanel {
     private var globalMonitor: Any?
     private var localMonitor: Any?
     var contentViewController: NSViewController? { didSet { installContent() } }
+    var onClose: (() -> Void)?
+    var isPresentingAuxiliaryUI = false
     var isShown: Bool { panel.isVisible }
     var contentSize: NSSize {
         get { panel.frame.size }
@@ -83,10 +85,14 @@ private final class MenuPanel: NSPanel {
         anchor = view;position()
         panel.makeKeyAndOrderFront(nil)
         globalMonitor = NSEvent.addGlobalMonitorForEvents(matching:[.leftMouseDown,.rightMouseDown]) { [weak self] _ in
-            Task { @MainActor in self?.close() }
+            Task { @MainActor in
+                guard self?.isPresentingAuxiliaryUI == false else { return }
+                self?.close()
+            }
         }
         localMonitor = NSEvent.addLocalMonitorForEvents(matching:[.leftMouseDown,.rightMouseDown,.keyDown]) { [weak self] event in
             guard let self else { return event }
+            if self.isPresentingAuxiliaryUI { return event }
             if event.type == .keyDown && event.keyCode == 53 { self.close();return nil }
             if event.type != .keyDown && event.window !== self.panel && event.window !== self.anchor?.window && event.window?.level != .popUpMenu { self.close() }
             return event
@@ -110,6 +116,8 @@ private final class MenuPanel: NSPanel {
             y:(max(visible.minY+8,y)*scale).rounded()/scale))
     }
     func close() {
+        isPresentingAuxiliaryUI = false
+        onClose?()
         if let globalMonitor { NSEvent.removeMonitor(globalMonitor);self.globalMonitor=nil }
         if let localMonitor { NSEvent.removeMonitor(localMonitor);self.localMonitor=nil }
         panel.orderOut(nil)
