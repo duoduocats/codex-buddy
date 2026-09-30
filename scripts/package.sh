@@ -18,10 +18,10 @@ trap cleanup EXIT
 # The stage is always a newly created temporary directory owned by this script.
 CONTENTS="$STAGE/contents"
 mkdir -p "$CONTENTS/.background"
-ditto "$RELEASE_BUILD/Codex Buddy.app" "$CONTENTS/Codex Buddy.app"
+ditto --noextattr --norsrc --noqtn "$RELEASE_BUILD/Codex Buddy.app" "$CONTENTS/Codex Buddy.app"
 ln -s /Applications "$CONTENTS/Applications"
-cp "$ROOT/docs/install/Installation-Guide.pdf" "$CONTENTS/安装指南 Installation Guide.pdf"
-cp "$ROOT/docs/install/dmg-background.png" "$CONTENTS/.background/install.png"
+cp -X "$ROOT/docs/install/Installation-Guide.pdf" "$CONTENTS/安装指南 Installation Guide.pdf"
+cp -X "$ROOT/docs/install/dmg-background.png" "$CONTENTS/.background/install.png"
 NAME="Codex-Buddy-$VERSION-arm64.dmg"
 # Finder metadata needs file IDs from the actual volume, then survives conversion.
 # ds_store/mac_alias are build-only tools from requirements-packaging.txt.

@@ -52,7 +52,7 @@ The same 20 Hz selection workload used 22.135% CPU before isolating hover state,
 - Local signed app: **1,886,047 bytes (1.89 MB)**, seven files. Final local DMG: **1,689,504 bytes (1.69 MB)** including a 160,580-byte bilingual illustrated guide and a 42,710-byte Retina background. Compiler versions can slightly change CI artifact sizes.
 - `-Osize`, removal of nonessential local symbols and lossless icon PNG compression reduced size while retaining every icon resolution and pixel. No CLI, runtime, font files or packaging dependencies are bundled.
 - Native unit/integration/export tests, endpoint tooltip fixtures, installed-bundle checks, real DMG staging/tamper rejection and replacement/rollback scenarios passed.
-- Source and reachable Git history passed known secret/home-path checks; commit identities use the chosen public GitHub account and noreply address. All new PNG metadata was removed. Seven PDF streams, decoded Unicode text and metadata passed bounded privacy decoding; compressed-secret regression cases passed.
+- Source and reachable Git history passed known secret/home-path checks; commit identities use the chosen public GitHub account and noreply address. All new PNG metadata was removed. Extended file attributes are scanned too; copying excludes inherited source URLs, and public assets are rebuilt on GitHub runners. macOS may still add its protected system provenance marker. Seven PDF streams, decoded Unicode text and metadata passed bounded privacy decoding; compressed-secret regression cases passed.
 
 [Reproducible native benchmark](../scripts/benchmark-native.sh) · [Machine-readable measurements](results/performance-2.0.0.json)
 

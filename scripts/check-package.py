@@ -48,6 +48,20 @@ if args.dmg:
             system={'.fseventsd','.Trashes','.Spotlight-V100'}
             actual={p.name for p in volume.iterdir()}
             assert required <= actual and actual <= required | system, 'Unexpected DMG contents'
+            # Examine extended metadata as well as file bytes. macOS may add its
+            # protected provenance marker even when copies exclude xattrs. The
+            # public asset is rebuilt on GitHub; no local source URLs are kept.
+            metadata_count=0
+            for entry in [volume,*volume.rglob('*')]:
+                if any(part in system for part in entry.relative_to(volume).parts):
+                    continue
+                names=subprocess.check_output(['xattr','-s',str(entry)]).decode().splitlines()
+                assert set(names) <= {'com.apple.provenance'}, 'Unexpected extended metadata in DMG'
+                for name in names:
+                    value=bytes.fromhex(subprocess.check_output(['xattr','-spx',name,str(entry)]).decode())
+                    audit_bytes(value,'DMG extended metadata')
+                    metadata_count+=1
+            print(f'DMG extended metadata passed: {metadata_count} system provenance markers, no source URLs')
             assert (volume/'Applications').is_symlink(), 'Missing Applications shortcut'
             assert (volume/'Applications').readlink() == Path('/Applications'), 'Wrong install destination'
             assert {p.name for p in (volume/'.background').iterdir()} == {'install.png'}, 'Unexpected background files'
