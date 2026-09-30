@@ -27,9 +27,15 @@ final class QuotaFixture: URLProtocol {
         })
         defer { client.stop() }
         _ = try await client.read()
+        QuotaFixture.body = Data(#"{"stats":{"lifetime_tokens":1250000,"daily_usage_buckets":[{"start_date":"2026-09-30","tokens":400000}]}}"#.utf8)
+        let statistics = try await client.readStatistics()
+        precondition(statistics.lifetimeTokens == 1250000 && statistics.daily?.first?.tokens == 400000)
         for status in [401,403,429,500] {
             QuotaFixture.status = status
             do { _ = try await client.read();fatalError("HTTP failure accepted") }
+            catch UsageFailure.authentication { precondition(status == 401 || status == 403) }
+            catch UsageFailure.unavailable { precondition(status == 429 || status == 500) }
+            do { _ = try await client.readStatistics();fatalError("Statistics HTTP failure accepted") }
             catch UsageFailure.authentication { precondition(status == 401 || status == 403) }
             catch UsageFailure.unavailable { precondition(status == 429 || status == 500) }
         }
@@ -37,11 +43,17 @@ final class QuotaFixture: URLProtocol {
         QuotaFixture.failure = URLError(.timedOut)
         do { _ = try await client.read();fatalError("Timeout accepted") }
         catch UsageFailure.timeout {}
+        do { _ = try await client.readStatistics();fatalError("Statistics timeout accepted") }
+        catch UsageFailure.timeout {}
         QuotaFixture.failure = URLError(.notConnectedToInternet)
         do { _ = try await client.read();fatalError("Offline accepted") }
         catch UsageFailure.unavailable {}
+        do { _ = try await client.readStatistics();fatalError("Statistics offline accepted") }
+        catch UsageFailure.unavailable {}
         QuotaFixture.failure = nil;QuotaFixture.body = Data("invalid-json".utf8)
         do { _ = try await client.read();fatalError("Malformed body accepted") }
+        catch UsageFailure.malformed {}
+        do { _ = try await client.readStatistics();fatalError("Malformed statistics accepted") }
         catch UsageFailure.malformed {}
         let requests = QuotaFixture.requests
         let missing = UsageClient(configuration:configuration,credentialProvider:{ nil })

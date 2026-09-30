@@ -40,9 +40,15 @@ jobs:
         run: python3 scripts/release-metadata.py
       - name: Full history privacy scan
         run: python3 scripts/check-source.py --history
+      - name: Set up build-only DMG tools
+        run: |
+          python3 -m venv "$RUNNER_TEMP/buddy-packaging-venv"
+          # The committed installer assets need no PDF/image generation runtime.
+          "$RUNNER_TEMP/buddy-packaging-venv/bin/python" -m pip install --disable-pip-version-check -r scripts/requirements-packaging.txt
+          echo "$RUNNER_TEMP/buddy-packaging-venv/bin" >> "$GITHUB_PATH"
       - name: Tests and privacy scan
         run: bash scripts/test.sh
-      - name: Build and package
+      - name: Build, package, and audit app and installer assets
         env:
           BUILD_DIR: ${{ runner.temp }}/buddy-build
         run: bash scripts/package.sh

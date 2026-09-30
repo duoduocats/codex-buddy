@@ -1,52 +1,93 @@
+<img src="Resources/AppIcon.iconset/icon_128x128@2x.png" width="88" alt="Codex Buddy 应用图标：蓝底白色多多猫" />
+
 # Codex Buddy — macOS ChatGPT / Codex 额度监控
 
-[English](README.en.md) · 简体中文
+简体中文 · [English](README.en.md) · [下载最新版](https://github.com/duoduocats/codex-buddy/releases/latest)
 
-轻量原生 macOS 顶栏工具：查看本机 ChatGPT / Codex 的剩余额度、重置时间与可用重置次数。
+在 Mac 菜单栏查看 **ChatGPT / Codex 剩余额度、重置倒计时和每日 Token 用量**。点击顶栏图标，即可展开额度详情与用量曲线。
 
-- 原生 AppKit / SwiftUI / URLSession，无内置 CLI、无常驻查询子进程。
-- Apple Silicon，macOS 13+；macOS 26+ 使用 Liquid Glass 面板。
-- 顶栏图标显示额度、倒计时和四个重置次数圆点；点击查看详情。
-- 设置仅提供开机启动、版本与检查更新。
-- GPL-3.0-only；应用标识 `com.duoduocat.codexbuddy`。
+原生 macOS 小工具，支持 **Apple Silicon · macOS 13+**。使用本机已有的 ChatGPT / Codex 登录状态，无需另填 API Key。
 
-## 界面预览
+## 2.0 新增：多多猫 DuoDuoCat
 
-视觉样式借鉴 **iPhone Duo 信号栏**：用圆弧、倒计时和四个圆点，在一个顶栏图标中呈现剩余额度、重置时间和可用重置次数。
+保留经典圆环主题，新增 **多多猫** 顶栏主题：圆润的猫头轮廓、沿扁弧排列的四个圆点，将额度与重置状态融入一个小图标。可在设置中随时切换。
 
-### 顶栏与展开面板
+<img src="docs/images/overview-zh.png" width="420" alt="Codex Buddy 2.0 中文界面：多多猫 DuoDuoCat 菜单栏图标与展开面板，显示剩余额度、下次重置时间、每日 Token 曲线和五项使用统计" />
 
-<img src="docs/images/menu-bar.png" width="30" alt="Codex Buddy 顶栏：3h 倒计时与重置次数圆点" />
+视觉设计借鉴 **iPhone Duo 信号栏样式**，把额度、倒计时和重置次数放进同一个顶栏图标。
 
-<img src="docs/images/panel-zh.png" width="340" alt="Codex Buddy 中文原生界面：剩余额度 68%，居中排列的图标与倒计时，可用重置次数 2" />
+## 主要功能
 
-## 安装
+- **额度一眼可见**：圆环或多多猫显示剩余额度，中央可选重置倒计时或百分比；四个圆点表示接口提供的可用重置次数。
+- **每日 Token 用量**：查看近 7 / 14 / 30 天的平滑曲线；已有每日历史中的空缺日期按 0 绘制。
+- **五项使用统计**：累计 Token、单日峰值、最长任务、最长连续和当前连续使用天数，在一行内对齐。
+- **用量图片分享**：将所选日期范围的曲线和统计生成图片，通过系统菜单分享、保存或复制。
+- **按需显示**：可隐藏每日用量区域或分享按钮；支持开机启动与应用内检查更新。
+- **中英文界面**：跟随 macOS 首选语言，重置日期和时间遵循系统时区及 12 / 24 小时设置。macOS 26+ 使用 Liquid Glass 面板。
 
-从 [GitHub Releases](https://github.com/duoduocats/codex-buddy/releases/latest) 下载 DMG，将 Codex Buddy.app 拖入 Applications 后打开。
-当前版本使用 ad hoc 签名，未经过 Apple 公证。若系统阻止打开，可在“系统设置 → 隐私与安全性”按提示允许。
-首次安装后不会自动开启开机启动，请按需要在设置中打开。
+## 下载与首次安装
 
-### 首次打开被 macOS 拦截时
+1. 从 [GitHub Releases](https://github.com/duoduocats/codex-buddy/releases/latest) 下载 **arm64 DMG** 并打开。
+2. 将 **Codex Buddy.app** 拖入右侧的 **Applications（应用程序）**。
+3. 从应用程序目录打开 Codex Buddy，在菜单栏查看额度。先确保本机 ChatGPT / Codex 已登录。
 
-1. 将应用拖入 **Applications（应用程序）**，尝试打开一次。
-2. 若提示“无法验证开发者”或“Apple 无法检查其是否包含恶意软件”，关闭提示，打开 **系统设置 → 隐私与安全性**。
-3. 滚动到“安全性”，找到 Codex Buddy 的拦截提示，点击 **仍要打开**。
-4. 按系统提示使用 Touch ID 或管理员密码确认，再点击 **打开**。
+安装包内提供拖拽安装背景和 **[中英文图文安装指南](docs/install/Installation-Guide.pdf)**，首次安装可直接查看。
 
-“仍要打开”通常在尝试启动后约一小时内出现；看不到时，重新尝试打开应用再查看设置。以上适用于开发者身份/公证提示；若系统明确报告恶意软件，请停止安装。请从本仓库 Releases 下载。参见 [Apple 官方放行说明](https://support.apple.com/en-gb/102445)。
+### macOS 提示无法验证开发者时
 
+当前发布包使用 ad hoc 签名，尚未经过 Apple 公证。确认安装包来自本仓库后：
 
-## 使用与隐私
+1. 尝试打开应用一次，关闭拦截提示。
+2. 打开 **系统设置 → 隐私与安全性**，向下找到 Codex Buddy 的提示，点击 **仍要打开**。
+3. 按系统提示完成确认，再点击 **打开**。
 
-先在本机 ChatGPT / Codex 登录账号。应用在内存读取 `~/.codex/auth.json` 或 `CODEX_HOME` 中的既有登录状态，仅向 ChatGPT 额度接口查询，不运行模型任务或消耗重置次数。
-不保存或打包凭据、不修改登录文件、不跟随额度接口重定向。凭据过期时请在 Codex 更新登录状态。
-正常情况下额度约每分钟刷新，失败时逐步退避至 16 分钟，手动刷新和唤醒可立即重试；离线保留最后一次成功结果并提示待更新。
-重置日期按系统时区、语言及 12/24 小时设置显示。无次数数据时显示“—”。
+该应用会被保存为安全性例外。以上适用于开发者身份或公证提示；若系统报告恶意软件或文件损坏，请停止安装并重新检查下载来源。步骤依据 [Apple 官方说明](https://support.apple.com/zh-cn/102445)。
 
+## 默认设置
+
+| 设置 | 首次安装默认值 |
+| --- | --- |
+| 顶栏主题 | 圆环，可切换多多猫 |
+| 顶栏显示内容 | 重置倒计时，可切换百分比 |
+| 每日 Token 用量 | 开启 |
+| 用量分享按钮 | 开启 |
+| 开机启动 | 关闭 |
+
+升级会保留已有设置。关闭每日 Token 用量后，展开面板隐藏下半部分的曲线和统计。
+
+## 原生实现与隐私
+
+**本机测试**：空闲平均 CPU **0.09–0.24%**，应用约 **1.89 MB**，含双语指南的 DMG 约 **1.69 MB**。性能数据使用演示数据，压力测试与范围见 [测试记录](docs/QUALITY.md)。
+
+采用 **AppKit、SwiftUI、Charts 与 URLSession**，不内置 Codex CLI 或 Electron，也没有常驻查询子进程。额度约每分钟查询一次，失败时逐步延长间隔；离线保留上次结果并标记数据待更新。每日统计仅在用量区域可见时定期查询，使用五分钟内存缓存。
+
+本机登录凭据仅用于向 ChatGPT 查询额度和使用统计，不打包进应用，也不发送给 GitHub。应用不读取聊天记录、项目代码或浏览器数据，不包含分析或广告 SDK。额度和统计保留在内存，用量图片在本机按需生成。
+
+检查更新和下载连接 GitHub；额度请求连接 ChatGPT。相关服务会收到连接所需的网络信息。详见 [隐私说明](docs/PRIVACY.md) 和 [质量与性能检查](docs/QUALITY.md)。
+
+## 常见问题
+
+### 能查看哪些 ChatGPT / Codex 额度？
+
+显示当前登录账号的 Codex 使用限额、剩余额度、下次重置时间及接口提供的重置次数；若有多个额度窗口，可在展开面板中切换。接口未提供的数据显示“—”。Token 用量与额度消耗百分比是不同指标。
+
+### 登录后仍然没有数据？
+
+在本机 ChatGPT / Codex 中刷新登录状态，再点击面板的刷新按钮。每日历史暂不可用时显示暂无数据。服务接口可能变化，需要更新客户端。
+
+### 支持 Intel Mac 吗？
+
+当前发布包仅支持 Apple Silicon（arm64），最低系统为 macOS 13。
+
+### 如何切换界面语言？
+
+支持简体中文和英文，默认跟随 macOS 首选语言。也可在系统设置中单独设置应用语言，重新打开应用后生效。
 
 ## 本机开发
 
-需要 macOS 和 Xcode Command Line Tools（构建 SDK 须支持 NSGlassEffectView，推荐 Xcode 26+）。
+需要 macOS 和 Xcode Command Line Tools；构建 SDK 须支持 `NSGlassEffectView`，推荐 Xcode 26+。
+
+先按 [安装包构建说明](docs/install/README.md) 配置测试和打包所需的 Python 依赖；这些依赖不会进入应用。
 
 ```sh
 bash scripts/test.sh
@@ -54,21 +95,8 @@ BUILD_DIR="$(mktemp -d /private/tmp/codex-buddy-build.XXXXXX)" bash build.sh
 bash scripts/package.sh
 ```
 
-[开发与发布流程](docs/WORKFLOW.md) · [发布记录](releases/) · [第三方说明](THIRD_PARTY_NOTICES.md)
+[开发与发布流程](docs/WORKFLOW.md) · [安全反馈](SECURITY.md) · [第三方说明](THIRD_PARTY_NOTICES.md)
 
+## 许可证
 
-## 常见问题
-
-### Codex Buddy 能查看哪些 ChatGPT / Codex 额度？
-在 Mac 菜单栏查看 Codex 使用限额、剩余额度、下次重置时间，以及接口提供的可用重置次数。未返回的数据不会伪造。
-
-### 是否需要 API Key？
-不需要另填 API Key，使用本机 ChatGPT / Codex 已有的登录状态。界面支持简体中文和英文，跟随 macOS 首选语言；可在系统设置中单独设置应用语言，重新打开应用后生效。
-
-### 会上传聊天记录吗？
-不会读取聊天记录或项目内容。额度请求发往 ChatGPT；检查更新和下载发往 GitHub。它们会收到建立连接所需的网络信息，例如 IP 地址。详见 [隐私说明](docs/PRIVACY.md)。
-
-### 支持 Intel Mac 吗？
-当前发布包仅支持 Apple Silicon（arm64）。额度接口不是本项目能保证长期稳定的公共 API，服务变化可能需要更新客户端。
-
-[质量与发布检查](docs/QUALITY.md) · [安全反馈](SECURITY.md)
+[GPL-3.0-only](LICENSE)。应用标识：`com.duoduocat.codexbuddy`。

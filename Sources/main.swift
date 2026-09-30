@@ -22,17 +22,18 @@ import Darwin
         appearanceObservation = item.button?.observe(\.effectiveAppearance, options:[.new]) { [weak self] _,_ in
             DispatchQueue.main.async { self?.updateStatus() }
         }
-        let hosting = NSHostingController(rootView:UsageView(model:model,settings:{ [weak self] in self?.showSettings() }))
+        let hosting = NSHostingController(rootView:UsageView(model:model,settings:{ [weak self] in self?.showSettings() },sharePresentationChanged:{ [weak self] presenting in self?.popover.isPresentingAuxiliaryUI = presenting }))
         hosting.sizingOptions = []
         usageHosting = hosting
         popover.contentViewController = hosting
+        popover.onClose = { [weak self] in self?.model.setPanelVisible(false) }
         subscription = model.objectWillChange.sink { [weak self] _ in DispatchQueue.main.async {
             self?.updateStatus()
             if self?.popover.isShown == true { self?.resizePopover() }
         } }
         NSWorkspace.shared.notificationCenter.addObserver(self,selector:#selector(wake),name:NSWorkspace.didWakeNotification,object:nil)
         updateStatus()
-        if CommandLine.arguments.contains("--ui-check") { model.usage = .demo; model.updated = Date() }
+        if CommandLine.arguments.contains("--ui-check") { model.useDemo() }
         else { model.start(demo:CommandLine.arguments.contains("--performance-check")) }
         UpdateManager.shared.beforePresent = { [weak self] in self?.closePopover() }
         UpdateManager.shared.beforeInstall = { [weak self] in self?.showSettings() }
@@ -73,10 +74,10 @@ import Darwin
     }
     func updateStatus() {
         let dark = item.button?.effectiveAppearance.bestMatch(from:[.darkAqua,.aqua]) == .darkAqua
-        let key = "\(model.window?.remaining ?? -1)|\(model.window?.countdown(now:model.now) ?? "—")|\(model.credits ?? -1)|\(model.stale)|\(dark)"
+        let key = "\(model.window?.remaining ?? -1)|\(model.window?.countdown(now:model.now) ?? "—")|\(model.credits ?? -1)|\(model.stale)|\(dark)|\(model.menuShowsPercentage)|\(model.menuBarTheme.rawValue)"
         guard key != lastStatusKey else { return }
         lastStatusKey = key
-        item.button?.image = DuoDrawing.image(size:.init(width:30,height:24),window:model.window,credits:model.credits,now:model.now,menu:true,stale:model.stale,dark:item.button?.effectiveAppearance.bestMatch(from:[.darkAqua,.aqua]) == .darkAqua)
+        item.button?.image = DuoDrawing.image(size:.init(width:30,height:24),window:model.window,credits:model.credits,now:model.now,menu:true,stale:model.stale,dark:dark,menuShowsPercentage:model.menuShowsPercentage,menuTheme:model.menuBarTheme)
         let remaining = model.window.map { String(format:"%.0f%%",$0.remaining) } ?? L("未知", "Unknown")
         let reset = model.window?.countdown(now:model.now) ?? "—"
         let credits = model.credits.map(String.init) ?? L("未知", "Unknown")
@@ -87,7 +88,8 @@ import Darwin
         if popover.isShown { closePopover() }
         else if let button = item.button {
             model.now = Date()
-            if model.updated == nil || Date().timeIntervalSince(model.updated!) > 5 { model.refresh() }
+            model.setPanelVisible(true)
+            if model.updated == nil || Date().timeIntervalSince(model.updated!) > 5 { model.refresh(includeStatistics:false) }
             NSApp.activate(ignoringOtherApps:true)
             resizePopover()
             // NSStatusBarButton can be flipped: its visual bottom is then maxY.
@@ -97,19 +99,25 @@ import Darwin
     }
     func resizePopover() {
         guard let hosting = usageHosting else { return }
-        let size = hosting.sizeThatFits(in:NSSize(width:340,height:1600))
-        if size.height > 0 && abs(popover.contentSize.height-size.height) > 1 { popover.contentSize = NSSize(width:340,height:size.height) }
+        let size = hosting.sizeThatFits(in:NSSize(width:380,height:1600))
+        if size.height > 0 && (abs(popover.contentSize.height-size.height) > 1 || popover.contentSize.width != 380) { popover.contentSize = NSSize(width:380,height:size.height) }
     }
     func closePopover() {
         popover.close()
     }
-    @objc func wake() { model.refresh();UpdateManager.shared.check(manual:false) }
+    @objc func wake() { model.refresh(includeStatistics:false);UpdateManager.shared.check(manual:false) }
     func showSettings() {
         closePopover()
         if settingsWindow == nil {
-            let w = NSWindow(contentRect:NSRect(x:0,y:0,width:386,height:260),styleMask:[.titled,.closable],backing:.buffered,defer:false)
-            w.title = "Codex Buddy";w.isReleasedWhenClosed = false
-            w.contentView = NSHostingView(rootView:SettingsView());w.center();settingsWindow=w
+            let w = NSWindow(contentRect:NSRect(x:0,y:0,width:SettingsView.width,height:372),styleMask:[.titled,.closable],backing:.buffered,defer:false)
+            w.title = L("设置", "Settings");w.isReleasedWhenClosed = false
+            w.contentView = NSHostingView(rootView:SettingsView(model:model,onHeightChange:{ [weak self] height in
+                guard let window = self?.settingsWindow, height > 0, abs(window.contentLayoutRect.height-height) > 1 else { return }
+                let top = window.frame.maxY
+                window.setContentSize(NSSize(width:SettingsView.width,height:height))
+                var frame = window.frame;frame.origin.y = top - frame.height
+                window.setFrame(frame,display:true)
+            }));w.center();settingsWindow=w
         }
         NSApp.activate(ignoringOtherApps:true);settingsWindow?.makeKeyAndOrderFront(nil)
     }
@@ -127,7 +135,7 @@ import Darwin
         print("Model checks passed");exit(0)
     }
     func snapshot(demo: Bool = true) {
-        if demo { model.usage = .demo;model.updated = Date();model.now = Date() }
+        if demo { model.useDemo() }
         let directory = CommandLine.arguments.last!
         func save(_ view: NSView,_ name: String) {
             view.layoutSubtreeIfNeeded()
@@ -140,7 +148,7 @@ import Darwin
         view.frame = NSRect(origin:.zero,size:view.fittingSize)
         save(view,"popover.png")
         view.appearance = NSAppearance(named:.darkAqua);save(view,"popover-dark.png")
-        let settings = NSHostingView(rootView:SettingsView().background(Color(nsColor:.windowBackgroundColor)));settings.frame=NSRect(origin:.zero,size:settings.fittingSize);save(settings,"settings.png")
+        let settings = NSHostingView(rootView:SettingsView(model:model).background(Color(nsColor:.windowBackgroundColor)));settings.frame=NSRect(origin:.zero,size:settings.fittingSize);save(settings,"settings.png")
         let icon = DuoDrawing.image(size:.init(width:300,height:240),window:model.window,credits:2,now:model.now,menu:true)
         icon.isTemplate = false
         let imageView = NSImageView(frame:NSRect(x:0,y:0,width:300,height:240));imageView.image = icon

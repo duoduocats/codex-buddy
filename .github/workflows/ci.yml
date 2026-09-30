@@ -19,6 +19,11 @@ jobs:
           fetch-depth: 0
       - name: Full history privacy scan
         run: python3 scripts/check-source.py --history
+      - name: Set up build-only audit tools
+        run: |
+          python3 -m venv "$RUNNER_TEMP/buddy-audit-venv"
+          "$RUNNER_TEMP/buddy-audit-venv/bin/python" -m pip install --disable-pip-version-check -r scripts/requirements-packaging.txt
+          echo "$RUNNER_TEMP/buddy-audit-venv/bin" >> "$GITHUB_PATH"
       - name: Tests and source privacy scan
         run: bash scripts/test.sh
       - name: Build native app
