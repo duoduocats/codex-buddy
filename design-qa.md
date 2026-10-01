@@ -1,4 +1,4 @@
-# Codex Buddy 2.0.0 native UI review
+# Codex Buddy 2.0.1 native UI review
 
 ## Reviewed surfaces
 
@@ -21,4 +21,6 @@ PNG metadata is removed by the reproducible screenshot generator. The installati
 
 ## Manual limits
 
-The desktop was locked during the final review. Component renders and native window smoke tests do not establish real pointer interaction or Finder's final on-screen background scaling. The DMG background alias, icon positions, dimensions and install target were checked from the mounted image. macOS 13 fallback material, multiple displays, sleep/wake and long-running network behavior remain in the manual matrix in [QUALITY](docs/QUALITY.md).
+The unlocked desktop was reviewed on macOS 27 after publication. Both installation guide pages were opened in Finder Quick Look and remained readable. The first DMG layout exposed a content-height issue: selecting the guide scrolled the background and obscured the title. The revised local installer uses a 720 × 600-point outer frame for the 720 × 540-point content canvas. Its title, app/Applications icons, and two-line bilingual guide filename fit with the user’s path bar visible; selecting the guide does not create a scroll bar. The revised installer was reviewed locally and approved for publication. The app and Applications filename labels fit within the enlarged white tiles with bottom padding.
+
+A live window using the unchanged production chart was inspected with synthetic long endpoint values. Automated click/drag input did not establish ordinary pointer-hover behavior; the measured tooltip fixtures and placement tests remain the evidence for endpoint labels. Real pointer interaction, macOS 13 fallback material, multiple displays, sleep/wake and long-running network behavior remain in the manual matrix in [QUALITY](docs/QUALITY.md).

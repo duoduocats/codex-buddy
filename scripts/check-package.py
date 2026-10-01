@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Check the actual shipping app, not the developer's home directory."""
 from pathlib import Path
-import argparse, plistlib, re, subprocess, tempfile
+import argparse, plistlib, re, struct, subprocess, tempfile
 parser = argparse.ArgumentParser()
 parser.add_argument('app', type=Path)
 parser.add_argument('--dmg', type=Path)
@@ -78,18 +78,31 @@ if args.dmg:
             print(f'Installation PDF passed: {pdf_streams} decoded streams, two searchable language guides')
             background=volume/'.background/install.png'
             assert background.stat().st_size < 500_000, 'Background exceeds 500 KB budget'
-            audit_bytes(background.read_bytes(),'Finder background')
+            background_data=background.read_bytes()
+            audit_bytes(background_data,'Finder background')
+            assert background_data[:8] == b'\x89PNG\r\n\x1a\n', 'Background must be PNG'
+            assert struct.unpack('>II',background_data[16:24]) == (1440,1080), 'Wrong Retina background dimensions'
+            offset=8
+            density=None
+            while offset+12 <= len(background_data):
+                chunk_size=int.from_bytes(background_data[offset:offset+4],'big')
+                chunk_type=background_data[offset+4:offset+8]
+                if chunk_type == b'pHYs':
+                    density=struct.unpack('>IIB',background_data[offset+8:offset+8+chunk_size])
+                offset+=chunk_size+12
+            assert density == (5669,5669,1), 'Background must display at 144 DPI / 720 x 540 pt'
             audit_bytes((volume/'.DS_Store').read_bytes(),'Finder layout')
             from ds_store import DSStore
             from mac_alias import Alias
             with DSStore.open(str(volume/'.DS_Store'),'r') as store:
+                assert store['.']['bwsp']['WindowBounds'] == '{{240, 120}, {720, 600}}', 'Wrong Finder window bounds'
                 layout=store['.']['icvp']
                 assert layout['backgroundType'] == 2 and layout['iconSize'] == 96.0, 'Wrong Finder layout'
                 alias=Alias.from_bytes(layout['backgroundImageAlias'])
                 assert alias.volume.name == 'Codex Buddy', 'Background alias uses wrong volume'
                 assert alias.target.posix_path == '/.background/install.png', 'Background alias uses wrong path'
                 for name,position in [('Codex Buddy.app',(204,220)),('Applications',(516,220)),
-                                      ('安装指南 Installation Guide.pdf',(360,440))]:
+                                      ('安装指南 Installation Guide.pdf',(360,428))]:
                     assert store[name]['Iloc'] == position, 'Wrong icon position: '+name
             subprocess.run(['codesign','--verify','--deep','--strict',str(mounted_app)],check=True)
         finally:
