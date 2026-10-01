@@ -61,4 +61,4 @@ BENCHMARK_BUILD_DIR="$(mktemp -d /private/tmp/buddy-benchmark.XXXXXX)" \
   bash scripts/benchmark-native.sh --idle-seconds 60 --stress-seconds 30 --output /tmp/buddy-performance.json
 ```
 
-These short runs exclude live requests, real pointer input and WindowServer/GPU costs. They do not prove long-term reliability or identical performance on every Mac. The locked desktop prevented final interactive Finder and mouse checks; mounted-DMG layout checks and native component/window tests passed. Other manual gates above remain applicable.
+These short runs exclude live requests, real pointer input and WindowServer/GPU costs. They do not prove long-term reliability or identical performance on every Mac. The desktop was subsequently unlocked: the revised 2.0.1 installer background and filename layout, and both installation-guide pages, were reviewed in Finder. Ordinary pointer hover remains a manual check; mounted-DMG layout checks and native component/window tests passed. Other manual gates above remain applicable.

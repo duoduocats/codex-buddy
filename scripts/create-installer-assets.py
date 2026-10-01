@@ -36,20 +36,22 @@ def background(out):
         font = ImageFont.truetype(str(BOLD if strong and text.isascii() else FONT), size * scale)
         draw.text(tuple(v*scale for v in xy), text, fill=color, font=font,
                   anchor='mt' if center else 'lt')
-    label('Codex Buddy', (360, 38), 30, strong=True)
-    label('拖入 Applications，开始使用', (360, 84), 16)
-    label('Drag into Applications to install', (360, 111), 14, MUTED)
-    # Finder places the real app and Applications icons over these two positions.
-    draw.rounded_rectangle((135*scale, 153*scale, 273*scale, 283*scale),
+    # Recent Finder windows draw a translucent title bar over the background.
+    # Leave space for it while keeping the real icons in the same positions.
+    label('Codex Buddy', (360, 63), 27, strong=True)
+    label('拖入 Applications，开始使用', (360, 101), 15)
+    label('Drag into Applications to install', (360, 126), 13, MUTED)
+    # Include Finder's filename labels as well as its real icons in each tile.
+    draw.rounded_rectangle((135*scale, 153*scale, 273*scale, 305*scale),
                            radius=26*scale, fill='#FFFFFF')
-    draw.rounded_rectangle((447*scale, 153*scale, 585*scale, 283*scale),
+    draw.rounded_rectangle((447*scale, 153*scale, 585*scale, 305*scale),
                            radius=26*scale, fill='#FFFFFF')
     draw.line((313*scale, 219*scale, 398*scale, 219*scale), fill=BLUE, width=5*scale)
     draw.line((382*scale, 203*scale, 398*scale, 219*scale, 382*scale, 235*scale),
               fill=BLUE, width=5*scale, joint='curve')
-    draw.line((94*scale, 327*scale, 626*scale, 327*scale), fill='#DCE5F6', width=scale)
-    label('首次安装？打开下方图文指南', (360, 342), 15)
-    label('First install? Open the illustrated guide below', (360, 368), 13, MUTED)
+    draw.line((94*scale, 319*scale, 626*scale, 319*scale), fill='#DCE5F6', width=scale)
+    label('首次安装？打开下方图文指南', (360, 334), 15)
+    label('First install? Open the illustrated guide below', (360, 356), 13, MUTED)
     # The guide icon occupies the clear region below. No metadata is written.
     image.save(out / 'dmg-background.png', optimize=True, dpi=(144,144))
 
@@ -151,10 +153,14 @@ def guide(out):
 if __name__ == '__main__':
     parser=argparse.ArgumentParser()
     parser.add_argument('--output',type=Path,default=ROOT/'docs/install')
+    parser.add_argument('--background-only',action='store_true',
+                        help='Regenerate the Finder background without changing the PDF')
     args=parser.parse_args()
     if not FONT.exists():
         raise SystemExit('Packaging assets require the macOS system Arial Unicode font.')
     args.output.mkdir(parents=True,exist_ok=True)
     background(args.output)
-    guide(args.output)
-    print('Created Finder background and bilingual Installation-Guide.pdf')
+    if not args.background_only:
+        guide(args.output)
+    print('Created Finder background' if args.background_only else
+          'Created Finder background and bilingual Installation-Guide.pdf')

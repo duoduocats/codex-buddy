@@ -16,7 +16,9 @@ alias=Alias.for_file(str(background))
 alias.volume.posix_path=b'/Volumes/Codex Buddy'
 with DSStore.open(str(volume/'.DS_Store'),'w+') as store:
     store['.']['bwsp']={
-        'WindowBounds':'{{240, 120}, {720, 540}}',
+        # WindowBounds is Finder's outer frame. Allow the title/path bars in
+        # addition to the 720 x 540 pt background and icon canvas.
+        'WindowBounds':'{{240, 120}, {720, 600}}',
         'ShowToolbar':False,'ShowStatusBar':False,'ShowPathbar':False,
         'ShowSidebar':False,'ContainerShowSidebar':False,
         'PreviewPaneVisibility':False,
@@ -35,5 +37,7 @@ with DSStore.open(str(volume/'.DS_Store'),'w+') as store:
     store['.']['icvo']=('bool',True)
     store['Codex Buddy.app']['Iloc']=(204,220)
     store['Applications']['Iloc']=(516,220)
-    store['安装指南 Installation Guide.pdf']['Iloc']=(360,440)
-print('Configured 720 x 540 Finder window, real app/Applications icons, and guide')
+    # Finder can retain the user's global path bar preference. Keep two guide
+    # label lines above that bar instead of depending on ShowPathbar=False.
+    store['安装指南 Installation Guide.pdf']['Iloc']=(360,428)
+print('Configured 720 x 600 Finder frame for the 720 x 540 content canvas')
