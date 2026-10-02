@@ -17,12 +17,18 @@ swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 \
 swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 \
   "$ROOT/Sources/RefreshPolicy.swift" "$ROOT/Sources/Localization.swift" "$ROOT/Sources/Statistics.swift" "$ROOT/Sources/Usage.swift" "$ROOT/Tests/StatisticsTests.swift" -o "$TEST_BUILD/statistics-tests"
 "$TEST_BUILD/statistics-tests"
-swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 -framework AppKit -framework ServiceManagement \
-  "$ROOT/Sources/RefreshPolicy.swift" "$ROOT/Sources/Localization.swift" "$ROOT/Sources/MenuBarTheme.swift" "$ROOT/Sources/Statistics.swift" "$ROOT/Sources/Usage.swift" "$ROOT/Sources/Model.swift" "$ROOT/Tests/ModelTests.swift" -o "$TEST_BUILD/model-tests"
+swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 -framework AppKit -framework ServiceManagement -framework UserNotifications \
+  "$ROOT/Sources/RefreshPolicy.swift" "$ROOT/Sources/Localization.swift" "$ROOT/Sources/MenuBarTheme.swift" "$ROOT/Sources/Statistics.swift" "$ROOT/Sources/Usage.swift" "$ROOT/Sources/ResetAnnouncements.swift" "$ROOT/Sources/ResetReminders.swift" "$ROOT/Sources/Model.swift" "$ROOT/Tests/ModelTests.swift" -o "$TEST_BUILD/model-tests"
 "$TEST_BUILD/model-tests"
+swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 -framework AppKit -framework UserNotifications \
+  "$ROOT/Sources/Localization.swift" "$ROOT/Sources/ResetAnnouncements.swift" "$ROOT/Sources/ResetReminders.swift" "$ROOT/Tests/ResetReminderTests.swift" -o "$TEST_BUILD/reset-tests"
+"$TEST_BUILD/reset-tests"
 swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 -framework AppKit \
   "$ROOT/Sources/Localization.swift" "$ROOT/Sources/MenuBarTheme.swift" "$ROOT/Sources/DuoDuoCatGeometry.swift" "$ROOT/Sources/MenuIconLayout.swift" "$ROOT/Tests/GeometryTests.swift" -o "$TEST_BUILD/geometry-tests"
 "$TEST_BUILD/geometry-tests"
+swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 -target arm64-apple-macosx13.0 -framework AppKit \
+  "$ROOT/Sources/QuotaPanel.swift" "$ROOT/Tests/PanelTests.swift" -o "$TEST_BUILD/panel-tests"
+"$TEST_BUILD/panel-tests"
 swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 -framework AppKit \
   "$ROOT/Sources/Localization.swift" "$ROOT/Sources/UpdatePolicy.swift" "$ROOT/Sources/UpdateInstaller.swift" "$ROOT/Sources/Updates.swift" "$ROOT/Tests/UpdateManagerTests.swift" -o "$TEST_BUILD/update-tests"
 "$TEST_BUILD/update-tests"
@@ -31,6 +37,6 @@ for file in "$ROOT"/Sources/*.swift; do
   [[ "$file" == */main.swift ]] || SHARE_SOURCES+=("$file")
 done
 swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 -O -target arm64-apple-macosx13.0 \
-  -framework AppKit -framework SwiftUI -framework Charts -framework ServiceManagement \
+  -framework AppKit -framework SwiftUI -framework Charts -framework ServiceManagement -framework UserNotifications \
   "${SHARE_SOURCES[@]}" "$ROOT/Tests/ShareTests.swift" -o "$TEST_BUILD/share-tests"
 "$TEST_BUILD/share-tests"

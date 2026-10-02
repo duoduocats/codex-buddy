@@ -25,6 +25,9 @@ private final class MenuPanel: NSPanel {
     private weak var anchor: NSView?
     private var globalMonitor: Any?
     private var localMonitor: Any?
+    private let scrollView = NSScrollView()
+    private var requestedSize = NSSize(width:340,height:500)
+    private let maximumHeight: CGFloat?
     var contentViewController: NSViewController? { didSet { installContent() } }
     var onClose: (() -> Void)?
     var isPresentingAuxiliaryUI = false
@@ -32,38 +35,53 @@ private final class MenuPanel: NSPanel {
     var contentSize: NSSize {
         get { panel.frame.size }
         set {
-            guard panel.frame.size != newValue else { return }
-            panel.setContentSize(newValue)
-            panel.invalidateShadow()
-            if isShown { position() }
+            requestedSize = newValue
+            updateSize()
         }
     }
-    init() {
+    init(maximumHeight: CGFloat? = nil) {
+        self.maximumHeight = maximumHeight
         panel.isOpaque = false;panel.backgroundColor = .clear
         panel.hasShadow = true;panel.isReleasedWhenClosed = false
         panel.level = .popUpMenu;panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.moveToActiveSpace,.fullScreenAuxiliary]
         panel.animationBehavior = .utilityWindow
+        scrollView.drawsBackground = false;scrollView.borderType = .noBorder
+        scrollView.scrollerStyle = .overlay;scrollView.autohidesScrollers = true
+        scrollView.hasHorizontalScroller = false
+    }
+    private func updateSize() {
+        let screen = anchor?.window?.screen ?? NSScreen.main
+        let availableHeight = max(1,(screen?.visibleFrame.height ?? requestedSize.height+9)-9)
+        let height = min(requestedSize.height,availableHeight,maximumHeight ?? availableHeight)
+        let size = NSSize(width:requestedSize.width,height:height)
+        scrollView.hasVerticalScroller = height < requestedSize.height
+        scrollView.documentView?.setFrameSize(requestedSize)
+        if panel.frame.size != size { panel.setContentSize(size);panel.invalidateShadow() }
+        if isShown { position() }
     }
     private func installContent() {
         guard let view = contentViewController?.view else { return }
+        view.frame = NSRect(origin:.zero,size:requestedSize)
+        view.autoresizingMask = [.width]
+        scrollView.documentView = view
         let background: NSView
         if #available(macOS 26.0, *) {
             let glass = NSGlassEffectView(frame:NSRect(origin:.zero,size:contentSize))
-            glass.style = .regular;glass.cornerRadius = 26;glass.contentView = view
+            glass.style = .regular;glass.cornerRadius = 26;glass.contentView = scrollView
             background = glass
         } else {
             let material = NSVisualEffectView(frame:NSRect(origin:.zero,size:contentSize))
             material.material = .popover;material.blendingMode = .behindWindow;material.state = .active
             material.wantsLayer = true;material.layer?.cornerRadius = 22;material.layer?.masksToBounds = true
-            material.addSubview(view);background = material
+            material.addSubview(scrollView);background = material
         }
-        view.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            view.leadingAnchor.constraint(equalTo:background.leadingAnchor),
-            view.trailingAnchor.constraint(equalTo:background.trailingAnchor),
-            view.topAnchor.constraint(equalTo:background.topAnchor),
-            view.bottomAnchor.constraint(equalTo:background.bottomAnchor)
+            scrollView.leadingAnchor.constraint(equalTo:background.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo:background.trailingAnchor),
+            scrollView.topAnchor.constraint(equalTo:background.topAnchor),
+            scrollView.bottomAnchor.constraint(equalTo:background.bottomAnchor)
         ])
         // Clip the whole composition, not only the glass material. Hosting content
         // and compositor sublayers must share the same transparent outer corners.
@@ -82,7 +100,7 @@ private final class MenuPanel: NSPanel {
         panel.invalidateShadow()
     }
     func show(relativeTo rect: NSRect, of view: NSView, preferredEdge: NSRectEdge) {
-        anchor = view;position()
+        anchor = view;updateSize();position()
         panel.makeKeyAndOrderFront(nil)
         globalMonitor = NSEvent.addGlobalMonitorForEvents(matching:[.leftMouseDown,.rightMouseDown]) { [weak self] _ in
             Task { @MainActor in

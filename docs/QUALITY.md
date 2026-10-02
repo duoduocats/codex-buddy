@@ -12,6 +12,8 @@
 | Privacy | Working files + all reachable Git history scan; secret/path patterns; PNG metadata; decoded PDF streams/text/metadata; credential/log/database filenames; symlinks |
 | Scanner regression | Synthetic secrets only; checks detection and prevents printing secret values |
 | Native UI | Demo-only status item, panel open/close, settings smoke test on a GUI Mac |
+| Message reminders | Synthetic opt-in/denial, optional fields/deadlines, cache/ETag, revision deduplication, session dismissal and concurrent delivery tests |
+| Inline updates | Verified schema-2 notification policy, relaunch restoration, ignore during metadata requests, failure retry and short-screen panel scrolling |
 
 Run `bash scripts/test.sh`, `python3 scripts/check-source.py --history`, then `bash scripts/package.sh`. GitHub CI builds and audits the actual app; Release also stages the real DMG in an isolated temporary directory. Never publish the parent workspace.
 
@@ -62,3 +64,12 @@ BENCHMARK_BUILD_DIR="$(mktemp -d /private/tmp/buddy-benchmark.XXXXXX)" \
 ```
 
 These short runs exclude live requests, real pointer input and WindowServer/GPU costs. They do not prove long-term reliability or identical performance on every Mac. The desktop was subsequently unlocked: the revised 2.0.1 installer background and filename layout, and both installation-guide pages, were reviewed in Finder. Ordinary pointer hover remains a manual check; mounted-DMG layout checks and native component/window tests passed. Other manual gates above remain applicable.
+
+## 2.1.0 本机预览复核 / Local preview check (2026-10-02)
+
+- Version 2.1.0 build 39 passed its local pre-release checks. The complete native regression suite passed, including message consent and optional deadline/expiry boundaries, session-only summary dismissal and restart/expiry behavior, policy integrity, concurrent ignore operations, installer rollback fixtures, sharing and chart tooltip bounds.
+- The signed arm64 app contains seven files totaling **2,063,343 bytes (2.06 MB)**. No additional asset or runtime is needed for the new feature. The locally built DMG is **1,777,017 bytes (1.78 MB)**, including the bilingual installation guide. Its actual checksum, mount, signature, staging and tamper-rejection gates passed.
+- The shipping executable, run with synthetic data in an isolated app identity, measured **0.24% average CPU over 61.6 seconds**, with **85.1 MiB peak RSS**. This includes startup and idle menu-bar rendering, without real credentials, network requests or notification delivery. After a 15-second warm-up, a separate 40.01-second quiet interval used 0.03 CPU seconds (**0.075% CPU**). No preview captures or GUI actions ran during this interval. These are short synthetic measurements, not a long-term soak test.
+- The simplified panel uses a one-line message summary and a 24-point circular download action beside Settings. Synthetic ready-state panels measure 610 points in Chinese and 622 in English; Settings retains one Message reminders switch (460 points ready; 486 during download/failure). Both windows cap their height and scroll on short displays. The 640-point synthetic panel fixture retained full tall content and reached its footer; compact content returned to its natural height. The shipping status item, panel and Settings open/close smoke test passed.
+- Native Chinese/English, light/dark preview images cover messages with a countdown, no-message, download/failure, and one notification content example. Permission UI, actual delivery while asleep or in Focus, and older macOS material rendering still need real-system checks before release. Notification examples are illustrations; the operating system controls the real banner.
+- The public message feed includes a bilingual global-reset notice and its original X link. It has no inferred reset countdown while the PST / PDT wording remains ambiguous. No private screenshot is included. No version telemetry was added.

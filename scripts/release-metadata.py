@@ -13,11 +13,12 @@ notes=(root/'releases'/f'{tag}.md').read_text()
 assert '请填写本次变更' not in notes, 'Finish release notes before publishing'
 policy_path=root/'releases'/f'{tag}.json'
 policy=json.loads(policy_path.read_text()) if policy_path.exists() else {'schemaVersion':1,'version':tag[1:],'mode':'none'}
-assert policy.get('schemaVersion')==1 and policy.get('version')==tag[1:], 'Invalid release metadata version'
+assert (policy.get('schemaVersion')==1 or (policy.get('schemaVersion')==2 and policy.get('mode')=='notify')) and policy.get('version')==tag[1:], 'Invalid release metadata version'
 assert policy.get('mode') in {'none','notify','silent'}, 'Invalid release metadata mode'
 if os.environ.get('UPDATE_MODE'):
     assert os.environ['UPDATE_MODE'] in {'none','notify','silent'}, 'Invalid release mode override'
     policy['mode']=os.environ['UPDATE_MODE']
+    policy['schemaVersion']=2 if policy['mode']=='notify' else 1
 (root/'dist').mkdir(exist_ok=True)
 (root/'dist/release-notes.md').write_text(notes)
 (root/'dist/update-policy.json').write_text(json.dumps(policy,indent=2)+'\n')

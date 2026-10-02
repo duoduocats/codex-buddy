@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "events": [
+    {
+      "id": "chatgpt-global-reset-2026-10-02",
+      "revision": 1,
+      "type": "message",
+      "publishedAt": "2026-10-02T02:14:00Z",
+      "expiresAt": "2026-10-02T18:00:00Z",
+      "title": {
+        "zh": "全球额度重置预告",
+        "en": "Global quota reset notice"
+      },
+      "body": {
+        "zh": "Tibo 已预告将为所有付费 ChatGPT 账户进行全球额度重置。具体到账情况请查看账户当前额度。",
+        "en": "Tibo has announced a global quota reset for all paid ChatGPT accounts. Check your account’s current quota to confirm when it has taken effect."
+      },
+      "appliesTo": {
+        "zh": "所有付费 ChatGPT 账户",
+        "en": "All paid ChatGPT accounts"
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2105843926221660585"
+    }
+  ]
+}

@@ -5,6 +5,7 @@ struct UsageView: View {
     @ObservedObject var model: AppModel
     var settings: () -> Void
     var sharePresentationChanged: (Bool) -> Void = { _ in }
+    @ObservedObject var updates: UpdateManager = .shared
     @StateObject private var chartRange = UsageChartRange()
     private var resetTime: String {
         guard let date = model.window?.resetDate else { return L("暂无数据", "Not available") }
@@ -27,6 +28,7 @@ struct UsageView: View {
                 Text(model.refreshing ? L("更新中…", "Updating…") : model.stale ? L("数据待更新", "Out of date") : model.updated == nil ? L("等待连接", "Connecting") : L("已同步", "Up to date"))
                     .font(.system(size:11)).foregroundStyle(.secondary)
             }
+            ResetAnnouncementCard(manager:model.reminders,now:model.now)
             HStack(spacing:22) {
                 DuoIcon(model:model,compact:true)
                 VStack(alignment:.leading,spacing:18) {
@@ -71,6 +73,7 @@ struct UsageView: View {
                     .disabled(model.refreshing || model.statisticsRefreshing).help(L("刷新额度和统计", "Refresh quota and statistics"))
                 if let date = model.updated { Text(date,style:.time).font(.system(size:10)).foregroundStyle(.secondary) }
                 Spacer()
+                PanelUpdateButton(updates:updates)
                 Button { settings() } label: { Image(systemName:"gearshape") }.help(L("设置", "Settings"))
                 Button { NSApp.terminate(nil) } label: { Image(systemName:"power") }.help(L("退出", "Quit"))
             }.buttonStyle(.borderless)
@@ -105,15 +108,14 @@ struct SettingsView: View {
     static let width: CGFloat = 440
     @ObservedObject var model: AppModel
     var onHeightChange: (CGFloat) -> Void = { _ in }
-    @StateObject private var login = LoginModel()
-    @ObservedObject private var updates = UpdateManager.shared
+    @StateObject var login = LoginModel()
+    @ObservedObject var updates: UpdateManager = .shared
     var body: some View {
         VStack(alignment:.leading,spacing:0) {
             HStack(spacing:14) {
-                if let icon = BuddyBrand.applicationIcon {
+                if let icon = BuddyBrand.settingsIcon {
                     Image(nsImage:icon).resizable().interpolation(.high)
                         .frame(width:56,height:56)
-                        .clipShape(RoundedRectangle(cornerRadius:12,style:.continuous))
                         .accessibilityHidden(true)
                 }
                 Text("Codex Buddy").font(.system(size:18,weight:.semibold)).lineLimit(1)
@@ -148,6 +150,7 @@ struct SettingsView: View {
             }.padding(.vertical,8)
             Divider()
             VStack(alignment:.leading,spacing:0) {
+                MessageReminderToggle(manager:model.reminders).padding(.top,7)
                 switchRow(L("开机启动", "Launch at login"),selection:Binding(get:{login.enabled},set:{login.set($0)}))
                     .padding(.vertical,7)
                 if let message = login.message {
@@ -156,22 +159,7 @@ struct SettingsView: View {
                 }
             }
             Divider()
-            HStack {
-                Text(L("版本 \(updates.currentVersion)", "Version \(updates.currentVersion)")).font(.system(size:12)).foregroundStyle(.secondary)
-                Spacer()
-                Button(updates.checking ? L("检查中…", "Checking…") : L("检查更新…", "Check for updates…")) { updates.check(manual:true) }
-                    .disabled(updates.checking || updates.installing)
-            }.frame(height:52)
-            if !updates.message.isEmpty {
-                Text(updates.message).font(.system(size:11)).foregroundStyle(.secondary)
-                    .fixedSize(horizontal:false,vertical:true).padding(.bottom,12)
-            }
-            if updates.available != nil {
-                HStack {
-                    Button(updates.installing ? L("更新中…", "Updating…") : L("下载并更新", "Download and update")) { updates.installAvailable() }.disabled(updates.installing)
-                    Button(L("更新说明", "Release notes")) { updates.openRelease() }.buttonStyle(.link)
-                }.padding(.bottom,14)
-            }
+            SettingsUpdateSection(updates:updates)
         }.font(.system(size:13)).controlSize(.regular)
             .padding(.horizontal,18).frame(width:Self.width)
             .background(Color(nsColor:.windowBackgroundColor))

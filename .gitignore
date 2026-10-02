@@ -23,4 +23,5 @@ __pycache__/
 .codex/
 .agents/
 outputs/
+preview-output/
 screenshots/

@@ -6,6 +6,35 @@ enum BuddyBrand {
         guard let url = Bundle.main.url(forResource:"AppIcon",withExtension:"icns") else { return nil }
         return NSImage(contentsOf:url)
     }()
+    static let settingsIcon: NSImage? = {
+        guard let artwork = applicationIcon,
+              let source = artwork.cgImage(forProposedRect:nil,context:nil,hints:nil) else { return nil }
+        let width = 256, height = 256
+        var pixels = [UInt8](repeating:0,count:width*height*4)
+        guard let output = pixels.withUnsafeMutableBytes({ buffer -> CGImage? in
+            guard let context = CGContext(data:buffer.baseAddress,width:width,height:height,
+                bitsPerComponent:8,bytesPerRow:width*4,space:CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo:CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+            context.draw(source,in:CGRect(x:0,y:0,width:width,height:height))
+            let data = buffer.bindMemory(to:UInt8.self)
+            for y in 0..<height {
+                // The original blue gradient is sampled outside the mascot.
+                // Removing it preserves the cat, terminal cutout and four feet.
+                let left = Double(data[y*width*4]),right = Double(data[(y*width+width-1)*4])
+                for x in 0..<width {
+                    let i = (y*width+x)*4
+                    let fraction = Double(x)/Double(width-1)
+                    let background = left+(right-left)*fraction
+                    let coverage = min(1,max(0,(Double(data[i])-background)/max(1,255-background)))
+                    let alpha = coverage < 0.03 ? 0 : coverage
+                    for (channel,color) in [42.0,96,255].enumerated() { data[i+channel] = UInt8((color*alpha).rounded()) }
+                    data[i+3] = UInt8((255*alpha).rounded())
+                }
+            }
+            return context.makeImage()
+        }) else { return nil }
+        return NSImage(cgImage:output,size:NSSize(width:width,height:height))
+    }()
     private static let darkHead = makeHead(dark:true)
     private static let lightHead = makeHead(dark:false)
     static func head(dark: Bool) -> NSImage? { dark ? darkHead : lightHead }
