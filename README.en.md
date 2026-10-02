@@ -28,7 +28,7 @@ The visual design takes inspiration from the **iPhone Duo signal indicator**, co
 
 ## Messages and updates
 
-See quota-reset notices and other messages in the expanded panel. Messages with a deadline show a countdown and disappear when they expire. Click **×** to dismiss a message temporarily; it returns when you reopen the app if it is still valid.
+See quota-reset notices and other messages in the expanded panel. Messages with a deadline can show a countdown and disappear when they expire. Click **×** to dismiss a message temporarily; it returns when you reopen the app if it is still valid.
 
 To receive system notifications, enable **Message reminders** in Settings and allow macOS notifications.
 
