@@ -18,6 +18,6 @@ info['CFBundleVersion']=str(int(info['CFBundleVersion'])+1)
 with path.open('wb') as f:plistlib.dump(info,f,sort_keys=False)
 notes.parent.mkdir(exist_ok=True)
 marker=''
-(root/'releases'/f'v{args.version}.json').write_text(json.dumps({'schemaVersion':1,'version':args.version,'mode':args.mode},indent=2)+'\n')
+(root/'releases'/f'v{args.version}.json').write_text(json.dumps({'schemaVersion':2 if args.mode=='notify' else 1,'version':args.version,'mode':args.mode},indent=2)+'\n')
 notes.write_text(marker+f'# Codex Buddy {args.version}\n\n## 更新内容\n\n- 请填写本次变更。\n\n## 安装\n\n下载 arm64 DMG，退出旧版后拖入 Applications 替换。当前构建为 ad hoc 签名，尚未公证。\n')
 print('Prepared',notes.relative_to(root))

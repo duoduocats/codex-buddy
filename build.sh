@@ -10,7 +10,7 @@ if [[ -d "$APP/Contents/Helpers" ]]; then
 fi
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 swiftc -module-cache-path "$BUILD/module-cache" -swift-version 5 -Osize \
-  -target arm64-apple-macosx13.0 -framework AppKit -framework SwiftUI -framework Charts -framework ServiceManagement \
+  -target arm64-apple-macosx13.0 -framework AppKit -framework SwiftUI -framework Charts -framework ServiceManagement -framework UserNotifications \
   "$ROOT"/Sources/*.swift -o "$APP/Contents/MacOS/CodexBuddy"
 strip -x "$APP/Contents/MacOS/CodexBuddy"
 cp "$ROOT/Info.plist" "$APP/Contents/Info.plist"

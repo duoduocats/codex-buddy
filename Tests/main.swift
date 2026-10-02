@@ -101,6 +101,10 @@ for mode in [ReleaseUpdateMode.none, .notify, .silent] {
     precondition(UpdatePolicy.action(release:release(),mode:mode,current:"1.0.0",manual:false,ignored:["v2.0.0"],announced:[]) == .none)
 }
 precondition(UpdatePolicy.action(release:release(),mode:.notify,current:"1.0.0",manual:false,ignored:[],announced:["v2.0.0"]) == .none)
+let inlinePolicy = try JSONSerialization.data(withJSONObject:["schemaVersion":2,"version":"2.1.0","mode":"notify"])
+let inlineDigest = SHA256.hash(data:inlinePolicy).map { String(format:"%02x",$0) }.joined()
+let inlineAsset = GitHubRelease.Asset(name:"update-policy.json",state:"uploaded",digest:"sha256:"+inlineDigest,size:inlinePolicy.count)
+precondition(UpdatePolicy.verifiedMode(data:inlinePolicy,asset:inlineAsset,tag:"v2.1.0") == .notify)
 let badDocuments: [[String:Any]] = [["schemaVersion":2,"version":"2.0.0","mode":"silent"],["schemaVersion":1,"version":"2.0.0","mode":"unknown"]]
 for badDocument in badDocuments {
     let data = try JSONSerialization.data(withJSONObject:badDocument)

@@ -29,7 +29,9 @@ import ServiceManagement
     @Published var statisticsError: String?
     @Published var statisticsRefreshing = false
     let client: UsageClient
+    let reminders: ResetReminderManager
     private let preferences: UserDefaults
+    private var reminderSubscription: AnyCancellable?
     private var timer: Timer?
     private var lastAttempt = Date.distantPast
     private var failures = 0
@@ -40,10 +42,12 @@ import ServiceManagement
     init(preferences: UserDefaults = .standard, client: UsageClient? = nil) {
         self.preferences = preferences
         self.client = client ?? UsageClient()
+        self.reminders = ResetReminderManager(preferences:preferences)
         self.menuBarTheme = (preferences.object(forKey:"menuBarTheme") as? String).flatMap(MenuBarTheme.init(rawValue:)) ?? .ring
         self.menuShowsPercentage = preferences.bool(forKey:"menuShowsPercentage")
         self.showDailyTokenUsage = preferences.object(forKey:"showDailyTokenUsage") as? Bool ?? true
         self.showUsageShareButton = preferences.object(forKey:"showUsageShareButton") as? Bool ?? true
+        reminderSubscription = reminders.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
     }
     var entries: [(String, LimitWindow)] {
         usage?.buckets.flatMap { key, bucket in
@@ -55,11 +59,12 @@ import ServiceManagement
     var stale: Bool { error != nil || updated.map { now.timeIntervalSince($0) > 150 } == true }
     func start(demo: Bool = false) {
         guard timer == nil else { return }
-        if demo { useDemo() } else { refresh(includeStatistics:false) }
+        if demo { useDemo() } else { refresh(includeStatistics:false);reminders.start() }
         timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
                 self.now = Date()
+                if !demo { self.reminders.tick(now:self.now) }
                 if !demo, self.now.timeIntervalSince(self.lastAttempt) >= RefreshPolicy.interval(failures:self.failures) { self.refresh(includeStatistics:false) }
                 if !demo, self.panelVisible { self.refreshStatistics() }
             }
@@ -88,6 +93,7 @@ import ServiceManagement
     func useDemo() {
         demonstration = true
         now = Date();usage = .demo;statistics = .demo(now:now);updated = now;statisticsUpdated = now
+        reminders.useDemo(now:now)
     }
     func setPanelVisible(_ visible: Bool) {
         panelVisible = visible
@@ -112,9 +118,15 @@ import ServiceManagement
 }
 
 @MainActor final class LoginModel: ObservableObject {
-    @Published var enabled = SMAppService.mainApp.status == .enabled
+    @Published var enabled: Bool
     @Published var message: String?
+    private let preview: Bool
+    init(preview: Bool = false) {
+        self.preview = preview
+        enabled = preview ? false : SMAppService.mainApp.status == .enabled
+    }
     func set(_ value: Bool) {
+        if preview { enabled = value;return }
         do {
             if value { try SMAppService.mainApp.register() }
             else { try SMAppService.mainApp.unregister() }

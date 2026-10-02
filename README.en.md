@@ -8,6 +8,16 @@ See your **remaining ChatGPT / Codex quota, reset countdown, and daily token usa
 
 A native macOS utility for **Apple Silicon · macOS 13+**. It uses your existing local ChatGPT / Codex login; no separate API key is needed.
 
+## New in 2.1: message reminders
+
+The expanded panel shows maintainer messages in one row, such as a ChatGPT / Codex global-reset notice. Time-sensitive messages include a countdown. × hides a message for this run only; valid messages return after restart, while elapsed deadlines and expired messages stay hidden.
+
+Settings contains one **Message reminders** switch. Enable it and allow macOS notifications to receive new messages. There are no early or deadline alerts. The app reads this repository's public message file about every 15 minutes while running; notifications follow system permission and Focus settings.
+
+**No version telemetry is added.** Maintainers can view public GitHub package download counts, which do not identify people or measure the distribution of active versions. See [release download counts](docs/VERSION-STATS.md).
+
+Important updates show a circular **Download update** button beside Settings, without automatic dialogs. Release notes and download status stay in Settings.
+
 ## New in 2.0: DuoDuoCat
 
 Choose the new **DuoDuoCat** menu bar theme or keep the classic Ring. A rounded cat outline and four dots along a flattened lower curve combine quota and reset status in one small icon. Switch themes in Settings at any time.
@@ -22,6 +32,7 @@ The visual design takes inspiration from the **iPhone Duo signal indicator**, co
 - **Daily token chart:** view 7, 14, or 30 days with a smooth curve. Missing dates within available daily history are plotted as zero.
 - **Five usage statistics:** lifetime tokens, peak daily tokens, longest task, longest streak, and current streak align in one row.
 - **Share usage images:** turn the selected date range and statistics into an image to share, save, or copy through the system menu.
+- **Message reminders:** one-row messages with an optional countdown and temporary dismissal; system notifications are opt-in.
 - **Optional extras:** hide the daily usage section or sharing button, enable launch at login, and check for updates in the app.
 - **English and Simplified Chinese:** the interface follows macOS preferred languages; reset dates follow your system time zone and 12 / 24-hour preferences. macOS 26+ uses a Liquid Glass panel.
 
@@ -51,19 +62,20 @@ macOS saves the app as a security exception. These steps apply to developer-veri
 | Menu bar display | Reset countdown; percentage is available |
 | Daily token usage | On |
 | Usage sharing button | On |
+| Message reminders | Off; enabling requests system notification permission |
 | Launch at login | Off |
 
 Upgrades preserve your settings. Turning off daily token usage hides the chart and statistics in the lower part of the panel.
 
 ## Native footprint and privacy
 
-**Local measurements**: **0.09–0.24% average CPU at idle**, a **1.89 MB app** and a **1.69 MB DMG**, including the bilingual guide. These use synthetic data; see the [methods and stress results](docs/QUALITY.md).
+**Version 2.0 local measurements**: **0.09–0.24% average CPU at idle**, a **1.89 MB app** and a **1.69 MB DMG**, including the bilingual guide. These use synthetic data; see the [methods and stress results](docs/QUALITY.md).
 
 Built with **AppKit, SwiftUI, Charts, and URLSession**, without a bundled Codex CLI, Electron runtime, or persistent query subprocess. Quota is checked approximately once per minute, with longer intervals after failures. Offline results remain visible with an out-of-date indicator. Daily statistics are polled only while the usage section is visible, with a five-minute memory cache.
 
 Local credentials are used only for authenticated quota and usage-statistics requests to ChatGPT. They are neither bundled with the app nor sent to GitHub. The app does not read conversations, project code, or browser data, and includes no analytics or advertising SDK. Results stay in memory; usage images are generated locally on demand.
 
-GitHub handles update checks and downloads; ChatGPT handles quota requests. These services receive the network information needed for the connection. See the [privacy policy](docs/PRIVACY.md) and [quality and performance checks](docs/QUALITY.md).
+GitHub handles update checks, downloads and public announcements; ChatGPT handles quota requests. Announcement requests include no login credentials, cookies, device identifier or version-measurement parameter. These services still receive the network information needed for the connection. See the [privacy policy](docs/PRIVACY.md) and [quality and performance checks](docs/QUALITY.md).
 
 ## Frequently asked questions
 
@@ -74,6 +86,10 @@ Codex usage limits, remaining quota, the next reset time, and available resets p
 ### Why is data unavailable after signing in?
 
 Refresh your login in ChatGPT / Codex on your Mac, then click the panel's refresh button. Unavailable daily history is shown as unavailable. The service endpoint can change independently of this project and may require a client update.
+
+### Why did I not receive a message notification?
+
+Enable Message reminders in the app, then check System Settings → Notifications → Codex Buddy. Focus settings, connectivity, quitting the app and device sleep can affect discovery or display. The message row stays hidden when no valid message is available. Each revision of a message sends at most one notification.
 
 ### Are Intel Macs supported?
 

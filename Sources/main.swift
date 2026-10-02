@@ -9,7 +9,10 @@ import Darwin
     let popover = QuotaPanel()
     var usageHosting: NSHostingController<UsageView>?
     var settingsWindow: NSWindow?
+    private var settingsHosting: NSHostingView<SettingsView>?
+    private var settingsScroll: NSScrollView?
     var subscription: AnyCancellable?
+    private var updateSubscription: AnyCancellable?
     private var lastStatusKey = ""
     var appearanceObservation: NSKeyValueObservation?
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -18,6 +21,10 @@ import Darwin
         let others = NSRunningApplication.runningApplications(withBundleIdentifier:Bundle.main.bundleIdentifier ?? "com.duoduocat.codexbuddy").filter { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }
         if let existing = others.first, !CommandLine.arguments.contains("--ui-check"), !CommandLine.arguments.contains("--performance-check") { existing.activate(options:[]);NSApp.terminate(nil);return }
         item = NSStatusBar.system.statusItem(withLength:34)
+        model.reminders.onOpenPanel = { [weak self] in
+            guard let self else { return }
+            if !self.popover.isShown { self.togglePopover() }
+        }
         item.button?.target = self;item.button?.action = #selector(togglePopover)
         appearanceObservation = item.button?.observe(\.effectiveAppearance, options:[.new]) { [weak self] _,_ in
             DispatchQueue.main.async { self?.updateStatus() }
@@ -31,12 +38,13 @@ import Darwin
             self?.updateStatus()
             if self?.popover.isShown == true { self?.resizePopover() }
         } }
+        updateSubscription = UpdateManager.shared.objectWillChange.sink { [weak self] _ in DispatchQueue.main.async {
+            if self?.popover.isShown == true { self?.resizePopover() }
+        } }
         NSWorkspace.shared.notificationCenter.addObserver(self,selector:#selector(wake),name:NSWorkspace.didWakeNotification,object:nil)
         updateStatus()
         if CommandLine.arguments.contains("--ui-check") { model.useDemo() }
         else { model.start(demo:CommandLine.arguments.contains("--performance-check")) }
-        UpdateManager.shared.beforePresent = { [weak self] in self?.closePopover() }
-        UpdateManager.shared.beforeInstall = { [weak self] in self?.showSettings() }
         if !CommandLine.arguments.contains("--ui-check"), !CommandLine.arguments.contains("--performance-check") { UpdateManager.shared.start() }
         if CommandLine.arguments.contains("--performance-check") {
             let cpuStart=clock(), wallStart=ProcessInfo.processInfo.systemUptime
@@ -105,26 +113,43 @@ import Darwin
     func closePopover() {
         popover.close()
     }
-    @objc func wake() { model.refresh(includeStatistics:false);UpdateManager.shared.check(manual:false) }
+    @objc func wake() { model.refresh(includeStatistics:false);model.reminders.check(force:true);UpdateManager.shared.check(manual:false) }
     func showSettings() {
         closePopover()
         if settingsWindow == nil {
             let w = NSWindow(contentRect:NSRect(x:0,y:0,width:SettingsView.width,height:372),styleMask:[.titled,.closable],backing:.buffered,defer:false)
             w.title = L("设置", "Settings");w.isReleasedWhenClosed = false
-            w.contentView = NSHostingView(rootView:SettingsView(model:model,onHeightChange:{ [weak self] height in
-                guard let window = self?.settingsWindow, height > 0, abs(window.contentLayoutRect.height-height) > 1 else { return }
-                let top = window.frame.maxY
-                window.setContentSize(NSSize(width:SettingsView.width,height:height))
-                var frame = window.frame;frame.origin.y = top - frame.height
-                window.setFrame(frame,display:true)
-            }));w.center();settingsWindow=w
+            let hosting = NSHostingView(rootView:SettingsView(model:model,onHeightChange:{ [weak self] height in self?.resizeSettings(height:height) }))
+            hosting.frame = NSRect(origin:.zero,size:hosting.fittingSize)
+            hosting.autoresizingMask = [.width]
+            let scroll = NSScrollView(frame:w.contentLayoutRect)
+            scroll.drawsBackground = false;scroll.borderType = .noBorder
+            scroll.scrollerStyle = .overlay;scroll.autohidesScrollers = true
+            scroll.hasHorizontalScroller = false;scroll.autoresizingMask = [.width,.height]
+            scroll.documentView = hosting
+            settingsHosting = hosting;settingsScroll = scroll
+            w.contentView = scroll;w.center();settingsWindow=w
+            resizeSettings(height:hosting.fittingSize.height)
         }
         NSApp.activate(ignoringOtherApps:true);settingsWindow?.makeKeyAndOrderFront(nil)
+    }
+    private func resizeSettings(height:CGFloat) {
+        guard let window = settingsWindow, height > 0 else { return }
+        let visible = (window.screen ?? NSScreen.main)?.visibleFrame ?? window.frame
+        let capped = min(height,max(1,visible.height-64))
+        settingsHosting?.setFrameSize(NSSize(width:SettingsView.width,height:height))
+        settingsScroll?.hasVerticalScroller = height > capped
+        guard abs(window.contentLayoutRect.height-capped)>1 else { return }
+        let top = window.frame.maxY
+        window.setContentSize(NSSize(width:SettingsView.width,height:capped))
+        var frame=window.frame
+        frame.origin.y=min(max(top-frame.height,visible.minY+8),visible.maxY-frame.height-8)
+        window.setFrame(frame,display:true)
     }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if !popover.isShown { showSettings() };return true
     }
-    func applicationWillTerminate(_ notification: Notification) { model.client.stop() }
+    func applicationWillTerminate(_ notification: Notification) { model.reminders.stop();model.client.stop() }
     func selfTest() {
         let now = Date(timeIntervalSince1970:1000)
         precondition(LimitWindow(usedPercent:32,windowDurationMins:300,resetsAt:15400).countdown(now:now) == "4h")

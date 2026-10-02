@@ -79,7 +79,8 @@ enum UpdatePolicy {
               let digest = asset.digest, digest.hasPrefix("sha256:"),
               String(digest.dropFirst(7)).lowercased() == SHA256.hash(data:data).map({ String(format:"%02x",$0) }).joined(),
               let document = try? JSONDecoder().decode(ReleaseUpdateDocument.self,from:data),
-              document.schemaVersion == 1, document.version == (tag.hasPrefix("v") ? String(tag.dropFirst()) : tag),
+              (document.schemaVersion == 1 || (document.schemaVersion == 2 && document.mode == .notify)),
+              document.version == (tag.hasPrefix("v") ? String(tag.dropFirst()) : tag),
               AppVersion(document.version) != nil else { return nil }
         return document.mode
     }

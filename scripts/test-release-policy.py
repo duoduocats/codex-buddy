@@ -21,11 +21,12 @@ for mode in ['none','notify','silent']:
         env.pop('GITHUB_OUTPUT',None)
         subprocess.run(['python3',str(root/'scripts/release-metadata.py')],env=env,check=True,capture_output=True)
         policy=json.loads((root/'dist/update-policy.json').read_text())
-        assert policy=={'schemaVersion':1,'version':'1.0.1','mode':mode}
+        assert policy=={'schemaVersion':2 if mode=='notify' else 1,'version':'1.0.1','mode':mode}
         assert (root/'dist/release-notes.md').read_text()==notes
         env['UPDATE_MODE']='notify'
         subprocess.run(['python3',str(root/'scripts/release-metadata.py')],env=env,check=True,capture_output=True)
         assert json.loads((root/'dist/update-policy.json').read_text())['mode']=='notify'
+        assert json.loads((root/'dist/update-policy.json').read_text())['schemaVersion']==2
         assert (root/'dist/release-notes.md').read_text()==notes
         env['UPDATE_MODE']='unexpected'
         assert subprocess.run(['python3',str(root/'scripts/release-metadata.py')],env=env,capture_output=True).returncode != 0

@@ -27,7 +27,7 @@ for file in "$ROOT"/Sources/*.swift; do
   case "$file" in */main.swift|*/UsageChart.swift|*/Views.swift) ;; *) SOURCES+=("$file");; esac
 done
 swiftc -module-cache-path "$BENCH_BUILD/module-cache" -swift-version 5 -Osize -target arm64-apple-macosx13.0 \
-  -framework AppKit -framework SwiftUI -framework Charts -framework ServiceManagement \
+  -framework AppKit -framework SwiftUI -framework Charts -framework ServiceManagement -framework UserNotifications \
   "${SOURCES[@]}" "$BENCH_BUILD/UsageChart.swift" "$BENCH_BUILD/Views.swift" "$BENCH_BUILD/main.swift" \
   -o "$APP/Contents/MacOS/Benchmark"
 cp "$ROOT/Resources/BuddyHead.png" "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/"
