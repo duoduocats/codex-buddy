@@ -87,6 +87,19 @@ final class ResetFetchFixture: ResetAnnouncementFetching {
     }
 }
 
+@MainActor final class SuspendedResetFetchFixture: ResetAnnouncementFetching {
+    var pending: CheckedContinuation<ResetFetchResult,Error>?
+    var requests = 0
+    func fetch(etag:String?) async throws -> ResetFetchResult {
+        requests += 1
+        return try await withCheckedThrowingContinuation { pending = $0 }
+    }
+    func complete(_ data:Data) {
+        let value = pending;pending = nil
+        value?.resume(returning:.document(data,etag:nil))
+    }
+}
+
 @main struct ResetReminderTests {
     static let origin = Date(timeIntervalSince1970:1_790_906_400)
     static let formatter: ISO8601DateFormatter = {
@@ -123,6 +136,7 @@ final class ResetFetchFixture: ResetAnnouncementFetching {
     }
     @MainActor static func main() async throws {
         try decodeTests()
+        try localTimeTests()
         try await fetchTests()
         try await permissionTests()
         try await lifecycleTests()
@@ -131,6 +145,8 @@ final class ResetFetchFixture: ResetAnnouncementFetching {
         try await concurrentRevisionTests()
         try await scheduleFailureTests()
         try await panelDismissalTests()
+        try await independentMessageSettingsTests()
+        try await receivingCancellationTests()
     }
     static func decodeTests() throws {
         let decoded = try ResetAnnouncementDocument.decode(try document([event()]),now:origin)
@@ -205,6 +221,46 @@ final class ResetFetchFixture: ResetAnnouncementFetching {
             rejects(try document([control]),"control character in \(field)")
         }
         print("Message document tests passed: optional fields, compatibility, URL/text/date validation and bounded schema")
+    }
+    static func localTimeTests() throws {
+        let deadline = formatter.date(from:"2026-07-01T00:05:00Z")!
+        let message = try ResetAnnouncementDocument.decode(try document([event(now:deadline,deadline:deadline)]),now:deadline).events[0]
+        let hongKong = TimeZone(identifier:"Asia/Hong_Kong")!
+        let losAngeles = TimeZone(identifier:"America/Los_Angeles")!
+        let utc = TimeZone(identifier:"UTC")!
+        let us = Locale(identifier:"en_US"), uk = Locale(identifier:"en_GB")
+        let hongKongText = message.scheduledDateText(locale:us,timeZone:hongKong)!
+        require(hongKongText.contains("Jul 1, 2026") && hongKongText.contains("8:05") &&
+                hongKongText.contains("AM") && hongKongText.contains("GMT+8"),
+                "Hong Kong presentation must include the local date, hour, minute and time zone")
+        let losAngelesText = message.scheduledDateText(locale:us,timeZone:losAngeles)!
+        require(losAngelesText.contains("Jun 30, 2026") && losAngelesText.contains("5:05") &&
+                losAngelesText.contains("PM") && losAngelesText.contains("PDT"),
+                "Los Angeles presentation must use the previous local date and event-time daylight saving offset")
+        let utcText = message.scheduledDateText(locale:uk,timeZone:utc)!
+        require(utcText.contains("1 Jul 2026") && utcText.contains("00:05") && utcText.contains("GMT") &&
+                !utcText.contains("AM") && !utcText.contains("PM"),
+                "UTC presentation must include midnight minutes and the locale's 24-hour time format")
+        let losAngeles24 = message.scheduledDateText(locale:uk,timeZone:losAngeles)!
+        require(losAngeles24.contains("30 Jun 2026") && losAngeles24.contains("17:05") && losAngeles24.contains("GMT-7"),
+                "Changing locale and time zone must recalculate both date and hour cycle without a frozen formatter")
+        let chineseText = message.scheduledDateText(locale:Locale(identifier:"zh_HK"),timeZone:hongKong)!
+        require(chineseText.contains("2026年7月1日") && chineseText.contains("8:05") && chineseText.contains("GMT+8"),
+                "Localized date order must retain the exact local date and time-zone label")
+        require(message.scheduledDateText(locale:us,timeZone:hongKong) == hongKongText,
+                "A later presentation must use the supplied settings rather than retain the previous time zone")
+        require(message.timeDescription(locale:us,timeZone:losAngeles) == L("预计时间：\(losAngelesText)", "Expected time: \(losAngelesText)"),
+                "Scheduled message time must be labeled as expected time in visible and accessible descriptions")
+        let plain = try ResetAnnouncementDocument.decode(try document([event(now:deadline)]),now:deadline).events[0]
+        require(plain.scheduledDateText(locale:us,timeZone:utc) == nil && plain.dateText == plain.statusTitle,
+                "A message without scheduledAt must not invent a date or require a deadline")
+        let publishedText = plain.publishedDateText(locale:us,timeZone:hongKong)
+        require(publishedText.contains("Jul 1, 2026") && publishedText.contains("8:04") &&
+                publishedText.contains("AM") && publishedText.contains("GMT+8"),
+                "A plain message must present its actual publication instant in the local time zone")
+        require(plain.timeDescription(locale:us,timeZone:hongKong) == L("发布时间：\(publishedText)", "Published: \(publishedText)"),
+                "A plain message's visible and accessible time must be labeled as publication rather than a deadline")
+        print("Message local-time tests passed: Hong Kong, Los Angeles summer/DST and previous date, UTC, localized 12/24-hour time, optional deadline and labeled publication time")
     }
     @MainActor static func fetchTests() async throws {
         let configuration = URLSessionConfiguration.ephemeral
@@ -304,8 +360,10 @@ final class ResetFetchFixture: ResetAnnouncementFetching {
         defer { manager.stop() }
         manager.check();try await settle(manager);manager.setEnabled(true);try await settle(manager)
         require(center.schedules.count == 1 && center.schedules[0].deliveryDate == nil,"A message has one immediate announcement, never deadline stages")
-        require(center.schedules[0].title == manager.upcoming?.title && center.schedules[0].body == manager.upcoming?.body,
-                "Native notification must use the message content without reset-specific generated wording")
+        require(center.schedules[0].title == manager.upcoming?.title &&
+                center.schedules[0].body.hasPrefix((manager.upcoming?.body ?? "")+"\n") &&
+                center.schedules[0].body.hasSuffix(manager.upcoming!.timeDescription()),
+                "Native notification must preserve the message content and include its local time")
         require(center.schedules[0].sourceURL == nil,"A message without source must not invent a URL")
         clock = origin.addingTimeInterval(900);client.reply = .notModified
         manager.check();try await settle(manager)
@@ -417,7 +475,7 @@ final class ResetFetchFixture: ResetAnnouncementFetching {
         print("Message cache tests passed: single-flight, cadence, backoff, valid cache retention, revision integrity and corrupt-cache rejection")
     }
     @MainActor static func concurrentRevisionTests() async throws {
-        for action in ["revise","remove","disable","ignore"] {
+        for action in ["revise","remove","disable","disable-receiving","ignore"] {
             let suite = "buddy-message-concurrent-tests-\(UUID().uuidString)"
             let preferences = UserDefaults(suiteName:suite)!
             defer { preferences.removePersistentDomain(forName:suite) }
@@ -429,6 +487,7 @@ final class ResetFetchFixture: ResetAnnouncementFetching {
             manager.check();try await settle(manager);manager.setEnabled(true);try await settle(manager)
             require(center.suspended.count == 1,"Test must suspend an actual in-flight announcement operation")
             if action == "disable" { manager.setEnabled(false) }
+            else if action == "disable-receiving" { manager.setMessagesEnabled(false) }
             else if action == "ignore" { manager.ignoreUpcoming() }
             else {
                 clock = origin.addingTimeInterval(60)
@@ -465,6 +524,101 @@ final class ResetFetchFixture: ResetAnnouncementFetching {
         manager.check(force:true);try await settle(manager)
         require(center.schedules.count == 1 && center.schedules[0].deliveryDate == nil,"An unchanged cached message must retry previously rejected delivery exactly once")
         print("Message delivery-failure tests passed: no false delivery record and later retry")
+    }
+    @MainActor static func independentMessageSettingsTests() async throws {
+        let suite = "buddy-message-receiving-tests-\(UUID().uuidString)"
+        let preferences = UserDefaults(suiteName:suite)!
+        defer { preferences.removePersistentDomain(forName:suite) }
+        let client = ResetFetchFixture(try document([event()]))
+        let center = ResetCenterFixture()
+        let manager = ResetReminderManager(preferences:preferences,client:client,notifications:center,now:{origin})
+        defer { manager.stop() }
+        manager.start();try await settle(manager)
+        require(manager.messagesEnabled && !manager.enabled && manager.panelAnnouncement(at:origin) != nil,
+                "Messages default on without opting into system notifications")
+        manager.setMessagesEnabled(false)
+        manager.check(force:true);manager.tick(now:origin.addingTimeInterval(900))
+        require(manager.upcoming == nil && client.requests.count == 1 && center.permissionRequests == 0,
+                "Turning off receiving must hide messages and stop both forced and periodic fetches")
+        manager.setEnabled(true);try await settle(manager)
+        require(!manager.enabled && center.permissionRequests == 0 && center.schedules.isEmpty,
+                "Push cannot be enabled or request permission while receiving is off")
+        let restored = ResetReminderManager(preferences:preferences,client:client,notifications:center,now:{origin})
+        defer { restored.stop() }
+        restored.start();try await settle(restored)
+        require(!restored.messagesEnabled && restored.upcoming == nil && client.requests.count == 1,
+                "Restart must respect opt out without showing cached messages or fetching")
+        restored.setMessagesEnabled(true);try await settle(restored)
+        require(restored.messagesEnabled && restored.panelAnnouncement(at:origin) != nil && !restored.enabled &&
+                client.requests.count == 2 && center.permissionRequests == 0,
+                "Receiving resumes without requesting push permission")
+        restored.setEnabled(true);try await settle(restored)
+        require(restored.enabled && center.schedules.count == 1 && center.permissionRequests == 1,
+                "Only opting into system notifications may request permission and push")
+        restored.setMessagesEnabled(false);try await settle(restored)
+        require(restored.enabled && restored.upcoming == nil && center.pending.isEmpty,
+                "Opting out of messages stops push and remembers the user's push choice")
+        let requests = client.requests.count
+        let enabledRestore = ResetReminderManager(preferences:preferences,client:client,notifications:center,now:{origin})
+        defer { enabledRestore.stop() }
+        enabledRestore.start();enabledRestore.check(force:true);try await settle(enabledRestore)
+        require(!enabledRestore.messagesEnabled && enabledRestore.enabled && client.requests.count == requests &&
+                center.pending.isEmpty && center.permissionRequests == 1,
+                "A saved push preference cannot override the receiving opt out on restart")
+        enabledRestore.setMessagesEnabled(true);try await settle(enabledRestore)
+        require(enabledRestore.panelAnnouncement(at:origin) != nil && center.schedules.count == 1 && center.permissionRequests == 1,
+                "Resuming must not replay an already delivered message or ask for permission again")
+        enabledRestore.setEnabled(false);try await settle(enabledRestore)
+        require(enabledRestore.messagesEnabled && enabledRestore.panelAnnouncement(at:origin) != nil && center.pending.isEmpty,
+                "Disabling push must retain received messages")
+        preferences.removeObject(forKey:ResetReminderManager.preferencePrefix+"messagesEnabled")
+        preferences.set(false,forKey:ResetReminderManager.preferencePrefix+"panelMessagesEnabled")
+        let migrated = ResetReminderManager(preferences:preferences,client:client,notifications:center,now:{origin})
+        defer { migrated.stop() }
+        require(!migrated.messagesEnabled,"Preserve the previous preview's opt out when migrating its preference")
+        let beforeDemo = preferences.persistentDomain(forName:suite) ?? [:]
+        migrated.useDemo(now:origin);migrated.setMessagesEnabled(true)
+        require(migrated.panelAnnouncement(at:origin) != nil &&
+                NSDictionary(dictionary:beforeDemo).isEqual(NSDictionary(dictionary:preferences.persistentDomain(forName:suite) ?? [:])),
+                "Synthetic preview choices must not change real preferences")
+        print("Message receiving tests passed: master opt out, separate push consent, saved choices, restart, no replay and preview migration")
+    }
+    @MainActor static func receivingCancellationTests() async throws {
+        let suite = "buddy-message-cancel-receiving-\(UUID().uuidString)"
+        let preferences = UserDefaults(suiteName:suite)!
+        defer { preferences.removePersistentDomain(forName:suite) }
+        let client = SuspendedResetFetchFixture()
+        let center = ResetCenterFixture()
+        let manager = ResetReminderManager(preferences:preferences,client:client,notifications:center,now:{origin})
+        defer { manager.stop() }
+        manager.start()
+        for _ in 0..<200 where client.pending == nil { try await Task.sleep(nanoseconds:1_000_000) }
+        require(client.pending != nil && manager.checking,"Suspend an actual message request")
+        manager.setMessagesEnabled(false)
+        client.complete(try document([event()]))
+        try await settle(manager)
+        require(manager.upcoming == nil && preferences.data(forKey:ResetReminderManager.preferencePrefix+"cache") == nil,
+                "An in-flight fetch must not accept or cache messages after opt out")
+        manager.setMessagesEnabled(true)
+        for _ in 0..<200 where client.pending == nil { try await Task.sleep(nanoseconds:1_000_000) }
+        require(client.requests == 2 && client.pending != nil,"Resume with a new request")
+        client.complete(try document([event()]));try await settle(manager)
+        require(manager.upcoming != nil && center.permissionRequests == 0,"Resuming receiving requires no push consent")
+
+        let offlineSuite = "buddy-message-resume-offline-\(UUID().uuidString)"
+        let offlinePreferences = UserDefaults(suiteName:offlineSuite)!
+        defer { offlinePreferences.removePersistentDomain(forName:offlineSuite) }
+        offlinePreferences.set(true,forKey:ResetReminderManager.preferencePrefix+"enabled")
+        offlinePreferences.set(try document([event()]),forKey:ResetReminderManager.preferencePrefix+"cache")
+        let offlineClient = ResetFetchFixture(try document([]));offlineClient.failure = URLError(.notConnectedToInternet)
+        let allowedCenter = ResetCenterFixture();allowedCenter.permission = .allowed
+        let offline = ResetReminderManager(preferences:offlinePreferences,client:offlineClient,notifications:allowedCenter,now:{origin})
+        defer { offline.stop() }
+        offline.start();offline.setMessagesEnabled(false);offline.setMessagesEnabled(true)
+        try await settle(offline)
+        require(offline.panelAnnouncement(at:origin) != nil && allowedCenter.schedules.count == 1 && allowedCenter.permissionRequests == 0,
+                "Rapid opt out/in must replace canceled delivery work and honor prior push consent even offline")
+        print("Receiving cancellation passed: stale fetch rejected, fresh resume and offline delivery recovery")
     }
     @MainActor static func panelDismissalTests() async throws {
         let suite = "buddy-message-panel-tests-\(UUID().uuidString)"

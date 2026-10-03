@@ -78,6 +78,7 @@ struct Themes:View {
         let window=NSWindow(contentRect:NSRect(origin:.zero,size:size),styleMask:[.borderless],backing:.buffered,defer:false)
         window.appearance=hosting.appearance;window.contentView=hosting;window.isReleasedWhenClosed=false;self.window=window
         window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps:true)
         DispatchQueue.main.asyncAfter(deadline:.now()+0.6) {
             hosting.layoutSubtreeIfNeeded()
             guard let bitmap=hosting.bitmapImageRepForCachingDisplay(in:hosting.bounds) else {fatalError("Snapshot unavailable")}

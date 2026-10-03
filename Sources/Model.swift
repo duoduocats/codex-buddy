@@ -24,6 +24,19 @@ import ServiceManagement
     @Published var showUsageShareButton: Bool {
         didSet { preferences.set(showUsageShareButton,forKey:"showUsageShareButton") }
     }
+    @Published var showResetDetails: Bool {
+        didSet {
+            preferences.set(showResetDetails,forKey:"showResetDetails")
+            if showResetDetails && panelVisible { refreshResetCredits() }
+            else if !showResetDetails { cancelResetCreditRequest() }
+        }
+    }
+    @Published var resetDetailsOnlySoonest: Bool {
+        didSet { preferences.set(resetDetailsOnlySoonest,forKey:"resetDetailsOnlySoonest") }
+    }
+    @Published var resetCreditDetails: ResetCreditDetails?
+    @Published var resetCreditsRefreshing = false
+    @Published var resetCreditsError: String?
     @Published var statistics: UsageStatistics?
     @Published var statisticsUpdated: Date?
     @Published var statisticsError: String?
@@ -32,22 +45,37 @@ import ServiceManagement
     let reminders: ResetReminderManager
     private let preferences: UserDefaults
     private var reminderSubscription: AnyCancellable?
+    private var environmentSubscriptions = Set<AnyCancellable>()
     private var timer: Timer?
     private var lastAttempt = Date.distantPast
     private var failures = 0
     private var statisticsLastAttempt = Date.distantPast
     private var statisticsFailures = 0
+    private var resetCreditsLastAttempt = Date.distantPast
+    private var resetCreditsFailures = 0
+    private var resetCreditsGeneration = 0
+    private var resetCreditsTask: Task<Void,Never>?
     private var panelVisible = false
     private var demonstration = false
-    init(preferences: UserDefaults = .standard, client: UsageClient? = nil) {
+    init(preferences: UserDefaults = .standard, client: UsageClient? = nil,
+         environmentNotifications: NotificationCenter = .default) {
         self.preferences = preferences
         self.client = client ?? UsageClient()
         self.reminders = ResetReminderManager(preferences:preferences)
-        self.menuBarTheme = (preferences.object(forKey:"menuBarTheme") as? String).flatMap(MenuBarTheme.init(rawValue:)) ?? .ring
+        self.menuBarTheme = (preferences.object(forKey:"menuBarTheme") as? String).flatMap(MenuBarTheme.init(rawValue:)) ?? .duoDuoCat
         self.menuShowsPercentage = preferences.bool(forKey:"menuShowsPercentage")
         self.showDailyTokenUsage = preferences.object(forKey:"showDailyTokenUsage") as? Bool ?? true
         self.showUsageShareButton = preferences.object(forKey:"showUsageShareButton") as? Bool ?? true
+        self.showResetDetails = preferences.bool(forKey:"showResetDetails")
+        self.resetDetailsOnlySoonest = preferences.bool(forKey:"resetDetailsOnlySoonest")
         reminderSubscription = reminders.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
+        for name in [Notification.Name.NSSystemTimeZoneDidChange, NSLocale.currentLocaleDidChangeNotification] {
+            environmentNotifications.publisher(for:name).receive(on:DispatchQueue.main).sink { [weak self] _ in
+                // Refresh visible dates when macOS changes its time zone or regional format.
+                // This invalidates the panel without making another network request.
+                self?.now = Date()
+            }.store(in:&environmentSubscriptions)
+        }
     }
     var entries: [(String, LimitWindow)] {
         usage?.buckets.flatMap { key, bucket in
@@ -66,13 +94,14 @@ import ServiceManagement
                 self.now = Date()
                 if !demo { self.reminders.tick(now:self.now) }
                 if !demo, self.now.timeIntervalSince(self.lastAttempt) >= RefreshPolicy.interval(failures:self.failures) { self.refresh(includeStatistics:false) }
-                if !demo, self.panelVisible { self.refreshStatistics() }
+                if !demo, self.panelVisible { self.refreshStatistics();self.refreshResetCredits() }
             }
         }
         timer?.tolerance = 5
     }
     func refresh(includeStatistics: Bool = true) {
         if includeStatistics && panelVisible { refreshStatistics(force:true) }
+        if includeStatistics && panelVisible { refreshResetCredits(force:true) }
         guard !demonstration else { return }
         guard !refreshing else { return }
         lastAttempt = Date()
@@ -81,9 +110,11 @@ import ServiceManagement
             defer { refreshing = false }
             do {
                 let result = try await client.read()
+                let countChanged = result.rateLimitResetCredits?.availableCount != credits
                 if usage != result { usage = result }
                 updated = Date(); now = Date(); error = nil; failures = 0
                 if selection >= entries.count { selection = 0 }
+                if panelVisible { refreshResetCredits(force:countChanged) }
             } catch {
                 failures = min(failures + 1, 4)
                 self.error = error.localizedDescription
@@ -92,12 +123,45 @@ import ServiceManagement
     }
     func useDemo() {
         demonstration = true
+        cancelResetCreditRequest()
         now = Date();usage = .demo;statistics = .demo(now:now);updated = now;statisticsUpdated = now
+        resetCreditDetails = .demo(now:now,count:credits ?? 2);resetCreditsError = nil
         reminders.useDemo(now:now)
     }
     func setPanelVisible(_ visible: Bool) {
         panelVisible = visible
-        if visible { refreshStatistics() }
+        if visible { refreshStatistics();refreshResetCredits() }
+        else { cancelResetCreditRequest() }
+    }
+    private func cancelResetCreditRequest() {
+        if resetCreditsTask != nil { resetCreditsLastAttempt = .distantPast }
+        resetCreditsGeneration += 1;resetCreditsTask?.cancel();resetCreditsTask = nil;resetCreditsRefreshing = false
+    }
+    private func refreshResetCredits(force:Bool = false) {
+        guard showResetDetails, panelVisible, !demonstration, !resetCreditsRefreshing,
+              UsageStatistics.shouldRefresh(now:Date(),lastAttempt:resetCreditsLastAttempt,failures:resetCreditsFailures,force:force) else { return }
+        resetCreditsLastAttempt = Date()
+        if credits == 0 && !stale {
+            resetCreditDetails = .init(availableCount:0,credits:[]);resetCreditsError = nil;return
+        }
+        resetCreditsRefreshing = true;resetCreditsGeneration += 1
+        let ticket = resetCreditsGeneration
+        resetCreditsTask = Task {
+            defer {
+                if ticket == resetCreditsGeneration { resetCreditsRefreshing = false;resetCreditsTask = nil }
+            }
+            do {
+                let value = try await client.readResetCredits()
+                try Task.checkCancellation()
+                guard ticket == resetCreditsGeneration, showResetDetails, panelVisible, !demonstration else { return }
+                resetCreditDetails = value;resetCreditsError = nil;resetCreditsFailures = 0
+            } catch is CancellationError { }
+            catch {
+                guard ticket == resetCreditsGeneration, !Task.isCancelled else { return }
+                resetCreditsFailures = min(resetCreditsFailures+1,4)
+                resetCreditsError = L("重置明细暂未更新，请稍后刷新。", "Reset details could not be updated. Try refreshing later.")
+            }
+        }
     }
     private func refreshStatistics(force: Bool = false) {
         guard showDailyTokenUsage, !demonstration, !statisticsRefreshing,

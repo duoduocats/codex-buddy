@@ -51,7 +51,7 @@ struct SettingsUpdateSection: View {
                     .foregroundStyle(updates.installFailed ? Color.red : Color.secondary)
                     .fixedSize(horizontal:false,vertical:true)
             }
-        }.padding(.vertical,14)
+        }.padding(.vertical,4)
     }
     private var detailMessage: String? {
         let message = updates.message

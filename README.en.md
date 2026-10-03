@@ -22,15 +22,17 @@ The visual design takes inspiration from the **iPhone Duo signal indicator**, co
 - **Daily token chart:** view a smooth curve over 7, 14, or 30 days to see how your usage changes each day.
 - **Five usage statistics:** lifetime tokens, peak daily tokens, longest task, longest streak, and current streak.
 - **Share usage images:** turn the selected date range and statistics into an image to share, save, or copy through the system menu.
-- **Message reminders:** one-row messages with an optional countdown and temporary dismissal; system notifications are opt-in.
+- **Message reminders:** see message times and countdowns, with temporary dismissal and optional system notifications.
 - **Optional extras:** hide the daily usage section or sharing button, enable launch at login, and check for updates in the app.
 - **English and Simplified Chinese:** the interface follows macOS preferred languages; reset dates follow your system time zone and 12 / 24-hour preferences. macOS 26+ uses a Liquid Glass panel.
 
+Enable **Show reset details** under **Panel** to see when your available resets expire. Choose **All** or **Next expiry**; resets with the same expiration time are grouped together.
+
 ## Messages and updates
 
-See quota-reset notices and other messages in the expanded panel. Messages with a deadline can show a countdown and disappear when they expire. Click **×** to dismiss a message temporarily; it returns when you reopen the app if it is still valid.
+See quota-reset notices and other messages in the expanded panel, with times following your Mac’s time zone and regional format. Messages with a deadline can show the expected time and countdown; other messages show their publication time. Expired messages disappear. Click **×** to dismiss a message temporarily; it returns when you reopen the app if it is still valid.
 
-To receive system notifications, enable **Message reminders** in Settings and allow macOS notifications.
+Use the Settings sidebar to jump to a section. Under **Messages & notifications**, **Receive messages** controls receiving and displaying messages. When enabled, you can also turn on **System notifications** for macOS push alerts. Turning off Receive messages stops both receiving and push alerts.
 
 Click **Check for updates** in Settings to see new versions and release notes. When an update is available, use the circular **Download update** button beside Settings to upgrade within the app.
 
@@ -56,11 +58,13 @@ macOS saves the app as a security exception. These steps apply to developer-veri
 
 | Setting | First-install default |
 | --- | --- |
-| Menu bar theme | Ring; DuoDuoCat is available |
+| Menu bar theme | DuoDuoCat; Ring is available |
 | Menu bar display | Reset countdown; percentage is available |
 | Daily token usage | On |
-| Usage sharing button | On |
-| Message reminders | Off; enabling requests system notification permission |
+| Show sharing button | On |
+| Receive messages | On |
+| Show reset details | Off; choose All or Next expiry |
+| System notifications | Off; enabling requests system notification permission |
 | Launch at login | Off |
 
 Upgrades preserve your settings. Turning off daily token usage hides the chart and statistics in the lower part of the panel.
@@ -83,7 +87,7 @@ Check that ChatGPT / Codex is signed in on your Mac, then click the panel's refr
 
 ### Why did I not receive a message notification?
 
-Enable Message reminders in the app, then check **System Settings → Notifications → Codex Buddy**. Focus settings, an unavailable connection, quitting the app, or device sleep may affect notifications.
+Enable Receive messages and System notifications in the app, then check **System Settings → Notifications → Codex Buddy**. Focus settings, an unavailable connection, quitting the app, or device sleep may affect notifications.
 
 ### Are Intel Macs supported?
 

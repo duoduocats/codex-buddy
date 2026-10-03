@@ -39,4 +39,4 @@ done
 swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 -O -target arm64-apple-macosx13.0 \
   -framework AppKit -framework SwiftUI -framework Charts -framework ServiceManagement -framework UserNotifications \
   "${SHARE_SOURCES[@]}" "$ROOT/Tests/ShareTests.swift" -o "$TEST_BUILD/share-tests"
-"$TEST_BUILD/share-tests"
+"$TEST_BUILD/share-tests" "$ROOT/Resources/AppIcon.icns"

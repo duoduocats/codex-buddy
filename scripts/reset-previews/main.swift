@@ -92,7 +92,7 @@ enum PreviewMessageScenario: String,CaseIterable,Identifiable {
     @Published var notesPresented = false
     @Published var notificationsPresented = false
     @Published var panelHeight:CGFloat = 825
-    @Published var settingsHeight:CGFloat = 599
+    @Published var settingsHeight:CGFloat = SettingsView.height
     var readyTask:Task<Void,Never>?
     private var modelObservation:AnyCancellable?
     private var updateObservation:AnyCancellable?
@@ -123,7 +123,7 @@ enum PreviewMessageScenario: String,CaseIterable,Identifiable {
         configuration.protocolClasses = [PreviewURLProtocol.self]
         configuration.urlCredentialStorage = nil
         return UpdateManager(defaults:PreviewPreferences(),configuration:configuration,
-            repository:PreviewURLProtocol.repository,currentVersion:scenario == .none ? "2.1.0" : "2.0.1",
+            repository:PreviewURLProtocol.repository,currentVersion:scenario == .none ? "2.2.0" : "2.0.1",
             installOperation:{ _,_ in
                 // A real download, package replacement, or relaunch is impossible here.
                 let delay:UInt64 = scenario == .failure ? 80_000_000 : scenario == .downloading ? 60_000_000_000 : 3_000_000_000
@@ -276,10 +276,8 @@ struct PreviewCanvas:View {
                         .shadow(color:.black.opacity(0.12),radius:12,x:0,y:6)
                         .padding(.top,2)
                 }.frame(width:380)
-                ScrollView(.vertical) {
-                    SettingsView(model:state.model,onHeightChange:{ if $0>100,abs(state.settingsHeight-$0)>0.5 { state.settingsHeight=$0 } },login:state.login,updates:state.updates)
-                }.scrollIndicators(.visible)
-                    .frame(width:440,height:min(state.settingsHeight,availableHeight))
+                SettingsView(model:state.model,login:state.login,updates:state.updates)
+                    .frame(width:SettingsView.width,height:min(state.settingsHeight,availableHeight))
                     .background(Color(nsColor:.windowBackgroundColor))
                     .clipShape(RoundedRectangle(cornerRadius:18,style:.continuous))
                     .overlay(RoundedRectangle(cornerRadius:18,style:.continuous).stroke(Color.primary.opacity(0.1),lineWidth:0.5))
@@ -291,9 +289,9 @@ struct PreviewCanvas:View {
                 Text(L("模拟数据 · 消息和下载均为演示", "Sample data · Simulated messages and downloads"))
                     .font(.system(size:11)).foregroundStyle(.secondary)
                 Spacer()
-                Text("2.1.0 Preview").font(.system(size:11)).foregroundStyle(.secondary)
+                Text("2.2.0 Preview").font(.system(size:11)).foregroundStyle(.secondary)
             }.padding(.horizontal,26).padding(.bottom,14)
-        }.frame(width:892,height:height)
+        }.frame(width:1232,height:height)
             .background(LinearGradient(colors:state.dark ? [Color(red:0.17,green:0.21,blue:0.30),Color(red:0.11,green:0.14,blue:0.21)] : [Color(red:0.88,green:0.93,blue:1),Color(red:0.96,green:0.97,blue:0.99)],startPoint:.topLeading,endPoint:.bottomTrailing))
             .environment(\.colorScheme,state.dark ? .dark : .light)
             .sheet(isPresented:$state.notesPresented) {
@@ -332,12 +330,34 @@ final class PreviewWindow:NSWindow {
         let snapshot = value("--output")
         let state = PreviewState(dark:args.contains("--dark"))
         self.state = state
+        if args.contains("--reset-details") { state.model.showResetDetails = true;state.model.resetCreditDetails = .demo(now:state.model.now,count:state.model.credits ?? 2) }
+        if args.contains("--nearest-reset") { state.model.resetDetailsOnlySoonest = true }
+        if let directory = value("--share-output") {
+            let destination = URL(fileURLWithPath:directory,isDirectory:true)
+            try! FileManager.default.createDirectory(at:destination,withIntermediateDirectories:true)
+            guard let statistics = state.model.statistics else { fatalError("Synthetic usage is required") }
+            for days in [7,14,30] {
+                for dark in [false,true] {
+                    guard BuddyBrand.shareLogo(dark:dark) != nil,
+                          let payload = UsageImageExporter.render(statistics:statistics,days:days,now:state.model.now,dark:dark) else {
+                        fatalError("Branded share preview unavailable")
+                    }
+                    try! payload.save(to:destination.appendingPathComponent("share-\(days)d-\(dark ? "dark" : "light").png"))
+                }
+            }
+            print("Saved six synthetic branded share images")
+            NSApp.terminate(nil);return
+        }
         state.selectUpdate(PreviewUpdateScenario(rawValue:value("--update") ?? "ready") ?? .ready)
         state.selectMessage(PreviewMessageScenario(rawValue:value("--message") ?? "countdown") ?? .countdown)
         let screenHeight = NSScreen.main?.visibleFrame.height ?? 800
         let height = snapshot == nil ? min(850,max(560,screenHeight-60)) : 1000
         var root:AnyView
-        if args.contains("--notifications") {
+        if args.contains("--settings") {
+            root = AnyView(SettingsView(model:state.model,login:state.login,updates:state.updates)
+                .frame(width:SettingsView.width,height:SettingsView.height)
+                .environment(\.colorScheme,state.dark ? .dark : .light))
+        } else if args.contains("--notifications") {
             root = AnyView(NotificationSamples(event:state.notificationEvent)
                 .background(Color(nsColor:.windowBackgroundColor))
                 .environment(\.colorScheme,state.dark ? .dark : .light))
@@ -349,9 +369,10 @@ final class PreviewWindow:NSWindow {
         }
         let hosting = NSHostingView(rootView:root)
         hosting.appearance = NSAppearance(named:state.dark ? .darkAqua : .aqua)
-        let size = args.contains("--notifications") ? hosting.fittingSize : NSSize(width:892,height:height)
+        let size = args.contains("--settings") ? NSSize(width:SettingsView.width,height:SettingsView.height)
+            : args.contains("--notifications") ? hosting.fittingSize : NSSize(width:1232,height:height)
         let window = PreviewWindow(contentRect:NSRect(origin:.zero,size:size),styleMask:snapshot == nil ? [.titled,.closable,.miniaturizable] : [.borderless],backing:.buffered,defer:false)
-        window.title = "Codex Buddy 2.1.0 Preview"
+        window.title = "Codex Buddy 2.2.0 Preview"
         window.appearance = hosting.appearance;window.contentView = hosting;window.isReleasedWhenClosed = false
         self.window = window
         window.center();window.makeKeyAndOrderFront(nil)

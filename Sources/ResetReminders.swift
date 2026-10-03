@@ -83,6 +83,7 @@ extension ResetNotificationDelivering {
 
 @MainActor final class ResetReminderManager: ObservableObject {
     @Published private(set) var enabled: Bool
+    @Published private(set) var messagesEnabled: Bool
     @Published private(set) var remindBefore: Bool
     @Published private(set) var upcoming: ResetAnnouncement?
     @Published private(set) var message: String?
@@ -119,6 +120,8 @@ extension ResetNotificationDelivering {
         self.preferences = preferences;self.client = client ?? ResetAnnouncementClient();self.now = now
         self.notificationDependency = notifications
         enabled = preferences.bool(forKey:Self.preferencePrefix+"enabled")
+        messagesEnabled = preferences.object(forKey:Self.preferencePrefix+"messagesEnabled") as? Bool
+            ?? preferences.object(forKey:Self.preferencePrefix+"panelMessagesEnabled") as? Bool ?? true
         // Compatibility property for earlier preview callers; message reminders have no timed stages.
         remindBefore = false
         enabledAt = preferences.object(forKey:Self.preferencePrefix+"enabledAt") as? Date
@@ -140,18 +143,19 @@ extension ResetNotificationDelivering {
     }
     func start() {
         guard !started, !demo else { return };started = true
+        guard messagesEnabled else { if enabled { cancelAll() };return }
         notifications.prepare();processNotifications();check()
     }
     func stop() { started = false;checkGeneration += 1;checkTask?.cancel();checkTask = nil;checking = false }
     func tick(now: Date) {
-        guard !demo else { return }
+        guard !demo, messagesEnabled else { return }
         let previous = upcoming
         prune(at:now);selectUpcoming(at:now)
         if previous != upcoming { processNotifications(replace:true) }
         if started { check() }
     }
     func check(force: Bool = false) {
-        guard !demo, !checking else { return }
+        guard !demo, messagesEnabled, !checking else { return }
         let timestamp = now()
         let interval = min(6*3_600.0,900*pow(2,Double(failures)))
         if let lastAttempt {
@@ -167,7 +171,7 @@ extension ResetNotificationDelivering {
             do {
                 let result = try await client.fetch(etag:etag)
                 try Task.checkCancellation()
-                guard checkTicket == checkGeneration, !demo else { throw CancellationError() }
+                guard checkTicket == checkGeneration, !demo, messagesEnabled else { throw CancellationError() }
                 switch result {
                 case .notModified:
                     guard document != nil else { throw ResetAnnouncementFailure.invalid }
@@ -195,7 +199,29 @@ extension ResetNotificationDelivering {
             }
         }
     }
+    func setMessagesEnabled(_ value: Bool) {
+        guard value != messagesEnabled else { return }
+        messagesEnabled = value
+        guard !demo else { return }
+        preferences.set(value,forKey:Self.preferencePrefix+"messagesEnabled")
+        if !value {
+            checkGeneration += 1;checkTask?.cancel();checkTask = nil;checking = false
+            generation += 1;notificationTask?.cancel()
+            upcoming = nil;message = nil
+            if enabled || notificationDependency != nil { cancelAll() }
+        } else {
+            lastAttempt = nil;failures = 0
+            preferences.removeObject(forKey:Self.preferencePrefix+"lastAttempt")
+            preferences.set(0,forKey:Self.preferencePrefix+"failures")
+            prune();selectUpcoming()
+            if enabled {
+                enabledAt = now();preferences.set(enabledAt,forKey:Self.preferencePrefix+"enabledAt")
+            }
+            if started { notifications.prepare();processNotifications(replace:true);check() }
+        }
+    }
     func setEnabled(_ value: Bool) {
+        guard !value || messagesEnabled else { return }
         guard !demo else { enabled = value;return }
         generation += 1
         if !value {
@@ -212,7 +238,7 @@ extension ResetNotificationDelivering {
                 let authorization = await notifications.authorization()
                 var allowed = authorization == .allowed
                 if authorization == .notDetermined { allowed = try await notifications.requestAuthorization() }
-                guard ticket == generation, !Task.isCancelled else { return }
+                guard ticket == generation, messagesEnabled, !Task.isCancelled else { return }
                 guard allowed else {
                     enabled = false;preferences.set(false,forKey:Self.preferencePrefix+"enabled")
                     message = L("通知未获授权，请在系统设置中允许 Codex Buddy 通知。", "Notifications are not allowed. Enable Codex Buddy notifications in System Settings.")
@@ -237,7 +263,7 @@ extension ResetNotificationDelivering {
         NSWorkspace.shared.open(url)
     }
     func panelAnnouncement(at timestamp: Date) -> ResetAnnouncement? {
-        guard let event = upcoming, !panelDismissed.contains(event.id),
+        guard messagesEnabled, let event = upcoming, !panelDismissed.contains(event.id),
               event.publishedAt <= timestamp, event.expiresAt > timestamp else { return nil }
         if let deadline = event.scheduledAt, (event.type == "message" || event.status == .scheduled), deadline <= timestamp { return nil }
         return event
@@ -263,6 +289,7 @@ extension ResetNotificationDelivering {
         message = nil
     }
     private func selectUpcoming(at timestamp: Date? = nil) {
+        guard messagesEnabled else { upcoming = nil;return }
         let time = timestamp ?? now()
         let selected = document?.events.filter {
             self.isActive($0,at:time) && self.ignored[$0.id] == nil
@@ -270,7 +297,7 @@ extension ResetNotificationDelivering {
         if upcoming != selected { upcoming = selected }
     }
     private func processNotifications(replace: Bool = false) {
-        guard enabled, !demo else { return }
+        guard messagesEnabled, enabled, !demo else { return }
         guard replace || notificationTask == nil else { return }
         if replace { generation += 1 }
         let previous = notificationTask
@@ -304,7 +331,8 @@ extension ResetNotificationDelivering {
                 guard ticket == generation, enabled, !Task.isCancelled else { return }
                 if event.id == upcoming?.id || event.publishedAt >= (enabledAt ?? time) || knownIDs.contains(event.id) {
                     // Enabling notifications shows the current message, without replaying unrelated older messages.
-                    try? await deliver(event,phase:"announce",title:event.title,body:event.body,date:nil,ticket:ticket)
+                    try? await deliver(event,phase:"announce",title:event.title,
+                                       body:[event.body,event.timeDescription()].joined(separator:"\n"),date:nil,ticket:ticket)
                 }
             }
             guard ticket == generation, enabled, !Task.isCancelled else { return }
@@ -318,10 +346,10 @@ extension ResetNotificationDelivering {
     }
     private func deliver(_ event: ResetAnnouncement, phase: String, title: String, body: String, date: Date?, ticket: Int) async throws {
         let record = key(event,phase), id = identifier(event.id,phase)
-        guard ticket == generation, enabled, !Task.isCancelled, announced[record] == nil,
+        guard ticket == generation, messagesEnabled, enabled, !Task.isCancelled, announced[record] == nil,
               document?.events.contains(event) == true, ignored[event.id] == nil else { return }
         try await notifications.schedule(.init(identifier:id,title:title,body:body,deliveryDate:date,eventID:event.id,sourceURL:event.sourceURL))
-        guard ticket == generation, enabled, !Task.isCancelled,
+        guard ticket == generation, messagesEnabled, enabled, !Task.isCancelled,
               document?.events.contains(event) == true, ignored[event.id] == nil else {
             notifications.removePending(identifiers:[id]);notifications.removeDelivered(identifiers:[id]);return
         }
@@ -340,7 +368,7 @@ extension ResetNotificationDelivering {
         prune();persistRecords();selectUpcoming();processNotifications(replace:true)
     }
     private func handle(_ action: ResetNotificationAction) {
-        guard !demo else { return }
+        guard !demo, messagesEnabled else { return }
         switch action {
         case .openPanel: onOpenPanel?()
         }

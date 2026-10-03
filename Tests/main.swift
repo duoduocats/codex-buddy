@@ -113,3 +113,24 @@ for badDocument in badDocuments {
     precondition(UpdatePolicy.verifiedMode(data:data,asset:asset,tag:"v2.0.0") == nil)
 }
 print("Release policy integrity and action tests passed")
+
+let creditFixture = Data(#"{"available_count":6,"credits":[{"id":"late","reset_type":"codex_rate_limits","status":"available","expires_at":"2026-10-20T00:00:00Z"},{"id":"first","reset_type":"codex_rate_limits","status":"available","expires_at":"2026-10-04T00:00:00Z","profile_user_id":"synthetic-friend"},{"id":"first-tie","reset_type":"codex_rate_limits","status":"available","expires_at":"2026-10-04T00:00:00.000Z"},{"id":"never","reset_type":"codex_rate_limits","status":"available","expires_at":null},{"id":"unknown","reset_type":"codex_rate_limits","status":"available"},{"id":"past","reset_type":"codex_rate_limits","status":"available","expires_at":"2026-10-01T00:00:00Z"},{"id":"spent","reset_type":"codex_rate_limits","status":"redeemed","expires_at":"2026-10-05T00:00:00Z"}]}"#.utf8)
+let creditDetails = try ResetCreditDetails.decode(creditFixture)
+let creditNow = ISO8601DateFormatter().date(from:"2026-10-03T00:00:00Z")!
+let creditGroups = creditDetails.groups(now:creditNow,onlySoonest:false)
+precondition(creditGroups.count == 4 && creditGroups[0].count == 2 && creditGroups.map(\.count).reduce(0,+) == 5)
+precondition(creditGroups[2].expiresAt == nil && creditGroups[2].expiryKnown && !creditGroups[3].expiryKnown,
+             "Unknown expiry must not be presented as a non-expiring reset")
+precondition(creditDetails.groups(now:creditNow,onlySoonest:true) == [creditGroups[0]],
+             "Soonest range must include every reset tied for the first expiry")
+precondition(creditDetails.groups(now:ISO8601DateFormatter().date(from:"2026-10-21T00:00:00Z")!,onlySoonest:true).isEmpty,
+             "Expired resets must not appear in the soonest range")
+let partialDetails = try ResetCreditDetails.decode(Data(#"{"available_count":9,"credits":[]}"#.utf8))
+precondition(partialDetails.availableCount == 9 && partialDetails.credits.isEmpty,"Do not invent missing detail rows from the summary count")
+for invalid in [#"{"available_count":-1,"credits":[]}"#,
+                #"{"available_count":1,"credits":[{"id":"invalid","reset_type":"codex_rate_limits","status":"available","expires_at":"invalid-date"}]}"#,
+                #"{"available_count":2,"credits":[{"id":"same","reset_type":"codex_rate_limits","status":"available","expires_at":null},{"id":"same","reset_type":"codex_rate_limits","status":"available","expires_at":null}]}"#] {
+    do { _ = try ResetCreditDetails.decode(Data(invalid.utf8));fatalError("Invalid reset details accepted") }
+    catch UsageFailure.malformed {}
+}
+print("Reset expiry tests passed: authoritative dates, spent/expired suppression, tied soonest dates, unknown vs no expiry, partial data and malformed rejection")
