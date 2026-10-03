@@ -46,6 +46,72 @@ struct LimitBucket: Codable, Equatable {
     var windows: [LimitWindow] { [primary, secondary].compactMap { $0 } }
 }
 struct ResetCredits: Codable, Equatable { let availableCount: Int }
+
+struct ResetCredit: Equatable {
+    let expiresAt: Date?
+    var expiryKnown = true
+}
+
+struct ResetCreditGroup: Equatable, Identifiable {
+    let expiresAt: Date?
+    let expiryKnown: Bool
+    var count: Int
+    var id: String { expiresAt.map { String($0.timeIntervalSince1970) } ?? (expiryKnown ? "no-expiry" : "unknown") }
+}
+
+struct ResetCreditDetails: Equatable {
+    let availableCount: Int
+    let credits: [ResetCredit]
+
+    func groups(now:Date,onlySoonest:Bool) -> [ResetCreditGroup] {
+        var grouped = [String:ResetCreditGroup]()
+        for credit in credits where credit.expiresAt.map({ $0 > now }) ?? true {
+            let row = ResetCreditGroup(expiresAt:credit.expiresAt,expiryKnown:credit.expiryKnown,count:1)
+            if grouped[row.id] != nil { grouped[row.id]!.count += 1 }
+            else { grouped[row.id] = row }
+        }
+        var values = Array(grouped.values)
+        values.sort {
+            if let first = $0.expiresAt,let second = $1.expiresAt { return first < second }
+            if $0.expiresAt != nil { return true }
+            if $1.expiresAt != nil { return false }
+            return $0.expiryKnown && !$1.expiryKnown
+        }
+        return onlySoonest ? Array(values.filter { $0.expiresAt != nil }.prefix(1)) : values
+    }
+
+    static func decode(_ data:Data) throws -> Self {
+        guard data.count <= 1_048_576,
+              let root = try? JSONSerialization.jsonObject(with:data) as? [String:Any],
+              let count = root["available_count"] as? Int, (0...100_000).contains(count),
+              let rows = root["credits"] as? [[String:Any]],rows.count <= 1_024 else { throw UsageFailure.malformed }
+        let standard = ISO8601DateFormatter()
+        let fractional = ISO8601DateFormatter();fractional.formatOptions = [.withInternetDateTime,.withFractionalSeconds]
+        var seen = Set<String>(),credits = [ResetCredit]()
+        for row in rows where row["status"] as? String == "available" && row["reset_type"] as? String == "codex_rate_limits" {
+            guard let id = row["id"] as? String,!id.isEmpty,id.utf8.count <= 256,seen.insert(id).inserted else { throw UsageFailure.malformed }
+            let expiry: Date?
+            if let text = row["expires_at"] as? String {
+                guard let date = fractional.date(from:text) ?? standard.date(from:text),
+                      (-62135596800...253402300799).contains(date.timeIntervalSince1970) else { throw UsageFailure.malformed }
+                expiry = date
+            } else if row["expires_at"] == nil || row["expires_at"] is NSNull {
+                expiry = nil
+            } else { throw UsageFailure.malformed }
+            // Only keep expiry information; profile fields and opaque IDs are discarded.
+            credits.append(.init(expiresAt:expiry,expiryKnown:row["expires_at"] != nil))
+        }
+        guard credits.count <= count else { throw UsageFailure.malformed }
+        return .init(availableCount:count,credits:credits)
+    }
+
+    static func demo(now:Date,count:Int = 2) -> Self {
+        let credits = (0..<max(0,min(count,8))).map { index in
+            ResetCredit(expiresAt:now.addingTimeInterval(index == 0 ? 172_800 : 604_800))
+        }
+        return .init(availableCount:credits.count,credits:credits)
+    }
+}
 struct UsageResponse: Codable, Equatable {
     let rateLimits: LimitBucket?
     let rateLimitsByLimitId: [String: LimitBucket]?
@@ -112,6 +178,9 @@ private final class NoRedirect: NSObject, URLSessionTaskDelegate {
     }
     func readStatistics() async throws -> UsageStatistics {
         try UsageStatistics.decode(await request(path:"/backend-api/wham/profiles/me"))
+    }
+    func readResetCredits() async throws -> ResetCreditDetails {
+        try ResetCreditDetails.decode(await request(path:"/backend-api/wham/rate-limit-reset-credits"))
     }
     private func request(path: String) async throws -> Data {
         guard let data = credentialProvider(),

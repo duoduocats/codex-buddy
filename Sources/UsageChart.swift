@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import Charts
 
 @MainActor final class UsageChartRange: ObservableObject {
@@ -18,6 +19,7 @@ struct DailyUsageChart: View {
     var now: Date
     @Binding var days: Int
     var exporting = false
+    var exportLogo: NSImage?
     var allowsSharing = false
     var sharePresentationChanged: (Bool) -> Void = { _ in }
     @Environment(\.colorScheme) private var scheme
@@ -30,7 +32,11 @@ struct DailyUsageChart: View {
     }
     var body: some View {
         VStack(alignment:.leading,spacing:12) {
-            HStack {
+            HStack(spacing:10) {
+                if exporting,let logo = exportLogo {
+                    Image(nsImage:logo).resizable().interpolation(.high).scaledToFit()
+                        .frame(width:32,height:26).accessibilityHidden(true)
+                }
                 Text(L("每日 Token 使用量", "Daily token usage")).font(.system(size:13,weight:.semibold))
                 Spacer()
                 if allowsSharing && !exporting {

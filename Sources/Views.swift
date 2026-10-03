@@ -14,7 +14,7 @@ struct UsageView: View {
         return formatter.string(from:date)
     }
     var body: some View {
-        VStack(spacing:16) {
+        VStack(spacing:18) {
             HStack {
                 if model.entries.count > 1 {
                     Picker(L("顶栏显示", "Menu bar display"),selection:$model.selection) {
@@ -25,29 +25,38 @@ struct UsageView: View {
                         .font(.system(size:14,weight:.semibold))
                 }
                 Spacer(minLength:8)
-                Text(model.refreshing ? L("更新中…", "Updating…") : model.stale ? L("数据待更新", "Out of date") : model.updated == nil ? L("等待连接", "Connecting") : L("已同步", "Up to date"))
-                    .font(.system(size:11)).foregroundStyle(.secondary)
+                HStack(spacing:5) {
+                    Circle().fill(model.stale ? Color.orange : model.updated == nil ? Color.secondary : Color.green)
+                        .frame(width:5,height:5).accessibilityHidden(true)
+                    Text(model.refreshing ? L("更新中…", "Updating…") : model.stale ? L("待更新", "Out of date") : model.updated == nil ? L("连接中", "Connecting") : L("已同步", "Up to date"))
+                        .font(.system(size:10)).foregroundStyle(.secondary)
+                }
+            }
+            VStack(spacing:10) {
+                HStack(spacing:20) {
+                    DuoIcon(model:model,compact:true)
+                    VStack(alignment:.leading,spacing:16) {
+                        VStack(alignment:.leading,spacing:4) {
+                            Text(model.window.map { String(format:"%.0f%%",$0.remaining) } ?? "—")
+                                .font(.system(size:34,weight:.semibold)).monospacedDigit()
+                            Text(L("剩余额度", "Remaining quota")).font(.system(size:11)).foregroundStyle(.secondary)
+                        }
+                        VStack(alignment:.leading,spacing:4) {
+                            Text(model.credits.map(String.init) ?? "—").font(.system(size:23,weight:.semibold)).monospacedDigit()
+                            Text(L("次可用重置", "Available resets")).font(.system(size:11)).foregroundStyle(.secondary)
+                        }
+                    }.frame(maxWidth:.infinity,alignment:.leading)
+                }
+                HStack(alignment:.firstTextBaseline,spacing:12) {
+                    Text(L("下次重置", "Next reset")).foregroundStyle(.secondary)
+                    Spacer(minLength:8)
+                    Text(resetTime).monospacedDigit().multilineTextAlignment(.trailing)
+                }.font(.system(size:11))
+            }
+            if model.showResetDetails {
+                ResetCreditDetailsView(model:model)
             }
             ResetAnnouncementCard(manager:model.reminders,now:model.now)
-            HStack(spacing:22) {
-                DuoIcon(model:model,compact:true)
-                VStack(alignment:.leading,spacing:18) {
-                    VStack(alignment:.leading,spacing:3) {
-                        Text(model.window.map { String(format:"%.0f%%",$0.remaining) } ?? "—")
-                            .font(.system(size:36,weight:.semibold)).monospacedDigit()
-                        Text(L("剩余额度", "Remaining quota")).font(.system(size:12)).foregroundStyle(.secondary)
-                    }
-                    VStack(alignment:.leading,spacing:3) {
-                        Text(model.credits.map(String.init) ?? "—").font(.system(size:23,weight:.semibold)).monospacedDigit()
-                        Text(L("次可用重置", "Available resets")).font(.system(size:11)).foregroundStyle(.secondary)
-                    }
-                }.frame(maxWidth:.infinity,alignment:.leading)
-            }
-            HStack(alignment:.firstTextBaseline) {
-                Text(L("下次重置", "Next reset")).foregroundStyle(.secondary)
-                Spacer(minLength:8)
-                Text(resetTime).multilineTextAlignment(.trailing)
-            }.font(.system(size:12))
             if let error = model.error {
                 Text(error).font(.system(size:11)).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
                 if model.usage == nil {
@@ -95,121 +104,11 @@ struct UsageStatisticsRow: View {
     }
     private func metric(_ value: String, _ title: String) -> some View {
         VStack(spacing:5) {
-            Text(value).font(.system(size:15,weight:.semibold)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
+            Text(value).font(.system(size:14,weight:.semibold)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
             Text(title).font(.system(size:10)).foregroundStyle(.secondary)
                 .multilineTextAlignment(.center).lineLimit(2)
                 .frame(height:AppLanguage.chinese ? 14 : 26,alignment:.top)
         }.frame(maxWidth:.infinity)
             .accessibilityElement(children:.ignore).accessibilityLabel("\(title.replacingOccurrences(of:"\n",with:" ")): \(value)")
     }
-}
-
-struct SettingsView: View {
-    static let width: CGFloat = 440
-    @ObservedObject var model: AppModel
-    var onHeightChange: (CGFloat) -> Void = { _ in }
-    @StateObject var login = LoginModel()
-    @ObservedObject var updates: UpdateManager = .shared
-    var body: some View {
-        VStack(alignment:.leading,spacing:0) {
-            HStack(spacing:14) {
-                if let icon = BuddyBrand.settingsIcon {
-                    Image(nsImage:icon).resizable().interpolation(.high)
-                        .frame(width:56,height:56)
-                        .accessibilityHidden(true)
-                }
-                Text("Codex Buddy").font(.system(size:18,weight:.semibold)).lineLimit(1)
-                Spacer(minLength:0)
-            }.padding(.vertical,12)
-            Divider()
-            VStack(spacing:0) {
-                HStack {
-                    Text(L("顶栏主题", "Theme"))
-                    Spacer(minLength:12)
-                    SettingsSegments(labels:MenuBarTheme.allCases.map(\.title),selection:Binding(
-                        get:{model.menuBarTheme == .ring ? 0 : 1},
-                        set:{model.menuBarTheme = $0 == 0 ? .ring : .duoDuoCat}),
-                        accessibilityLabel:L("顶栏主题", "Theme"))
-                        .frame(width:164,height:24)
-                }.frame(height:38)
-                HStack {
-                    Text(L("显示内容", "Display"))
-                    Spacer(minLength:12)
-                    SettingsSegments(labels:[L("时间", "Time"),L("百分比", "Percentage")],selection:Binding(
-                        get:{model.menuShowsPercentage ? 1 : 0},
-                        set:{model.menuShowsPercentage = $0 == 1}),
-                        accessibilityLabel:L("显示内容", "Display"))
-                        .frame(width:164,height:24)
-                }.frame(height:38)
-            }.padding(.vertical,8)
-            Divider()
-            VStack(spacing:0) {
-                switchRow(L("每日 Token 用量", "Daily token usage"),selection:$model.showDailyTokenUsage)
-                switchRow(L("用量分享按钮", "Usage sharing button"),selection:$model.showUsageShareButton)
-                    .disabled(!model.showDailyTokenUsage)
-            }.padding(.vertical,8)
-            Divider()
-            VStack(alignment:.leading,spacing:0) {
-                MessageReminderToggle(manager:model.reminders).padding(.top,7)
-                switchRow(L("开机启动", "Launch at login"),selection:Binding(get:{login.enabled},set:{login.set($0)}))
-                    .padding(.vertical,7)
-                if let message = login.message {
-                    Text(message).font(.system(size:11)).foregroundStyle(.secondary)
-                        .fixedSize(horizontal:false,vertical:true).padding(.bottom,12)
-                }
-            }
-            Divider()
-            SettingsUpdateSection(updates:updates)
-        }.font(.system(size:13)).controlSize(.regular)
-            .padding(.horizontal,18).frame(width:Self.width)
-            .background(Color(nsColor:.windowBackgroundColor))
-            .fixedSize(horizontal:false,vertical:true)
-            .background(GeometryReader { proxy in
-                Color.clear.preference(key:SettingsHeightKey.self,value:proxy.size.height)
-            })
-            .onPreferenceChange(SettingsHeightKey.self,perform:onHeightChange)
-    }
-    private func switchRow(_ title: String,selection: Binding<Bool>) -> some View {
-        HStack {
-            Text(title)
-            Spacer(minLength:12)
-            Toggle(title,isOn:selection).labelsHidden().toggleStyle(.switch)
-        }.frame(height:38)
-    }
-}
-
-private struct SettingsSegments: NSViewRepresentable {
-    var labels: [String]
-    @Binding var selection: Int
-    var accessibilityLabel: String
-    func makeCoordinator() -> Coordinator { Coordinator(self) }
-    func makeNSView(context:Context) -> NSSegmentedControl {
-        let control = NSSegmentedControl(labels:labels,trackingMode:.selectOne,
-            target:context.coordinator,action:#selector(Coordinator.select(_:)))
-        control.segmentDistribution = .fillEqually
-        for index in labels.indices { control.setWidth(164 / CGFloat(labels.count),forSegment:index) }
-        control.font = .systemFont(ofSize:13)
-        control.setAccessibilityLabel(accessibilityLabel)
-        return control
-    }
-    func updateNSView(_ control:NSSegmentedControl,context:Context) {
-        context.coordinator.parent = self
-        control.selectedSegment = selection
-    }
-    func sizeThatFits(_ proposal:ProposedViewSize,nsView:NSSegmentedControl,context:Context) -> CGSize? {
-        CGSize(width:164,height:24)
-    }
-    @MainActor final class Coordinator: NSObject {
-        var parent: SettingsSegments
-        init(_ parent:SettingsSegments) { self.parent = parent }
-        @objc func select(_ control:NSSegmentedControl) {
-            guard parent.labels.indices.contains(control.selectedSegment) else { return }
-            parent.selection = control.selectedSegment
-        }
-    }
-}
-
-private struct SettingsHeightKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat,nextValue: () -> CGFloat) { value = nextValue() }
 }

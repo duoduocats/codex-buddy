@@ -3,14 +3,12 @@ import SwiftUI
 import Combine
 import Darwin
 
-@MainActor final class AppDelegate: NSObject, NSApplicationDelegate {
+@MainActor final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let model = AppModel()
     var item: NSStatusItem!
     let popover = QuotaPanel()
     var usageHosting: NSHostingController<UsageView>?
     var settingsWindow: NSWindow?
-    private var settingsHosting: NSHostingView<SettingsView>?
-    private var settingsScroll: NSScrollView?
     var subscription: AnyCancellable?
     private var updateSubscription: AnyCancellable?
     private var lastStatusKey = ""
@@ -117,34 +115,27 @@ import Darwin
     func showSettings() {
         closePopover()
         if settingsWindow == nil {
-            let w = NSWindow(contentRect:NSRect(x:0,y:0,width:SettingsView.width,height:372),styleMask:[.titled,.closable],backing:.buffered,defer:false)
+            let visible = NSScreen.main?.visibleFrame
+            let height = min(SettingsView.height,visible.map { max(SettingsView.minimumSize.height,$0.height-80) } ?? SettingsView.height)
+            let w = NSWindow(contentRect:NSRect(x:0,y:0,width:SettingsView.width,height:height),styleMask:[.titled,.closable,.miniaturizable,.resizable],backing:.buffered,defer:false)
             w.title = L("设置", "Settings");w.isReleasedWhenClosed = false
-            let hosting = NSHostingView(rootView:SettingsView(model:model,onHeightChange:{ [weak self] height in self?.resizeSettings(height:height) }))
-            hosting.frame = NSRect(origin:.zero,size:hosting.fittingSize)
-            hosting.autoresizingMask = [.width]
-            let scroll = NSScrollView(frame:w.contentLayoutRect)
-            scroll.drawsBackground = false;scroll.borderType = .noBorder
-            scroll.scrollerStyle = .overlay;scroll.autohidesScrollers = true
-            scroll.hasHorizontalScroller = false;scroll.autoresizingMask = [.width,.height]
-            scroll.documentView = hosting
-            settingsHosting = hosting;settingsScroll = scroll
-            w.contentView = scroll;w.center();settingsWindow=w
-            resizeSettings(height:hosting.fittingSize.height)
+            w.delegate = self
+            w.contentMinSize = SettingsView.minimumSize
+            w.contentMaxSize = NSSize(width:980,height:CGFloat.greatestFiniteMagnitude)
+            w.collectionBehavior.insert(.fullScreenNone)
+            w.titlebarAppearsTransparent = true;w.titlebarSeparatorStyle = .none
+            let hosting = NSHostingView(rootView:SettingsView(model:model))
+            hosting.sizingOptions = []
+            hosting.autoresizingMask = [.width,.height]
+            w.contentView = hosting;w.center();settingsWindow=w
         }
         NSApp.activate(ignoringOtherApps:true);settingsWindow?.makeKeyAndOrderFront(nil)
     }
-    private func resizeSettings(height:CGFloat) {
-        guard let window = settingsWindow, height > 0 else { return }
-        let visible = (window.screen ?? NSScreen.main)?.visibleFrame ?? window.frame
-        let capped = min(height,max(1,visible.height-64))
-        settingsHosting?.setFrameSize(NSSize(width:SettingsView.width,height:height))
-        settingsScroll?.hasVerticalScroller = height > capped
-        guard abs(window.contentLayoutRect.height-capped)>1 else { return }
-        let top = window.frame.maxY
-        window.setContentSize(NSSize(width:SettingsView.width,height:capped))
-        var frame=window.frame
-        frame.origin.y=min(max(top-frame.height,visible.minY+8),visible.maxY-frame.height-8)
-        window.setFrame(frame,display:true)
+    func windowWillUseStandardFrame(_ window:NSWindow,defaultFrame:NSRect) -> NSRect {
+        var frame = defaultFrame
+        frame.size.width = SettingsView.width
+        frame.origin.x = min(max(window.frame.minX,defaultFrame.minX),defaultFrame.maxX-frame.width)
+        return frame
     }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if !popover.isShown { showSettings() };return true

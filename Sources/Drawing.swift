@@ -117,8 +117,8 @@ struct DuoIcon: View {
     var compact = false
     @Environment(\.colorScheme) private var scheme
     var body: some View {
-        let width: CGFloat = compact ? 170 : 210
-        let height: CGFloat = compact ? 176 : 218
+        let width: CGFloat = compact ? 154 : 210
+        let height: CGFloat = compact ? 160 : 218
         Image(nsImage:DuoDrawing.image(size:.init(width:width,height:height),window:model.window,credits:model.credits,now:model.now,menu:false,dark:scheme == .dark))
             .frame(width:width,height:height)
             .accessibilityLabel(L("下次重置 \(model.window?.detailCountdown(now:model.now) ?? "—")，剩余重置次数 \(model.credits.map(String.init) ?? "—")", "Resets in \(model.window?.detailCountdown(now:model.now) ?? "—"), \(model.credits.map(String.init) ?? "—") reset credits available"))

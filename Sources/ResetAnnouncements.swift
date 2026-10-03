@@ -30,9 +30,31 @@ struct ResetAnnouncement: Codable, Equatable, Identifiable {
         }
     }
     var dateText: String {
-        guard let scheduledAt else { return statusTitle }
-        let formatter = DateFormatter();formatter.dateStyle = .medium;formatter.timeStyle = .short
-        return formatter.string(from:scheduledAt)
+        scheduledDateText() ?? statusTitle
+    }
+    func scheduledDateText(locale: Locale = .autoupdatingCurrent,
+                           timeZone: TimeZone = .autoupdatingCurrent) -> String? {
+        guard let scheduledAt else { return nil }
+        return Self.localDateText(for:scheduledAt,locale:locale,timeZone:timeZone)
+    }
+    func publishedDateText(locale: Locale = .autoupdatingCurrent,
+                           timeZone: TimeZone = .autoupdatingCurrent) -> String {
+        Self.localDateText(for:publishedAt,locale:locale,timeZone:timeZone)
+    }
+    func timeDescription(locale: Locale = .autoupdatingCurrent,
+                         timeZone: TimeZone = .autoupdatingCurrent) -> String {
+        if let scheduled = scheduledDateText(locale:locale,timeZone:timeZone) {
+            return L("预计时间：\(scheduled)", "Expected time: \(scheduled)")
+        }
+        let published = publishedDateText(locale:locale,timeZone:timeZone)
+        return L("发布时间：\(published)", "Published: \(published)")
+    }
+    private static func localDateText(for date: Date, locale: Locale, timeZone: TimeZone) -> String {
+        // Create a formatter per presentation so locale, hour cycle and time zone
+        // changes are reflected when the panel refreshes while the app is running.
+        let formatter = DateFormatter();formatter.locale = locale;formatter.timeZone = timeZone
+        formatter.setLocalizedDateFormatFromTemplate("yMMMdjmmz")
+        return formatter.string(from:date)
     }
     enum CodingKeys: String, CodingKey {
         case id, revision, type, status, scheduledAt, publishedAt, expiresAt, sourceURL

@@ -42,16 +42,34 @@ import ImageIO
         var calendar = Calendar(identifier:.gregorian);calendar.timeZone = .autoupdatingCurrent
         let now = calendar.date(from:DateComponents(year:2026,month:9,day:30,hour:12))!
         let statistics = UsageStatistics.demo(now:now)
+        guard CommandLine.arguments.count > 1,
+              let icon = NSImage(contentsOfFile:CommandLine.arguments[1]),
+              let mascot = BuddyBrand.transparentMascot(from:icon) else { fatalError("Public app icon fixture is required") }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("buddy-share-test-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true)
         defer { try? FileManager.default.removeItem(at:directory) }
         for days in [7,14,30] {
             for dark in [false,true] {
-                guard let payload = UsageImageExporter.render(statistics:statistics,days:days,now:now,dark:dark),
+                guard let logo = BuddyBrand.logo(fromMascot:mascot,dark:dark),
+                      let logoCG = logo.cgImage(forProposedRect:nil,context:nil,hints:nil),
+                      let payload = UsageImageExporter.render(statistics:statistics,days:days,now:now,dark:dark,logo:logo),
                       let bitmap = NSBitmapImageRep(data:payload.png) else { fatalError("Native usage export must render a valid PNG") }
                 fputs("Export \(days)d \(dark ? "dark" : "light"): \(bitmap.pixelsWide) × \(bitmap.pixelsHigh) pixels\n",stderr)
                 check(bitmap.pixelsWide == 760 && bitmap.pixelsHigh >= 400 && bitmap.pixelsHigh < 700,
-                             "Export must contain only the chart and five metrics at 2x density")
+                             "Export must contain the graphic logo, chart and five metrics at 2x density")
+                let ratio = Double(logoCG.width)/Double(logoCG.height)
+                check((1.2...1.6).contains(ratio),"Logo must keep the app's head proportions without the row of four feet")
+                let logoBitmap = NSBitmapImageRep(cgImage:logoCG)
+                var transparent = 0
+                for y in 0..<logoCG.height {
+                    var rowHasInk = false
+                    for x in 0..<logoCG.width {
+                        let alpha = logoBitmap.colorAt(x:x,y:y)!.alphaComponent
+                        if alpha > 0 { rowHasInk = true } else { transparent += 1 }
+                    }
+                    check(rowHasInk,"A head-only logo must not contain a detached row of feet below an empty gap")
+                }
+                check(transparent > 100,"Logo must retain its transparent background and terminal cutouts")
                 var offset = 8
                 while offset+12 <= payload.png.count {
                     let size = payload.png[offset..<offset+4].reduce(0) { ($0<<8)|Int($1) }

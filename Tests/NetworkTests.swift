@@ -30,8 +30,14 @@ final class QuotaFixture: URLProtocol {
         QuotaFixture.body = Data(#"{"stats":{"lifetime_tokens":1250000,"daily_usage_buckets":[{"start_date":"2026-09-30","tokens":400000}]}}"#.utf8)
         let statistics = try await client.readStatistics()
         precondition(statistics.lifetimeTokens == 1250000 && statistics.daily?.first?.tokens == 400000)
+        QuotaFixture.body = Data(#"{"available_count":1,"credits":[{"id":"fixture-reset","reset_type":"codex_rate_limits","status":"available","expires_at":"2030-10-03T00:00:00Z"}]}"#.utf8)
+        let details = try await client.readResetCredits()
+        precondition(details.availableCount == 1 && details.credits.first?.expiresAt != nil)
         for status in [401,403,429,500] {
             QuotaFixture.status = status
+            do { _ = try await client.readResetCredits();fatalError("Reset detail HTTP failure accepted") }
+            catch UsageFailure.authentication { precondition(status == 401 || status == 403) }
+            catch UsageFailure.unavailable { precondition(status == 429 || status == 500) }
             do { _ = try await client.read();fatalError("HTTP failure accepted") }
             catch UsageFailure.authentication { precondition(status == 401 || status == 403) }
             catch UsageFailure.unavailable { precondition(status == 429 || status == 500) }
@@ -41,16 +47,22 @@ final class QuotaFixture: URLProtocol {
         }
         QuotaFixture.status = 200
         QuotaFixture.failure = URLError(.timedOut)
+        do { _ = try await client.readResetCredits();fatalError("Reset detail timeout accepted") }
+        catch UsageFailure.timeout {}
         do { _ = try await client.read();fatalError("Timeout accepted") }
         catch UsageFailure.timeout {}
         do { _ = try await client.readStatistics();fatalError("Statistics timeout accepted") }
         catch UsageFailure.timeout {}
         QuotaFixture.failure = URLError(.notConnectedToInternet)
+        do { _ = try await client.readResetCredits();fatalError("Reset detail offline accepted") }
+        catch UsageFailure.unavailable {}
         do { _ = try await client.read();fatalError("Offline accepted") }
         catch UsageFailure.unavailable {}
         do { _ = try await client.readStatistics();fatalError("Statistics offline accepted") }
         catch UsageFailure.unavailable {}
         QuotaFixture.failure = nil;QuotaFixture.body = Data("invalid-json".utf8)
+        do { _ = try await client.readResetCredits();fatalError("Malformed reset details accepted") }
+        catch UsageFailure.malformed {}
         do { _ = try await client.read();fatalError("Malformed body accepted") }
         catch UsageFailure.malformed {}
         do { _ = try await client.readStatistics();fatalError("Malformed statistics accepted") }

@@ -6,9 +6,9 @@ enum BuddyBrand {
         guard let url = Bundle.main.url(forResource:"AppIcon",withExtension:"icns") else { return nil }
         return NSImage(contentsOf:url)
     }()
-    static let settingsIcon: NSImage? = {
-        guard let artwork = applicationIcon,
-              let source = artwork.cgImage(forProposedRect:nil,context:nil,hints:nil) else { return nil }
+    static let settingsIcon: NSImage? = applicationIcon.flatMap(transparentMascot)
+    static func transparentMascot(from artwork:NSImage) -> NSImage? {
+        guard let source = artwork.cgImage(forProposedRect:nil,context:nil,hints:nil) else { return nil }
         let width = 256, height = 256
         var pixels = [UInt8](repeating:0,count:width*height*4)
         guard let output = pixels.withUnsafeMutableBytes({ buffer -> CGImage? in
@@ -34,7 +34,55 @@ enum BuddyBrand {
             return context.makeImage()
         }) else { return nil }
         return NSImage(cgImage:output,size:NSSize(width:width,height:height))
-    }()
+    }
+    private static let lightShareLogo = settingsIcon.flatMap { logo(fromMascot:$0,dark:false) }
+    private static let darkShareLogo = settingsIcon.flatMap { logo(fromMascot:$0,dark:true) }
+    static func shareLogo(dark:Bool) -> NSImage? { dark ? darkShareLogo : lightShareLogo }
+
+    // Keep the largest connected silhouette from the app icon: the head, without its four feet.
+    static func logo(fromMascot mascot:NSImage,dark:Bool) -> NSImage? {
+        guard let source = mascot.cgImage(forProposedRect:nil,context:nil,hints:nil) else { return nil }
+        let width = source.width,height = source.height
+        guard width > 0,height > 0,width <= 2048,height <= 2048 else { return nil }
+        var pixels = [UInt8](repeating:0,count:width*height*4)
+        guard let output = pixels.withUnsafeMutableBytes({ buffer -> CGImage? in
+            guard let context = CGContext(data:buffer.baseAddress,width:width,height:height,bitsPerComponent:8,
+                bytesPerRow:width*4,space:CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo:CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+            context.draw(source,in:CGRect(x:0,y:0,width:width,height:height))
+            let bytes = buffer.bindMemory(to:UInt8.self)
+            var visited = [Bool](repeating:false,count:width*height),largest = [Int]()
+            for start in visited.indices where !visited[start] && bytes[start*4+3] > 0 {
+                var component = [start],cursor = 0;visited[start] = true
+                while cursor < component.count {
+                    let index = component[cursor];cursor += 1
+                    let x = index % width,y = index / width
+                    let neighbors = [x > 0 ? index-1 : -1,x+1 < width ? index+1 : -1,
+                                     y > 0 ? index-width : -1,y+1 < height ? index+width : -1]
+                    for neighbor in neighbors where neighbor >= 0 && !visited[neighbor] && bytes[neighbor*4+3] > 0 {
+                        visited[neighbor] = true;component.append(neighbor)
+                    }
+                }
+                if component.count > largest.count { largest = component }
+            }
+            guard !largest.isEmpty else { return nil }
+            var keep = [Bool](repeating:false,count:width*height)
+            var minX = width,minY = height,maxX = 0,maxY = 0
+            for index in largest {
+                keep[index] = true
+                minX = min(minX,index % width);maxX = max(maxX,index % width)
+                minY = min(minY,index / width);maxY = max(maxY,index / width)
+            }
+            let color: [Double] = dark ? [255,255,255] : [42,96,255]
+            for index in keep.indices {
+                let alpha = keep[index] ? Double(bytes[index*4+3])/255 : 0
+                for channel in 0..<3 { bytes[index*4+channel] = UInt8((color[channel]*alpha).rounded()) }
+                bytes[index*4+3] = UInt8((255*alpha).rounded())
+            }
+            return context.makeImage()?.cropping(to:CGRect(x:minX,y:minY,width:maxX-minX+1,height:maxY-minY+1))
+        }) else { return nil }
+        return NSImage(cgImage:output,size:NSSize(width:output.width,height:output.height))
+    }
     private static let darkHead = makeHead(dark:true)
     private static let lightHead = makeHead(dark:false)
     static func head(dark: Bool) -> NSImage? { dark ? darkHead : lightHead }

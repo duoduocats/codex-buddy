@@ -21,9 +21,10 @@ struct UsageShareImage {
 }
 
 @MainActor enum UsageImageExporter {
-    static func render(statistics:UsageStatistics,days:Int,now:Date,dark:Bool) -> UsageShareImage? {
+    static func render(statistics:UsageStatistics,days:Int,now:Date,dark:Bool,logo:NSImage? = nil) -> UsageShareImage? {
         let view = VStack(spacing:16) {
-            DailyUsageChart(statistics:statistics,refreshing:false,now:now,days:.constant(days),exporting:true)
+            DailyUsageChart(statistics:statistics,refreshing:false,now:now,days:.constant(days),exporting:true,
+                exportLogo:logo ?? BuddyBrand.shareLogo(dark:dark))
             UsageStatisticsRow(statistics:statistics)
         }.padding(20).frame(width:380)
             .background(dark ? Color(white:0.1) : .white)
