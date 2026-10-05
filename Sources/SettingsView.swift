@@ -20,14 +20,6 @@ private enum SettingsAnchor: String, CaseIterable, Identifiable {
         case .general: return "gearshape"
         }
     }
-    var color: Color {
-        switch self {
-        case .menuBar: return .blue
-        case .panel: return .purple
-        case .messages: return .orange
-        case .general: return .gray
-        }
-    }
 }
 
 struct SettingsView: View {
@@ -38,7 +30,7 @@ struct SettingsView: View {
     @Environment(\.colorScheme) private var colorScheme
     @StateObject var login = LoginModel()
     @ObservedObject var updates: UpdateManager = .shared
-    @State private var selectedAnchor: SettingsAnchor? = .menuBar
+    @State private var selectedAnchor: SettingsAnchor = .menuBar
     @State private var scrollRequest = 0
 
     var body: some View {
@@ -58,7 +50,6 @@ struct SettingsView: View {
                     }.padding(28).frame(maxWidth:.infinity,alignment:.leading)
                 }.background(Color(nsColor:.windowBackgroundColor).overlay(Color.primary.opacity(0.025)))
                     .onChange(of:scrollRequest) { _ in
-                        guard let selectedAnchor else { return }
                         withAnimation(.easeInOut(duration:0.22)) {
                             proxy.scrollTo(selectedAnchor,anchor:.top)
                         }
@@ -79,24 +70,29 @@ struct SettingsView: View {
                 }
                 Text("Codex Buddy").font(.system(size:15,weight:.bold))
             }.padding(.horizontal,16).padding(.top,14).padding(.bottom,14)
-            List(SettingsAnchor.allCases,selection:$selectedAnchor) { anchor in
-                Button {
-                    if selectedAnchor == anchor { scrollRequest += 1 }
-                    else { selectedAnchor = anchor }
-                } label: {
-                    HStack(spacing:9) {
-                        Image(systemName:anchor.symbol).font(.system(size:11,weight:.medium))
-                            .foregroundStyle(.white).frame(width:22,height:22)
-                            .background(anchor.color,in:RoundedRectangle(cornerRadius:5))
-                            .accessibilityHidden(true)
-                        Text(anchor.title).font(.system(size:13)).lineLimit(2)
-                        Spacer(minLength:0)
-                    }.padding(.vertical,3).contentShape(Rectangle())
-                }.buttonStyle(.plain).tag(anchor)
-                    .accessibilityLabel(anchor.title)
-                    .help(L("滚动到\(anchor.title)", "Scroll to \(anchor.title)"))
-            }.listStyle(.sidebar)
-                .onChange(of:selectedAnchor) { _ in scrollRequest += 1 }
+            VStack(spacing:3) {
+                ForEach(SettingsAnchor.allCases) { anchor in
+                    Button {
+                        selectedAnchor = anchor
+                        scrollRequest += 1
+                    } label: {
+                        HStack(spacing:10) {
+                            Image(systemName:anchor.symbol).frame(width:20).accessibilityHidden(true)
+                            Text(anchor.title).lineLimit(2).fixedSize(horizontal:false,vertical:true)
+                        }.font(.system(size:13,weight:.medium))
+                            .padding(.horizontal,10).padding(.vertical,8)
+                            .frame(maxWidth:.infinity,alignment:.leading)
+                            .foregroundStyle(Color.primary)
+                            .background(selectedAnchor == anchor ? Color.accentColor.opacity(0.13) : Color.clear,
+                                        in:RoundedRectangle(cornerRadius:7))
+                            .contentShape(RoundedRectangle(cornerRadius:8))
+                    }.buttonStyle(.plain)
+                        .accessibilityAddTraits(selectedAnchor == anchor ? .isSelected : [])
+                        .accessibilityLabel(anchor.title)
+                        .help(L("滚动到\(anchor.title)", "Scroll to \(anchor.title)"))
+                }
+            }.padding(.horizontal,12)
+            Spacer(minLength:16)
         }.frame(width:196).frame(maxHeight:.infinity,alignment:.top)
             .background(SettingsSidebarMaterial())
     }
