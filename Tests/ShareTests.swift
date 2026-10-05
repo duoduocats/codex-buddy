@@ -57,7 +57,7 @@ import ImageIO
             let actual=actualPixels.colorAt(x:x,y:y)!.usingColorSpace(.deviceRGB)!
             check(abs(expected.alphaComponent-actual.alphaComponent) < 0.005,"The independent mark must preserve the original silhouette and cutouts")
             if expected.alphaComponent > 0.1 {
-                check(abs(expected.redComponent-actual.redComponent) < 0.01 && abs(expected.greenComponent-actual.greenComponent) < 0.01 && abs(expected.blueComponent-actual.blueComponent) < 0.01,"Settings and sharing colors must remain unchanged")
+                check(abs(expected.redComponent-actual.redComponent) < 0.01 && abs(expected.greenComponent-actual.greenComponent) < 0.01 && abs(expected.blueComponent-actual.blueComponent) < 0.01,"The independent sharing mark colors must remain unchanged")
             }
         } }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("buddy-share-test-\(UUID().uuidString)")

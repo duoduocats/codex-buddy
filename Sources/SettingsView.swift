@@ -35,6 +35,7 @@ struct SettingsView: View {
     static let height: CGFloat = 640
     static let minimumSize = NSSize(width:700,height:480)
     @ObservedObject var model: AppModel
+    @Environment(\.colorScheme) private var colorScheme
     @StateObject var login = LoginModel()
     @ObservedObject var updates: UpdateManager = .shared
     @State private var selectedAnchor: SettingsAnchor? = .menuBar
@@ -71,15 +72,13 @@ struct SettingsView: View {
     private var sidebar: some View {
         VStack(alignment:.leading,spacing:0) {
             HStack(spacing:10) {
-                if let icon = BuddyBrand.settingsIcon {
-                    Image(nsImage:icon).resizable().interpolation(.high)
-                        .frame(width:34,height:34).accessibilityHidden(true)
+                if let icon = BuddyBrand.settingsGlyph {
+                    Image(nsImage:icon).renderingMode(.template).resizable().interpolation(.high).scaledToFit()
+                        .foregroundStyle(colorScheme == .dark ? Color.white : Color.black)
+                        .frame(width:32,height:32).accessibilityHidden(true)
                 }
-                VStack(alignment:.leading,spacing:3) {
-                    Text("Codex Buddy").font(.system(size:14,weight:.semibold))
-                    Text(updates.currentVersion).font(.system(size:11)).foregroundStyle(.secondary)
-                }
-            }.padding(.horizontal,16).padding(.top,24).padding(.bottom,18)
+                Text("Codex Buddy").font(.system(size:15,weight:.bold))
+            }.padding(.horizontal,16).padding(.top,14).padding(.bottom,14)
             List(SettingsAnchor.allCases,selection:$selectedAnchor) { anchor in
                 Button {
                     if selectedAnchor == anchor { scrollRequest += 1 }

@@ -2,13 +2,39 @@
   "fill-specializations": [
     {
       "value": {
-        "automatic-gradient": "extended-srgb:0.16471,0.37647,1.00000,1.00000"
+        "linear-gradient": [
+          "display-p3:0.17000,0.55900,0.94400,1.00000",
+          "srgb:0.10100,0.39100,0.91900,1.00000"
+        ],
+        "orientation": {
+          "start": {
+            "x": 0.5,
+            "y": 0
+          },
+          "stop": {
+            "x": 0.5,
+            "y": 1
+          }
+        }
       }
     },
     {
       "appearance": "dark",
       "value": {
-        "solid": "extended-srgb:0.16471,0.37647,1.00000,1.00000"
+        "linear-gradient": [
+          "srgb:0.19200,0.19200,0.19200,1.00000",
+          "srgb:0.07800,0.07800,0.07800,1.00000"
+        ],
+        "orientation": {
+          "start": {
+            "x": 0.5,
+            "y": 0
+          },
+          "stop": {
+            "x": 0.5,
+            "y": 1
+          }
+        }
       }
     }
   ],
@@ -20,7 +46,20 @@
             {
               "appearance": "dark",
               "value": {
-                "solid": "extended-srgb:0.00000,0.00000,0.00000,1.00000"
+                "linear-gradient": [
+                  "display-p3:0.17000,0.55900,0.94400,1.00000",
+                  "srgb:0.10100,0.39100,0.91900,1.00000"
+                ],
+                "orientation": {
+                  "start": {
+                    "x": 0.5,
+                    "y": 0
+                  },
+                  "stop": {
+                    "x": 0.5,
+                    "y": 1
+                  }
+                }
               }
             }
           ],
@@ -28,52 +67,104 @@
           "name": "01-Cat"
         },
         {
+          "fill-specializations": [
+            {
+              "appearance": "dark",
+              "value": {
+                "linear-gradient": [
+                  "display-p3:0.17000,0.55900,0.94400,1.00000",
+                  "srgb:0.10100,0.39100,0.91900,1.00000"
+                ],
+                "orientation": {
+                  "start": {
+                    "x": 0.5,
+                    "y": 0
+                  },
+                  "stop": {
+                    "x": 0.5,
+                    "y": 1
+                  }
+                }
+              }
+            }
+          ],
           "image-name": "02-Dot-1.png",
-          "name": "Dot 1",
+          "name": "Dot 1"
+        },
+        {
           "fill-specializations": [
             {
               "appearance": "dark",
               "value": {
-                "solid": "extended-srgb:0.00000,0.00000,0.00000,1.00000"
+                "linear-gradient": [
+                  "display-p3:0.17000,0.55900,0.94400,1.00000",
+                  "srgb:0.10100,0.39100,0.91900,1.00000"
+                ],
+                "orientation": {
+                  "start": {
+                    "x": 0.5,
+                    "y": 0
+                  },
+                  "stop": {
+                    "x": 0.5,
+                    "y": 1
+                  }
+                }
               }
             }
-          ]
-        },
-        {
+          ],
           "image-name": "03-Dot-2.png",
-          "name": "Dot 2",
+          "name": "Dot 2"
+        },
+        {
           "fill-specializations": [
             {
               "appearance": "dark",
               "value": {
-                "solid": "extended-srgb:0.00000,0.00000,0.00000,1.00000"
+                "linear-gradient": [
+                  "display-p3:0.17000,0.55900,0.94400,1.00000",
+                  "srgb:0.10100,0.39100,0.91900,1.00000"
+                ],
+                "orientation": {
+                  "start": {
+                    "x": 0.5,
+                    "y": 0
+                  },
+                  "stop": {
+                    "x": 0.5,
+                    "y": 1
+                  }
+                }
               }
             }
-          ]
-        },
-        {
+          ],
           "image-name": "04-Dot-3.png",
-          "name": "Dot 3",
-          "fill-specializations": [
-            {
-              "appearance": "dark",
-              "value": {
-                "solid": "extended-srgb:0.00000,0.00000,0.00000,1.00000"
-              }
-            }
-          ]
+          "name": "Dot 3"
         },
         {
-          "image-name": "05-Dot-4.png",
-          "name": "Dot 4",
           "fill-specializations": [
             {
               "appearance": "dark",
               "value": {
-                "solid": "extended-srgb:0.00000,0.00000,0.00000,1.00000"
+                "linear-gradient": [
+                  "display-p3:0.17000,0.55900,0.94400,1.00000",
+                  "srgb:0.10100,0.39100,0.91900,1.00000"
+                ],
+                "orientation": {
+                  "start": {
+                    "x": 0.5,
+                    "y": 0
+                  },
+                  "stop": {
+                    "x": 0.5,
+                    "y": 1
+                  }
+                }
               }
             }
-          ]
+          ],
+          "image-name": "05-Dot-4.png",
+          "name": "Dot 4"
         }
       ],
       "shadow": {
