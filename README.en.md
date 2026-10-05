@@ -1,4 +1,4 @@
-<img src="Resources/AppIcon.iconset/icon_128x128@2x.png" width="88" alt="Codex Buddy app icon: a white DuoDuoCat on blue" />
+<img src="docs/images/app-icon.png" width="88" alt="Codex Buddy glass app icon: a white DuoDuoCat on blue" />
 
 # Codex Buddy — macOS menu bar ChatGPT / Codex usage monitor
 
@@ -19,6 +19,7 @@ The visual design takes inspiration from the **iPhone Duo signal indicator**, co
 ## Features
 
 - **Quota at a glance:** choose Ring or DuoDuoCat, with a reset countdown or remaining percentage in the center. Four dots represent available resets when the service provides them.
+- **System glass icon:** native glass effects on supported macOS versions. Dark appearance keeps the blue background with a black cat and four dots.
 - **Daily token chart:** view a smooth curve over 7, 14, or 30 days to see how your usage changes each day.
 - **Five usage statistics:** lifetime tokens, peak daily tokens, longest task, longest streak, and current streak.
 - **Share usage images:** turn the selected date range and statistics into an image to share, save, or copy through the system menu.
@@ -71,7 +72,7 @@ Upgrades preserve your settings. Turning off daily token usage hides the chart a
 
 ## Lightweight and private
 
-A native macOS app with a current download of about **1.8 MB**. It uses your existing local login to check quota, without reading conversations or project code. Usage images are created on your Mac; you choose when to save or share them.
+A native macOS app with a current download of about **2.5 MB**. It uses your existing local login to check quota, without reading conversations or project code. Usage images are created on your Mac; you choose when to save or share them.
 
 See the [privacy policy](docs/PRIVACY.md).
 

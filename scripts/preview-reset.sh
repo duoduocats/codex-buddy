@@ -12,7 +12,7 @@ for source in "$ROOT"/Sources/*.swift; do [[ "$source" == */main.swift ]] || SOU
 swiftc -module-cache-path "$PREVIEW_BUILD/module-cache" -swift-version 5 -Osize -target arm64-apple-macosx13.0 \
  -framework AppKit -framework SwiftUI -framework Charts -framework ServiceManagement -framework UserNotifications \
  "${SOURCES[@]}" "$ROOT/scripts/reset-previews/main.swift" -o "$APP/Contents/MacOS/Preview"
-cp "$ROOT/Resources/AppIcon.icns" "$ROOT/Resources/BuddyHead.png" "$APP/Contents/Resources/"
+cp "$ROOT/Resources/AppIcon.icns" "$ROOT/Resources/BuddyHead.png" "$ROOT/Resources/BuddyMark.png" "$APP/Contents/Resources/"
 cp "$ROOT/LICENSE" "$APP/Contents/Resources/LICENSE.txt"
 cp "$ROOT/Info.plist" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c 'Set :CFBundleIdentifier com.duoduocat.codexbuddy.preview' "$APP/Contents/Info.plist"

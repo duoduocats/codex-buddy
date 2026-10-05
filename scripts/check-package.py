@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Check the actual shipping app, not the developer's home directory."""
 from pathlib import Path
-import argparse, plistlib, re, struct, subprocess, tempfile
+import argparse, json, plistlib, re, struct, subprocess, tempfile
 parser = argparse.ArgumentParser()
 parser.add_argument('app', type=Path)
 parser.add_argument('--dmg', type=Path)
@@ -11,6 +11,8 @@ expected = {
     'Contents/Info.plist', 'Contents/MacOS/CodexBuddy',
     'Contents/Resources/AppIcon.icns', 'Contents/Resources/install-update.sh',
     'Contents/Resources/BuddyHead.png',
+    'Contents/Resources/BuddyMark.png',
+    'Contents/Resources/Assets.car',
     'Contents/Resources/LICENSE.txt', 'Contents/_CodeSignature/CodeResources',
 }
 files = {str(p.relative_to(app)) for p in app.rglob('*') if p.is_file()}
@@ -20,6 +22,9 @@ size = sum((app / name).stat().st_size for name in files)
 assert size < 4_000_000, 'App exceeds 4 MB budget'
 info = plistlib.loads((app / 'Contents/Info.plist').read_bytes())
 assert info['CFBundleIdentifier'] == 'com.duoduocat.codexbuddy', 'Unexpected app identity'
+assert info['CFBundleIconName'] == 'AppIcon' and info['CFBundleIconFile'] == 'AppIcon', 'Missing native icon or legacy fallback'
+canonical_icon = Path(__file__).resolve().parents[1] / 'Resources/AppIcon.icns'
+assert (app / 'Contents/Resources/AppIcon.icns').read_bytes() != canonical_icon.read_bytes(), 'Shipping icon was overwritten by the original flat artwork'
 patterns = [
     rb'/(?:Users|home)/[A-Za-z0-9_.-]+/',
     rb'-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----',
@@ -31,6 +36,11 @@ def audit_bytes(data, name):
 
 for name in files:
     audit_bytes((app / name).read_bytes(), name)
+assets = json.loads(subprocess.check_output(['/usr/bin/assetutil', '--info', str(app / 'Contents/Resources/Assets.car')]))
+assert any(a.get('AssetType') == 'IconImageStack' and a.get('Name') == 'AppIcon' for a in assets), 'Missing native layered icon stack'
+assert any(a.get('AssetType') == 'IconGroup' and a.get('Name', '').startswith('AppIcon/') for a in assets), 'Missing system glass material group'
+for name in ['01-Cat', '02-Dot-1', '03-Dot-2', '04-Dot-3', '05-Dot-4']:
+    assert any(a.get('AssetType') == 'Image' and a.get('Name') == 'AppIcon_Assets/' + name for a in assets), 'Missing canonical icon layer: ' + name
 subprocess.run(['codesign', '--verify', '--deep', '--strict', str(app)], check=True)
 architectures = subprocess.check_output(['lipo', '-archs', str(app / 'Contents/MacOS/CodexBuddy')]).decode().strip()
 assert architectures == 'arm64', 'Unexpected architecture'
