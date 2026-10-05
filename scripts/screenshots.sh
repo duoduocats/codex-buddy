@@ -10,7 +10,7 @@ for source in "$ROOT"/Sources/*.swift; do [[ "$source" == */main.swift ]] || SOU
 swiftc -module-cache-path "$SCREENSHOT_BUILD/module-cache" -swift-version 5 -Osize -target arm64-apple-macosx13.0 \
  -framework AppKit -framework SwiftUI -framework Charts -framework ServiceManagement -framework UserNotifications \
  "${SOURCES[@]}" "$ROOT/scripts/ui-previews/main.swift" -o "$APP/Contents/MacOS/Screenshots"
-cp "$ROOT/Resources/AppIcon.icns" "$ROOT/Resources/BuddyHead.png" "$APP/Contents/Resources/"
+cp "$ROOT/Resources/AppIcon.icns" "$ROOT/Resources/BuddyHead.png" "$ROOT/Resources/BuddyMark.png" "$APP/Contents/Resources/"
 cp "$ROOT/Info.plist" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c 'Set :CFBundleIdentifier com.duoduocat.codexbuddy.screenshots' "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c 'Set :CFBundleExecutable Screenshots' "$APP/Contents/Info.plist"

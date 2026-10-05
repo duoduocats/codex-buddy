@@ -30,7 +30,7 @@ swiftc -module-cache-path "$BENCH_BUILD/module-cache" -swift-version 5 -Osize -t
   -framework AppKit -framework SwiftUI -framework Charts -framework ServiceManagement -framework UserNotifications \
   "${SOURCES[@]}" "$BENCH_BUILD/UsageChart.swift" "$BENCH_BUILD/Views.swift" "$BENCH_BUILD/main.swift" \
   -o "$APP/Contents/MacOS/Benchmark"
-cp "$ROOT/Resources/BuddyHead.png" "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/"
+cp "$ROOT/Resources/BuddyHead.png" "$ROOT/Resources/AppIcon.icns" "$ROOT/Resources/BuddyMark.png" "$APP/Contents/Resources/"
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

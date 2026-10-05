@@ -45,6 +45,21 @@ import ImageIO
         guard CommandLine.arguments.count > 1,
               let icon = NSImage(contentsOfFile:CommandLine.arguments[1]),
               let mascot = BuddyBrand.transparentMascot(from:icon) else { fatalError("Public app icon fixture is required") }
+        guard CommandLine.arguments.count > 2,
+              let canonical = NSImage(contentsOfFile:CommandLine.arguments[2]),
+              let renderedCanonical = BuddyBrand.canonicalMark(from:canonical),
+              let expectedCG = mascot.cgImage(forProposedRect:nil,context:nil,hints:nil),
+              let actualCG = renderedCanonical.cgImage(forProposedRect:nil,context:nil,hints:nil) else { fatalError("Canonical brand fixture is required") }
+        check(expectedCG.width == actualCG.width && expectedCG.height == actualCG.height,"The independent mark must preserve canonical dimensions")
+        let expectedPixels=NSBitmapImageRep(cgImage:expectedCG),actualPixels=NSBitmapImageRep(cgImage:actualCG)
+        for y in 0..<expectedCG.height { for x in 0..<expectedCG.width {
+            let expected=expectedPixels.colorAt(x:x,y:y)!.usingColorSpace(.deviceRGB)!
+            let actual=actualPixels.colorAt(x:x,y:y)!.usingColorSpace(.deviceRGB)!
+            check(abs(expected.alphaComponent-actual.alphaComponent) < 0.005,"The independent mark must preserve the original silhouette and cutouts")
+            if expected.alphaComponent > 0.1 {
+                check(abs(expected.redComponent-actual.redComponent) < 0.01 && abs(expected.greenComponent-actual.greenComponent) < 0.01 && abs(expected.blueComponent-actual.blueComponent) < 0.01,"Settings and sharing colors must remain unchanged")
+            }
+        } }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("buddy-share-test-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true)
         defer { try? FileManager.default.removeItem(at:directory) }

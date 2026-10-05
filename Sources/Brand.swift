@@ -6,7 +6,21 @@ enum BuddyBrand {
         guard let url = Bundle.main.url(forResource:"AppIcon",withExtension:"icns") else { return nil }
         return NSImage(contentsOf:url)
     }()
-    static let settingsIcon: NSImage? = applicationIcon.flatMap(transparentMascot)
+    static let settingsIcon: NSImage? = {
+        guard let url = Bundle.main.url(forResource:"BuddyMark",withExtension:"png"),
+              let image = NSImage(contentsOf:url) else { return nil }
+        return canonicalMark(from:image)
+    }()
+    static func canonicalMark(from image:NSImage) -> NSImage? {
+        guard let source=image.cgImage(forProposedRect:nil,context:nil,hints:nil),
+              let provider=source.dataProvider,
+              let result=CGImage(width:source.width,height:source.height,bitsPerComponent:source.bitsPerComponent,
+                bitsPerPixel:source.bitsPerPixel,bytesPerRow:source.bytesPerRow,space:CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo:source.bitmapInfo,provider:provider,decode:nil,shouldInterpolate:true,intent:.defaultIntent) else { return nil }
+        // PNG decoding tags these stored channels as sRGB; the original canonical
+        // drawing uses device RGB. Preserve its appearance rather than converting.
+        return NSImage(cgImage:result,size:NSSize(width:source.width,height:source.height))
+    }
     static func transparentMascot(from artwork:NSImage) -> NSImage? {
         guard let source = artwork.cgImage(forProposedRect:nil,context:nil,hints:nil) else { return nil }
         let width = 256, height = 256
