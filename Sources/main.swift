@@ -67,12 +67,29 @@ import Darwin
                     self.showSettings()
                     fputs("Settings visible: \(self.settingsWindow?.isVisible == true)\n",stderr)
                     precondition(self.settingsWindow?.isVisible == true,"Settings must open")
+                    precondition(NSRunningApplication.current.activationPolicy == .regular,"Settings must show a Dock icon")
+                    let originalWindow = self.settingsWindow
+                    self.showSettings()
+                    precondition(self.settingsWindow === originalWindow,"Repeated opens must reuse the settings window")
                     DispatchQueue.main.asyncAfter(deadline:.now()+0.5) {
                         fputs("Popover closed: \(!self.popover.isShown)\n",stderr)
                         precondition(!self.popover.isShown,"Popover must close")
                         self.settingsWindow?.close()
-                        print("Native UI checks passed: status item, popover, settings")
-                        self.model.client.stop();exit(0)
+                        precondition(NSRunningApplication.current.activationPolicy == .accessory,"Closing settings must hide the Dock icon")
+                        precondition(self.item.button != nil,"Closing settings must preserve the status item")
+                        self.showSettings()
+                        precondition(self.settingsWindow?.isVisible == true,"Settings must reopen")
+                        precondition(NSRunningApplication.current.activationPolicy == .regular,"Reopening settings must restore the Dock icon")
+                        self.settingsWindow?.miniaturize(nil)
+                        precondition(NSRunningApplication.current.activationPolicy == .regular,"Minimized settings must keep the Dock icon")
+                        self.showSettings()
+                        precondition(self.settingsWindow?.isMiniaturized == false,"Opening settings must restore a minimized window")
+                        DispatchQueue.main.asyncAfter(deadline:.now()+0.5) {
+                            self.settingsWindow?.performClose(nil)
+                            precondition(NSRunningApplication.current.activationPolicy == .accessory,"Window close action must hide the Dock icon")
+                            print("Native UI checks passed: status item, popover, settings, Dock visibility, close/reopen and minimized recovery")
+                            self.model.client.stop();exit(0)
+                        }
                     }
                 }
             }
@@ -129,7 +146,13 @@ import Darwin
             hosting.autoresizingMask = [.width,.height]
             w.contentView = hosting;w.center();settingsWindow=w
         }
+        NSApp.setActivationPolicy(.regular)
+        if settingsWindow?.isMiniaturized == true { settingsWindow?.deminiaturize(nil) }
         NSApp.activate(ignoringOtherApps:true);settingsWindow?.makeKeyAndOrderFront(nil)
+    }
+    func windowWillClose(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow, window === settingsWindow else { return }
+        NSApp.setActivationPolicy(.accessory)
     }
     func windowWillUseStandardFrame(_ window:NSWindow,defaultFrame:NSRect) -> NSRect {
         var frame = defaultFrame

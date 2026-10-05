@@ -1,16 +1,43 @@
 import AppKit
 
-// The panel uses the refined transparent mascot; cache both system appearances.
+// Cache the frameless settings glyph and independent sharing artwork.
 enum BuddyBrand {
     static let applicationIcon: NSImage? = {
         guard let url = Bundle.main.url(forResource:"AppIcon",withExtension:"icns") else { return nil }
         return NSImage(contentsOf:url)
     }()
-    static let settingsIcon: NSImage? = {
+    static let settingsGlyph = shareMascot.flatMap { templateGlyph(from:$0) }
+    private static let shareMascot: NSImage? = {
         guard let url = Bundle.main.url(forResource:"BuddyMark",withExtension:"png"),
               let image = NSImage(contentsOf:url) else { return nil }
         return canonicalMark(from:image)
     }()
+    private static func templateGlyph(from artwork:NSImage) -> NSImage? {
+        guard let source = artwork.cgImage(forProposedRect:nil,context:nil,hints:nil) else { return nil }
+        let width=source.width,height=source.height
+        var pixels=[UInt8](repeating:0,count:width*height*4)
+        let output=pixels.withUnsafeMutableBytes { buffer -> CGImage? in
+            guard let context=CGContext(data:buffer.baseAddress,width:width,height:height,bitsPerComponent:8,
+                bytesPerRow:width*4,space:CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo:CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+            context.draw(source,in:CGRect(x:0,y:0,width:width,height:height))
+            let bytes=buffer.bindMemory(to:UInt8.self)
+            var minX=width,minY=height,maxX = -1,maxY = -1
+            for y in 0..<height { for x in 0..<width {
+                let i=(y*width+x)*4,alpha=bytes[i+3]
+                bytes[i]=alpha;bytes[i+1]=alpha;bytes[i+2]=alpha
+                if alpha > 0 {
+                    minX=min(minX,x);minY=min(minY,y);maxX=max(maxX,x);maxY=max(maxY,y)
+                }
+            } }
+            guard maxX >= minX,maxY >= minY else { return nil }
+            return context.makeImage()?.cropping(to:CGRect(x:minX,y:minY,width:maxX-minX+1,height:maxY-minY+1))
+        }
+        guard let output else { return nil }
+        let image=NSImage(cgImage:output,size:NSSize(width:output.width,height:output.height))
+        image.isTemplate=true
+        return image
+    }
     static func canonicalMark(from image:NSImage) -> NSImage? {
         guard let source=image.cgImage(forProposedRect:nil,context:nil,hints:nil),
               let provider=source.dataProvider,
@@ -49,8 +76,8 @@ enum BuddyBrand {
         }) else { return nil }
         return NSImage(cgImage:output,size:NSSize(width:width,height:height))
     }
-    private static let lightShareLogo = settingsIcon.flatMap { logo(fromMascot:$0,dark:false) }
-    private static let darkShareLogo = settingsIcon.flatMap { logo(fromMascot:$0,dark:true) }
+    private static let lightShareLogo = shareMascot.flatMap { logo(fromMascot:$0,dark:false) }
+    private static let darkShareLogo = shareMascot.flatMap { logo(fromMascot:$0,dark:true) }
     static func shareLogo(dark:Bool) -> NSImage? { dark ? darkShareLogo : lightShareLogo }
 
     // Keep the largest connected silhouette from the app icon: the head, without its four feet.
