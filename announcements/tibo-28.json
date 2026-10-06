@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "tibo-28-2026-10-05",
-  "revision": 3,
+  "revision": 4,
   "startDate": "2026-10-05",
   "days": 28,
   "timeZone": "America/Los_Angeles",
@@ -34,7 +34,7 @@
     },
     {
       "id": "tibo-day-2-auto-review-free",
-      "revision": 2,
+      "revision": 3,
       "day": 2,
       "kind": "improvement",
       "status": "completed",
@@ -43,8 +43,8 @@
         "en": "Auto-review is free with ChatGPT sign-in"
       },
       "body": {
-        "zh": "通过 ChatGPT 账户登录的所有用户，现可免费使用 Auto-review，且该功能不消耗套餐用量。可在设置 → 通用 → 权限 → Auto-review 中开启，为长任务中的操作增加复核。",
-        "en": "Users who sign in with a ChatGPT account can now use Auto-review without a charge against their subscription usage. Turn it on under Settings → General → Permissions → Auto-review for an extra review of actions taken during longer tasks."
+        "zh": "通过 ChatGPT 账户登录的所有用户，现可免费使用 Auto-review，且该功能不消耗套餐用量。在输入框下方的权限菜单选择“Approve for me”，即可使用 Auto-review，为长任务中的操作增加复核。",
+        "en": "Users who sign in with a ChatGPT account can use Auto-review without a charge against their subscription usage. Open the permissions menu below the composer and select “Approve for me” to review actions taken during longer tasks."
       },
       "sourceURL": "https://x.com/thsottiaux/status/2107368734981517634",
       "collectedAt": "2026-10-06T07:22:08Z"
