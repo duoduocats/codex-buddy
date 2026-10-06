@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "tibo-28-2026-10-05",
-  "revision": 4,
+  "revision": 5,
   "startDate": "2026-10-05",
   "days": 28,
   "timeZone": "America/Los_Angeles",
@@ -48,6 +48,23 @@
       },
       "sourceURL": "https://x.com/thsottiaux/status/2107368734981517634",
       "collectedAt": "2026-10-06T07:22:08Z"
+    },
+    {
+      "id": "tibo-day-2-api-usage-tiers",
+      "revision": 1,
+      "day": 2,
+      "kind": "improvement",
+      "status": "completed",
+      "title": {
+        "zh": "API 用量等级简化为三档",
+        "en": "API usage tiers simplified to three"
+      },
+      "body": {
+        "zh": "OpenAI API 的付费用量等级由五档简化为 Build、Launch、Grow 三档。最高档 Grow 的累计 API 付款门槛从 1,000 美元降至 500 美元，更容易获得更高请求速率限制。",
+        "en": "OpenAI API paid usage tiers are simplified from five to three: Build, Launch, and Grow. The total API payment threshold for Grow, the highest tier, is reduced from $1,000 to $500, making it easier to qualify for higher rate limits."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2107548725359104441",
+      "collectedAt": "2026-10-06T19:33:28.760Z"
     }
   ]
 }
