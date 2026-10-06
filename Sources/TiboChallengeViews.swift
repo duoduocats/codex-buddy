@@ -3,16 +3,17 @@ import SwiftUI
 
 private struct ChallengePalette {
     let dark: Bool
-    var paper: Color { dark ? Color(red:0.085,green:0.071,blue:0.055) : Color(red:1,green:0.957,blue:0.867) }
-    var ink: Color { dark ? Color(red:0.96,green:0.92,blue:0.83) : Color(red:0.15,green:0.125,blue:0.10) }
-    var muted: Color { ink.opacity(0.65) }
-    var sheet: Color { dark ? Color(red:0.15,green:0.135,blue:0.11) : Color(red:1,green:0.992,blue:0.969) }
-    var accent: Color { Color(red:1,green:0.36,blue:0.17) }
-    var sun: Color { dark ? Color(red:0.78,green:0.60,blue:0.18) : Color(red:1,green:0.847,blue:0.30) }
-    var mint: Color { dark ? Color(red:0.42,green:0.65,blue:0.36) : Color(red:0.725,green:0.902,blue:0.65) }
+    var paper: Color { dark ? Color(red:0.118,green:0.106,blue:0.153) : Color(red:0.969,green:0.961,blue:0.988) }
+    var ink: Color { dark ? Color(red:0.925,green:0.910,blue:0.957) : Color(red:0.157,green:0.137,blue:0.200) }
+    var muted: Color { dark ? Color(red:0.737,green:0.698,blue:0.808) : Color(red:0.435,green:0.400,blue:0.490) }
+    var sheet: Color { dark ? Color(red:0.161,green:0.141,blue:0.212) : .white }
+    var accent: Color { dark ? Color(red:0.737,green:0.647,blue:0.957) : Color(red:0.467,green:0.345,blue:0.741) }
+    var sun: Color { dark ? Color(red:0.290,green:0.235,blue:0.388) : Color(red:0.875,green:0.835,blue:0.945) }
+    var mint: Color { dark ? Color(red:0.302,green:0.251,blue:0.412) : Color(red:0.886,green:0.847,blue:0.953) }
+    var reset: Color { dark ? Color(red:0.243,green:0.294,blue:0.400) : Color(red:0.792,green:0.835,blue:0.933) }
     func color(for record: ChallengeRecord) -> Color {
         if record.status == .cancelled { return muted.opacity(0.3) }
-        return record.kind == .improvement ? mint : accent
+        return record.kind == .improvement ? mint : reset
     }
 }
 
@@ -28,7 +29,7 @@ struct ChallengeDeskCalendar: View {
             if let date {
                 Text(date).font(.system(size:width*0.09,weight:.semibold)).lineLimit(1).minimumScaleFactor(0.8)
                     .padding(.top,width*0.08).frame(maxWidth:.infinity).frame(height:width*0.30)
-                    .foregroundStyle(Color.black.opacity(0.85)).background(palette.sun)
+                    .foregroundStyle(palette.ink).background(palette.sun)
             } else { palette.sun.frame(height:width*0.26) }
             VStack(spacing:width*0.04) {
                 if width > 80 { Text(L("挑战日", "Challenge day")).font(.system(size:width*0.085)) }
@@ -64,7 +65,7 @@ struct TiboChallengeEntry: View {
             let day = document.currentDay(at:now)
             let weekStart = ((day-1)/7)*7+1
             let palette = ChallengePalette(dark:colorScheme == .dark)
-            let entryAccent = colorScheme == .dark ? Color(red:1,green:0.48,blue:0.30) : Color(red:0.72,green:0.20,blue:0.04)
+            let entryAccent = palette.accent
             Button(action:open) {
                 VStack(alignment:.leading,spacing:10) {
                     HStack(spacing:8) {
@@ -79,7 +80,7 @@ struct TiboChallengeEntry: View {
                         ForEach(weekStart..<weekStart+7,id:\.self) { number in
                             let record = document.records(for:number).first
                             Text("\(number)").font(.system(size:11,weight:number == day ? .semibold : .regular)).monospacedDigit()
-                                .foregroundStyle(record?.status == .completed ? Color.black : Color.primary)
+                                .foregroundStyle(record?.status == .completed ? palette.ink : Color.primary)
                                 .frame(maxWidth:.infinity).frame(height:24)
                                 .background(record.map { palette.color(for:$0).opacity($0.status == .scheduled ? 0.45 : 0.8) } ?? .clear,
                                             in:RoundedRectangle(cornerRadius:5))
@@ -168,7 +169,7 @@ struct TiboChallengeView: View {
                         }
                         HStack(spacing:16) {
                             legend(palette.mint,L("产品改进", "Improvement"))
-                            legend(palette.accent,L("额度重置", "Quota reset"))
+                            legend(palette.reset,L("额度重置", "Quota reset"))
                         }.padding(.top,3)
                     }.frame(maxWidth:.infinity,alignment:.leading)
                     Rectangle().fill(palette.muted.opacity(0.35)).frame(width:0.7)

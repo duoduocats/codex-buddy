@@ -19,5 +19,5 @@ with path.open('wb') as f:plistlib.dump(info,f,sort_keys=False)
 notes.parent.mkdir(exist_ok=True)
 marker=''
 (root/'releases'/f'v{args.version}.json').write_text(json.dumps({'schemaVersion':2 if args.mode=='notify' else 1,'version':args.version,'mode':args.mode},indent=2)+'\n')
-notes.write_text(marker+f'# Codex Buddy {args.version}\n\n## 更新内容\n\n- 请填写本次变更。\n\n## 安装\n\n下载 arm64 DMG，退出旧版后拖入 Applications 替换。当前构建为 ad hoc 签名，尚未公证。\n')
+notes.write_text(marker+f'# Codex Buddy v{args.version}\n\n## 更新内容\n\n- 请填写本次变更。\n\n## What’s new\n\n- Add the changes in this release.\n\n## 安装 / Install\n\nApple Silicon · macOS 13+。下载 arm64 DMG，退出旧版，将 Codex Buddy.app 拖入 Applications 替换。首次打开如被系统拦截，请按 README 的安装指引操作。当前发布包采用 ad hoc 签名，尚未经过 Apple 公证。\n\nApple Silicon · macOS 13+. Download the arm64 DMG, quit the previous app, and drag Codex Buddy.app into Applications to replace it. If macOS blocks the first launch, follow the installation steps in the README. This release is ad hoc signed and has not been notarized by Apple.\n')
 print('Prepared',notes.relative_to(root))
