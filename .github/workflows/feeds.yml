@@ -1,0 +1,30 @@
+name: Public feeds
+on:
+  push:
+    branches: [main]
+    paths: ['announcements/messages.json', 'announcements/tibo-28.json']
+  pull_request:
+    paths: ['announcements/messages.json', 'announcements/tibo-28.json']
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Validate public feeds and revisions
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          previous="$RUNNER_TEMP/buddy-previous-feed"
+          mkdir -p "$previous"
+          for name in messages.json tibo-28.json; do
+            if git cat-file -e "$BASE_REF:announcements/$name" 2>/dev/null; then
+              git show "$BASE_REF:announcements/$name" > "$previous/$name"
+            fi
+          done
+          bash scripts/validate-feeds.sh announcements/messages.json announcements/tibo-28.json "$previous"
+          python3 scripts/check-source.py

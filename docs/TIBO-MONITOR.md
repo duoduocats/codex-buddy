@@ -1,0 +1,15 @@
+# Tibo public feed monitor
+
+The maintainer authorized automatic publication of verified reset announcements and 28-day challenge records. This authorization covers only `announcements/messages.json` and `announcements/tibo-28.json`. Software changes, tags and Releases still require local installation and explicit approval.
+
+The monitor runs every 30 minutes. It reads Tibo’s public X posts and related public replies using the connected Browser. Reference-site records and search results can discover links; only the original Tibo post verifies the author and content. Login barriers, partial text and unknown challenge days leave a local candidate. No login bypass, credential access, personal screenshots or copied portraits are used.
+
+Classify concrete improvements in the activity log only. Quota resets, reset credits and clear reset plans or status changes also use the message feed. A general promise to improve or reset is never counted as an actual reset. Related replies amend one event, retaining its ID and incrementing its revision. Only explicit source eligibility appears in the message.
+
+If the original timestamp and time zone cannot be verified, omit the activity record’s `sourcePublishedAt`. A message uses its first collection time as `publishedAt`, with `timestampBasis: "collected"`. Do not replace that time on every run. Scheduled reset times require an unambiguous date, time and zone in the source. Completed or cancelled reset messages normally have a 24-hour display period; that period is a Buddy display choice, never an official credit expiry. Do not replay expired historical messages when establishing a baseline.
+
+Candidates, original-text evidence and deduplication state stay under the ignored `outputs/tibo-reset-monitor/` directory. Validate candidates with the native decoder and revision checks. `scripts/publish-tibo-feeds.py --candidate-dir DIRECTORY` validates locally; `--publish` creates a data-only PR using a separate temporary worktree. It checks the repository origin, restricts changed paths and requires a stable Release containing the new consumer. Before that first Release, monitoring continues to save candidates locally. This prevents collection timestamps reaching older clients which would mislabel them.
+
+After creating a PR, attach it to the task, wait for all required checks to pass, verify that its final diff still contains only the two approved feeds, and squash-merge it. Confirm the content on `main` before marking it published. No binary release, tags or external messages are part of this flow. Data-only changes use the lightweight Public feeds workflow instead of rebuilding the application.
+
+Notify the maintainer only for a published change, a persistent first failure, recovery or an actionable source gap. Unchanged runs and repeated failures remain quiet. App users control receipt with Messages and its reset/activity types under Panel. System alerts is their separate push preference and follows the same content selection. Improvements stay in the activity feed; the client may push them when activity messages and System alerts are enabled.

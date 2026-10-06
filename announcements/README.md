@@ -10,7 +10,7 @@
 4. `appliesTo` 和 `sourceURL` 可省略。来源链接只接受允许的官方网页或本仓库页面；客户端不自动打开链接。
 5. 全球重置只是消息示例。发布具体时间前需核实官方原帖、发帖日期和时区，区分 PST / PDT；截图的观看时区不能代替原始来源。
 
-消息时间在客户端按本机时区和日期格式显示。明确的预计时间应填写 `scheduledAt`；没有该字段时显示 `publishedAt`，它是公告发布时间，不能当作账号实际到账时间。
+消息时间在客户端按本机时区和日期格式显示。明确的预计时间应填写 `scheduledAt`；没有该字段时显示 `publishedAt`，默认是公告发布时间；若 `timestampBasis: "collected"`，则是明确标注的 Buddy 收录时间。两者都不能当作账号实际到账时间。
 
 运行期间约每 15 分钟检查，启动和唤醒时补查，失败退避。同一条消息的同一修订版本只发一次通知，通知需用户主动开启；不安排提前提醒或到点提醒。× 只在本次运行隐藏消息，重启后未过期的消息恢复。公共消息不代表账号额度已经恢复。
 
@@ -21,6 +21,7 @@
 - Root: `schemaVersion: 1`, `events: []`.
 - Message: `id`, `revision`, `type: "message"`, `publishedAt`, `expiresAt`, `title`, `body`.
 - `title` and `body`: objects containing `zh` and `en`.
+- Optional `timestampBasis`: `source` (default) or `collected`. Collection times are clearly labelled and add no reset countdown.
 - Optional: `scheduledAt` (UTC deadline), `appliesTo` (localized text), `sourceURL` (validated HTTPS URL).
 - Existing `globalReset` events remain readable for compatibility, with their stricter official-source and deadline checks.
 
@@ -33,3 +34,13 @@ Write bilingual titles and bodies, confirm eligibility and expiry, and avoid pri
 Global reset is one example of a message. Verify its original official post and absolute time before publishing; resolve relative dates and distinguish PST from PDT. The feed contains public text and an original-post link, without a user screenshot. No reset countdown is assigned while the original PST / PDT wording remains ambiguous.
 
 The app checks about every 15 minutes while running, including startup and wake checks. User-authorized native notifications announce each active revision once. There are no early or deadline notifications. Dismissing the row hides it for the current run; a valid message returns after restart. Focus settings, connectivity, device sleep and app exit can affect discovery or display.
+
+## 28 天活动源 / Challenge feed
+
+`tibo-28.json` 使用 schemaVersion 1，与应用版本独立。日历固定为 2026-10-05 起 28 天，按 America/Los_Angeles 日期计算；11 月 2 日当地零点结束，跨夏令时按日历计算。该日期范围来自用户指定的挑战参考页，不用原帖相对时间推导 UTC 发布日期。
+
+记录包含 `id`、`revision`、`day`、`kind`（improvement/reset）、`status`（scheduled/completed/cancelled）、双语 `title`/`body`、Tibo 原帖 `sourceURL`、UTC `collectedAt`，以及可选、准确核实的 UTC `sourcePublishedAt`。未核实原帖时间时省略 sourcePublishedAt，显示收录时间。day 必须来自明确的 Day N 或准确核实的美西日期；发布计划不代表每个账号已经生效。
+
+根 revision 随每次改动递增；更正、完成或取消同一事件保留 ID 并递增记录 revision；保留历史记录，不降低修订。上限 128 KB / 84 条记录，失败保留已确认缓存。首日基线仅含公开文字和原帖链接。关闭“消息通知”或对应类型停止获取和展示，活动关闭时隐藏入口并关闭窗口；“系统提醒”只控制推送，使用同一消息选择，活动改进也可推送。活动结束后保留设置中的历史入口。
+
+`bash scripts/validate-feeds.sh` 调用客户端解码器，可传入两份候选文件路径和上一版文件目录来检查修订。监测和发布参见 [维护说明](../docs/TIBO-MONITOR.md)。

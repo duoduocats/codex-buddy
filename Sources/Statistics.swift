@@ -67,11 +67,13 @@ struct UsageStatistics: Equatable {
     func history(days: Int, now: Date = Date()) -> [DailyTokenUsage] {
         guard let daily else { return [] }
         var calendar = Calendar(identifier:.gregorian);calendar.timeZone = .autoupdatingCurrent
-        let end = calendar.startOfDay(for:now)
+        let today = calendar.startOfDay(for:now)
         let count = max(1,min(30,days))
         let formatter = DateFormatter();formatter.calendar = calendar
         formatter.locale = Locale(identifier:"en_US_POSIX");formatter.timeZone = calendar.timeZone;formatter.dateFormat = "yyyy-MM-dd"
         let values = daily.reduce(into:[String:Int64]()) { $0[$1.day] = $1.tokens }
+        // An absent current-day bucket is not a measured zero. Keep the full range ending yesterday.
+        let end = values[formatter.string(from:today)] == nil ? calendar.date(byAdding:.day,value:-1,to:today)! : today
         return (0..<count).map { index in
             let date = calendar.date(byAdding:.day,value:index-count+1,to:end)!
             let day = formatter.string(from:date)

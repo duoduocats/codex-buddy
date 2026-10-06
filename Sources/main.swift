@@ -9,6 +9,7 @@ import Darwin
     let popover = QuotaPanel()
     var usageHosting: NSHostingController<UsageView>?
     var settingsWindow: NSWindow?
+    var challengeWindow: NSWindow?
     var subscription: AnyCancellable?
     private var updateSubscription: AnyCancellable?
     private var lastStatusKey = ""
@@ -23,11 +24,12 @@ import Darwin
             guard let self else { return }
             if !self.popover.isShown { self.togglePopover() }
         }
+        model.challenge.onDisabled = { [weak self] in self?.challengeWindow?.close() }
         item.button?.target = self;item.button?.action = #selector(togglePopover)
         appearanceObservation = item.button?.observe(\.effectiveAppearance, options:[.new]) { [weak self] _,_ in
             DispatchQueue.main.async { self?.updateStatus() }
         }
-        let hosting = NSHostingController(rootView:UsageView(model:model,settings:{ [weak self] in self?.showSettings() },sharePresentationChanged:{ [weak self] presenting in self?.popover.isPresentingAuxiliaryUI = presenting }))
+        let hosting = NSHostingController(rootView:UsageView(model:model,settings:{ [weak self] in self?.showSettings() },openChallenge:{ [weak self] in self?.showChallenge() },sharePresentationChanged:{ [weak self] presenting in self?.popover.isPresentingAuxiliaryUI = presenting }))
         hosting.sizingOptions = []
         usageHosting = hosting
         popover.contentViewController = hosting
@@ -52,6 +54,14 @@ import Darwin
                 var usage=rusage();getrusage(RUSAGE_SELF,&usage)
                 print(String(format:"Synthetic idle: %.2f%% average CPU over %.1fs; peak RSS %.1f MiB",100*cpu/wall,wall,Double(usage.ru_maxrss)/1048576))
                 self.model.client.stop();exit(0)
+            }
+        }
+        if CommandLine.arguments.contains("--show-settings") {
+            DispatchQueue.main.asyncAfter(deadline:.now()+1) { self.showSettings() }
+        }
+        if CommandLine.arguments.contains("--show-challenge") {
+            DispatchQueue.main.asyncAfter(deadline:.now()+1) {
+                if self.model.reminders.messagesEnabled { self.showChallenge() } else { self.showSettings() }
             }
         }
         if CommandLine.arguments.contains("--show-popover") {
@@ -87,6 +97,24 @@ import Darwin
                         DispatchQueue.main.asyncAfter(deadline:.now()+0.5) {
                             self.settingsWindow?.performClose(nil)
                             precondition(NSRunningApplication.current.activationPolicy == .accessory,"Window close action must hide the Dock icon")
+                            self.showChallenge()
+                            precondition(self.challengeWindow?.isVisible == true,"Activity window must open")
+                            let originalChallenge = self.challengeWindow
+                            self.showChallenge()
+                            precondition(self.challengeWindow === originalChallenge,"Activity opens must reuse the window")
+                            self.showSettings();self.settingsWindow?.close()
+                            precondition(NSRunningApplication.current.activationPolicy == .regular,"Activity window must keep the Dock icon")
+                            self.showSettings();self.challengeWindow?.close()
+                            precondition(NSRunningApplication.current.activationPolicy == .regular,"Settings must keep the Dock icon")
+                            self.showChallenge();self.model.reminders.setActivityMessagesEnabled(false)
+                            precondition(!self.model.challenge.enabled && self.challengeWindow?.isVisible == false,"Activity category off must close activity")
+                            self.model.reminders.setActivityMessagesEnabled(true);self.showChallenge()
+                            self.model.reminders.setResetMessagesEnabled(false)
+                            precondition(self.challengeWindow?.isVisible == true,"Reset category off must preserve activity")
+                            self.model.reminders.setMessagesEnabled(false)
+                            precondition(!self.model.challenge.enabled && self.challengeWindow?.isVisible == false,"Disabling messages must close activity")
+                            self.settingsWindow?.close()
+                            precondition(NSRunningApplication.current.activationPolicy == .accessory,"Closing both windows hides the Dock icon")
                             print("Native UI checks passed: status item, popover, settings, Dock visibility, close/reopen and minimized recovery")
                             self.model.client.stop();exit(0)
                         }
@@ -128,7 +156,7 @@ import Darwin
     func closePopover() {
         popover.close()
     }
-    @objc func wake() { model.refresh(includeStatistics:false);model.reminders.check(force:true);UpdateManager.shared.check(manual:false) }
+    @objc func wake() { model.refresh(includeStatistics:false);model.reminders.check(force:true);model.challenge.check(force:true);UpdateManager.shared.check(manual:false) }
     func showSettings() {
         closePopover()
         if settingsWindow == nil {
@@ -141,7 +169,7 @@ import Darwin
             w.contentMaxSize = NSSize(width:980,height:CGFloat.greatestFiniteMagnitude)
             w.collectionBehavior.insert(.fullScreenNone)
             w.titlebarAppearsTransparent = true;w.titlebarSeparatorStyle = .none
-            let hosting = NSHostingView(rootView:SettingsView(model:model))
+            let hosting = NSHostingView(rootView:SettingsView(model:model,openChallenge:{ [weak self] in self?.showChallenge() }))
             hosting.sizingOptions = []
             hosting.autoresizingMask = [.width,.height]
             w.contentView = hosting;w.center();settingsWindow=w
@@ -150,20 +178,49 @@ import Darwin
         if settingsWindow?.isMiniaturized == true { settingsWindow?.deminiaturize(nil) }
         NSApp.activate(ignoringOtherApps:true);settingsWindow?.makeKeyAndOrderFront(nil)
     }
+    func showChallenge() {
+        guard model.reminders.messagesEnabled, model.challenge.enabled else { return }
+        closePopover()
+        if challengeWindow == nil {
+            let w = NSWindow(contentRect:NSRect(origin:.zero,size:TiboChallengeView.size),
+                styleMask:[.titled,.closable,.miniaturizable,.resizable],backing:.buffered,defer:false)
+            w.title = "Codex Buddy";w.isReleasedWhenClosed = false;w.delegate = self
+            w.contentMinSize = TiboChallengeView.minimumSize
+            let hosting = NSHostingView(rootView:TiboChallengeView(manager:model.challenge))
+            hosting.sizingOptions = [];hosting.autoresizingMask = [.width,.height]
+            w.contentView = hosting;w.center();challengeWindow = w
+        }
+        NSApp.setActivationPolicy(.regular)
+        if challengeWindow?.isMiniaturized == true { challengeWindow?.deminiaturize(nil) }
+        model.challenge.setWindowVisible(true)
+        NSApp.activate(ignoringOtherApps:true);challengeWindow?.makeKeyAndOrderFront(nil)
+    }
     func windowWillClose(_ notification: Notification) {
-        guard let window = notification.object as? NSWindow, window === settingsWindow else { return }
-        NSApp.setActivationPolicy(.accessory)
+        guard let window = notification.object as? NSWindow else { return }
+        if window === challengeWindow { model.challenge.setWindowVisible(false) }
+        let otherOpen = [settingsWindow,challengeWindow].compactMap { $0 }.contains {
+            $0 !== window && ($0.isVisible || $0.isMiniaturized)
+        }
+        if !otherOpen { NSApp.setActivationPolicy(.accessory) }
+    }
+    func windowDidMiniaturize(_ notification: Notification) {
+        if let window = notification.object as? NSWindow, window === challengeWindow { model.challenge.setWindowVisible(false) }
+    }
+    func windowDidDeminiaturize(_ notification: Notification) {
+        if let window = notification.object as? NSWindow, window === challengeWindow { model.challenge.setWindowVisible(true) }
     }
     func windowWillUseStandardFrame(_ window:NSWindow,defaultFrame:NSRect) -> NSRect {
+        guard window === settingsWindow else { return defaultFrame }
         var frame = defaultFrame
         frame.size.width = SettingsView.width
         frame.origin.x = min(max(window.frame.minX,defaultFrame.minX),defaultFrame.maxX-frame.width)
         return frame
     }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if !popover.isShown { showSettings() };return true
+        if challengeWindow?.isVisible == true || challengeWindow?.isMiniaturized == true { showChallenge() }
+        else if !popover.isShown { showSettings() };return true
     }
-    func applicationWillTerminate(_ notification: Notification) { model.reminders.stop();model.client.stop() }
+    func applicationWillTerminate(_ notification: Notification) { model.reminders.stop();model.challenge.stop();model.client.stop() }
     func selfTest() {
         let now = Date(timeIntervalSince1970:1000)
         precondition(LimitWindow(usedPercent:32,windowDurationMins:300,resetsAt:15400).countdown(now:now) == "4h")

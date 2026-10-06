@@ -5,13 +5,14 @@ struct ResetCreditDetailsView: View {
     var body: some View {
         VStack(alignment:.leading,spacing:10) {
             HStack {
-                Text(model.resetDetailsOnlySoonest ? L("最近到期的重置", "Next reset expiry") : L("重置明细", "Reset details"))
-                    .font(.system(size:11,weight:.semibold)).foregroundStyle(.secondary)
+                Text(L("重置明细", "Reset details"))
+                    .font(.system(size:13,weight:.semibold))
                 Spacer()
+                if model.resetDetailsOnlySoonest { Text(L("未来 \(model.resetExpiryWindowDays) 天内到期", "Expiring within \(model.resetExpiryWindowDays) days")).font(.system(size:10)).foregroundStyle(.secondary) }
                 if model.resetCreditsRefreshing { ProgressView().controlSize(.mini) }
             }
             if let details = model.resetCreditDetails {
-                let groups = details.groups(now:model.now,onlySoonest:model.resetDetailsOnlySoonest)
+                let groups = model.resetDetailsOnlySoonest ? details.groupsExpiring(now:model.now,withinDays:model.resetExpiryWindowDays) : details.groups(now:model.now,onlySoonest:false)
                 ForEach(groups) { group in
                     HStack(alignment:.top,spacing:12) {
                         Text(L("\(group.count) 次", "\(group.count) \(group.count == 1 ? "reset" : "resets")"))
@@ -30,11 +31,11 @@ struct ResetCreditDetailsView: View {
                     }.font(.system(size:11))
                 }
                 if groups.isEmpty {
+                    let complete = details.credits.count == details.availableCount && details.credits.allSatisfy(\.expiryKnown)
                     Text(details.availableCount == 0 ? L("暂无可用重置", "No resets available")
-                        : model.resetDetailsOnlySoonest && !details.credits.isEmpty && details.credits.count == details.availableCount
-                            && details.credits.allSatisfy({ $0.expiresAt == nil && $0.expiryKnown })
-                        ? L("暂无即将到期的重置", "No expiring resets")
-                        : L("暂未提供到期明细", "Expiry details are unavailable"))
+                        : model.resetDetailsOnlySoonest && complete
+                        ? L("未来 \(model.resetExpiryWindowDays) 天内没有到期的重置", "No resets expire within \(model.resetExpiryWindowDays) days")
+                        : L("暂未提供完整到期明细", "Complete expiry details are unavailable"))
                         .font(.system(size:11)).foregroundStyle(.secondary)
                 }
                 if details.credits.count < details.availableCount {
@@ -48,8 +49,7 @@ struct ResetCreditDetailsView: View {
             if let message = model.resetCreditsError {
                 Text(message).font(.system(size:10)).foregroundStyle(.secondary)
             }
-        }.padding(12).frame(maxWidth:.infinity,alignment:.leading)
-            .background(Color.primary.opacity(0.035),in:RoundedRectangle(cornerRadius:12))
+        }.frame(maxWidth:.infinity,alignment:.leading)
     }
     private func expiryText(_ date:Date) -> String {
         let formatter = DateFormatter();formatter.locale = .autoupdatingCurrent;formatter.timeZone = .autoupdatingCurrent

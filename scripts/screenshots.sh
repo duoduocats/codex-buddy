@@ -20,3 +20,6 @@ codesign --force --sign - "$APP"
 "$APP/Contents/MacOS/Screenshots" --output "$OUT/themes.png" --themes --dark -AppleLanguages '(en)' -AppleLocale en_US
 "$APP/Contents/MacOS/Screenshots" --output "$OUT/settings-zh.png" --settings --dark -AppleLanguages '(zh-Hans)' -AppleLocale zh_CN
 "$APP/Contents/MacOS/Screenshots" --output "$OUT/settings-en.png" --settings -AppleLanguages '(en)' -AppleLocale en_US
+
+"$APP/Contents/MacOS/Screenshots" --output "$OUT/challenge-zh.png" --challenge -AppleLanguages '(zh-Hans)' -AppleLocale zh_CN
+"$APP/Contents/MacOS/Screenshots" --output "$OUT/challenge-en.png" --challenge --dark -AppleLanguages '(en)' -AppleLocale en_US

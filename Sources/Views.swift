@@ -4,6 +4,7 @@ import AppKit
 struct UsageView: View {
     @ObservedObject var model: AppModel
     var settings: () -> Void
+    var openChallenge: () -> Void = {}
     var sharePresentationChanged: (Bool) -> Void = { _ in }
     @ObservedObject var updates: UpdateManager = .shared
     @StateObject private var chartRange = UsageChartRange()
@@ -14,7 +15,8 @@ struct UsageView: View {
         return formatter.string(from:date)
     }
     var body: some View {
-        VStack(spacing:18) {
+        VStack(spacing:22) {
+            MessageCenterView(manager:model.reminders,now:model.now,openChallenge:openChallenge)
             HStack {
                 if model.entries.count > 1 {
                     Picker(L("顶栏显示", "Menu bar display"),selection:$model.selection) {
@@ -56,7 +58,6 @@ struct UsageView: View {
             if model.showResetDetails {
                 ResetCreditDetailsView(model:model)
             }
-            ResetAnnouncementCard(manager:model.reminders,now:model.now)
             if let error = model.error {
                 Text(error).font(.system(size:11)).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
                 if model.usage == nil {
@@ -69,14 +70,12 @@ struct UsageView: View {
                 }
             }
             if model.showDailyTokenUsage {
-                Divider()
                 DailyUsageChart(statistics:model.statistics,refreshing:model.statisticsRefreshing,now:model.now,days:$chartRange.days,allowsSharing:model.showUsageShareButton,sharePresentationChanged:sharePresentationChanged)
                 if let error = model.statisticsError {
                     Text(error).font(.system(size:11)).foregroundStyle(.secondary).frame(maxWidth:.infinity,alignment:.leading)
                 }
                 UsageStatisticsRow(statistics:model.statistics)
             }
-            Divider()
             HStack {
                 Button { model.refresh() } label: { Image(systemName:"arrow.clockwise") }
                     .disabled(model.refreshing || model.statisticsRefreshing).help(L("刷新额度和统计", "Refresh quota and statistics"))

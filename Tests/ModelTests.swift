@@ -49,6 +49,21 @@ final class ModelFixture: URLProtocol {
             precondition(model.now != .distantPast,"System time zone and regional changes must immediately refresh visible dates")
         }
         precondition(ModelFixture.quotaRequests == 0 && ModelFixture.statisticsRequests == 0,"Time-zone refresh must not query usage")
+        precondition(model.challenge.enabled,"Activity reception defaults on")
+        model.reminders.setActivityMessagesEnabled(false)
+        precondition(!model.challenge.enabled && model.reminders.acceptsResetMessages,"Activity opt out is independent of resets")
+        model.reminders.setActivityMessagesEnabled(true)
+        model.reminders.setResetMessagesEnabled(false)
+        precondition(model.challenge.enabled,"Disabling reset reminders keeps activity reception")
+        model.reminders.setMessagesEnabled(false)
+        precondition(!model.challenge.enabled,"The master still disables activity when reset reminders are off")
+        model.reminders.setMessagesEnabled(true)
+        precondition(model.challenge.enabled && !model.reminders.resetMessagesEnabled,"Master resumes saved category choices")
+        model.reminders.setResetMessagesEnabled(true)
+        precondition(model.resetExpiryWindowDays == 7,"New expiry windows default to seven days")
+        model.resetExpiryWindowDays = 14
+        precondition(AppModel(preferences:preferences,client:client).resetExpiryWindowDays == 14,"Expiry window choice persists")
+        model.resetExpiryWindowDays = 7
         precondition(model.showUsageShareButton,"Sharing must be visible by default")
         model.showUsageShareButton = false
         precondition(!AppModel(preferences:preferences,client:client).showUsageShareButton,"Sharing visibility must persist")
@@ -116,6 +131,8 @@ final class ModelFixture: URLProtocol {
         precondition(ModelFixture.resetRequests == 1,"Reopening must reuse recent reset detail data")
         model.resetDetailsOnlySoonest = false
         precondition(ModelFixture.resetRequests == 1,"Changing display range must not request more data")
+        model.resetExpiryWindowDays = 14
+        precondition(ModelFixture.resetRequests == 1,"Changing expiry days must not request more data")
         ModelFixture.resetStatus = 503
         model.refresh();await wait(model)
         precondition(model.resetCreditDetails?.credits.count == 1 && model.resetCreditsError != nil && model.error == nil,

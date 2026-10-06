@@ -8,7 +8,7 @@ private enum SettingsAnchor: String, CaseIterable, Identifiable {
         switch self {
         case .menuBar: return L("顶栏显示", "Menu bar")
         case .panel: return L("展开面板", "Panel")
-        case .messages: return L("消息与通知", "Messages & notifications")
+        case .messages: return L("系统提醒", "System alerts")
         case .general: return L("通用与更新", "General & updates")
         }
     }
@@ -27,6 +27,7 @@ struct SettingsView: View {
     static let height: CGFloat = 640
     static let minimumSize = NSSize(width:700,height:480)
     @ObservedObject var model: AppModel
+    var openChallenge: () -> Void = {}
     @Environment(\.colorScheme) private var colorScheme
     @StateObject var login = LoginModel()
     @ObservedObject var updates: UpdateManager = .shared
@@ -39,15 +40,16 @@ struct SettingsView: View {
             Divider()
             ScrollViewReader { proxy in
                 ScrollView {
-                    VStack(alignment:.leading,spacing:26) {
+                    VStack(alignment:.leading,spacing:32) {
                         Text(L("设置", "Settings"))
                             .font(.system(size:24,weight:.bold))
-                            .padding(.bottom,2)
+                            .padding(.bottom,4)
                         section(.menuBar) { menuBarSettings }
                         section(.panel) { panelSettings }
-                        section(.messages) { MessageReminderSettings(manager:model.reminders) }
+                        section(.messages) { SystemReminderSettings(manager:model.reminders) }
                         section(.general) { generalSettings }
-                    }.padding(28).frame(maxWidth:.infinity,alignment:.leading)
+                    }.frame(maxWidth:600,alignment:.leading).padding(.horizontal,28).padding(.vertical,24)
+                        .frame(maxWidth:.infinity,alignment:.leading)
                 }.background(Color(nsColor:.windowBackgroundColor).overlay(Color.primary.opacity(0.025)))
                     .onChange(of:scrollRequest) { _ in
                         withAnimation(.easeInOut(duration:0.22)) {
@@ -98,8 +100,8 @@ struct SettingsView: View {
     }
 
     private func section<Content:View>(_ anchor:SettingsAnchor,@ViewBuilder content:() -> Content) -> some View {
-        VStack(alignment:.leading,spacing:10) {
-            Text(anchor.title).font(.system(size:15,weight:.semibold))
+        VStack(alignment:.leading,spacing:16) {
+            Text(anchor.title).font(.system(size:16,weight:.bold))
                 .accessibilityAddTraits(.isHeader)
             content()
         }.id(anchor).frame(maxWidth:.infinity,alignment:.leading)
@@ -116,7 +118,7 @@ struct SettingsView: View {
                     accessibilityLabel:L("顶栏主题", "Theme"))
                     .frame(width:184,height:24)
             }.frame(minHeight:34)
-            Divider().padding(.vertical,6)
+            Spacer().frame(height:12)
             HStack(spacing:16) {
                 Text(L("显示内容", "Display"))
                 Spacer(minLength:12)
@@ -130,31 +132,41 @@ struct SettingsView: View {
     }
 
     private var panelSettings: some View {
-        SettingsGroup {
-            SettingsToggleRow(title:L("显示重置明细", "Show reset details"),
-                detail:L("查看可用重置的到期时间。", "See when your available resets expire."),
-                selection:$model.showResetDetails)
-            HStack(spacing:16) {
-                Text(L("明细范围", "Details"))
-                Spacer(minLength:12)
-                SettingsSegments(labels:[L("全部", "All"),L("最近到期", "Next expiry")],selection:Binding(
-                    get:{model.resetDetailsOnlySoonest ? 1 : 0},
-                    set:{model.resetDetailsOnlySoonest = $0 == 1}),
-                    accessibilityLabel:L("重置明细展示范围", "Reset detail range"))
-                    .frame(width:184,height:24)
-            }.padding(.leading,22).padding(.top,12).frame(minHeight:34)
-                .disabled(!model.showResetDetails)
-            Divider().padding(.vertical,14)
-            SettingsToggleRow(title:L("每日 Token 用量", "Daily token usage"),
-                detail:L("显示每日曲线和累计统计。", "Show the daily chart and usage statistics."),
-                selection:$model.showDailyTokenUsage)
-            Divider().padding(.vertical,10).padding(.leading,22)
-            SettingsToggleRow(title:L("显示分享按钮", "Show sharing button"),
-                detail:model.showDailyTokenUsage
-                    ? L("分享、保存或复制用量图片。", "Share, save, or copy your usage image.")
-                    : L("开启每日 Token 用量后可使用。", "Enable daily token usage to share images."),
-                selection:$model.showUsageShareButton)
-                .disabled(!model.showDailyTokenUsage).padding(.leading,22)
+        VStack(alignment:.leading,spacing:24) {
+            PanelMessageSettings(manager:model.reminders)
+            VStack(alignment:.leading,spacing:12) {
+                SettingsToggleRow(title:L("重置明细", "Reset details"),
+                    detail:L("查看可用重置的到期时间。", "See when your available resets expire."),
+                    selection:$model.showResetDetails)
+                HStack(spacing:16) {
+                    Text(L("显示范围", "Show")).font(.system(size:12,weight:.medium))
+                    Spacer(minLength:12)
+                    SettingsSegments(labels:[L("全部", "All"),L("最近到期", "Upcoming")],selection:Binding(
+                        get:{model.resetDetailsOnlySoonest ? 1 : 0},set:{model.resetDetailsOnlySoonest = $0 == 1}),
+                        accessibilityLabel:L("重置明细展示范围", "Reset detail range"))
+                        .frame(width:184,height:24)
+                }.padding(.leading,16).disabled(!model.showResetDetails)
+                if model.resetDetailsOnlySoonest {
+                    HStack(spacing:16) {
+                        Text(L("到期范围", "Expiry window")).font(.system(size:12,weight:.medium))
+                        Spacer(minLength:12)
+                        Picker(L("到期范围", "Expiry window"),selection:$model.resetExpiryWindowDays) {
+                            ForEach([1,3,7,14,30],id:\.self) { days in Text(L("未来 \(days) 天", "Next \(days) days")).tag(days) }
+                        }.labelsHidden().pickerStyle(.menu).frame(width:184,alignment:.trailing)
+                    }.padding(.leading,16).disabled(!model.showResetDetails)
+                }
+            }
+            VStack(alignment:.leading,spacing:12) {
+                SettingsToggleRow(title:L("每日 Token 用量", "Daily token usage"),
+                    detail:L("显示每日曲线和累计统计。", "Show the daily chart and usage statistics."),
+                    selection:$model.showDailyTokenUsage)
+                SettingsToggleRow(title:L("分享按钮", "Sharing button"),
+                    detail:model.showDailyTokenUsage
+                        ? L("分享、保存或复制用量图片。", "Share, save, or copy your usage image.")
+                        : L("开启每日 Token 用量后可使用。", "Enable daily token usage to share images."),
+                    selection:$model.showUsageShareButton,compact:true)
+                    .disabled(!model.showDailyTokenUsage).padding(.leading,16)
+            }
         }
     }
 
@@ -167,8 +179,8 @@ struct SettingsView: View {
                 Text(message).font(.system(size:11)).foregroundStyle(.secondary)
                     .fixedSize(horizontal:false,vertical:true).padding(.top,10)
             }
-            Divider().padding(.vertical,12)
-            SettingsUpdateSection(updates:updates)
+            SettingsUpdateSection(updates:updates).padding(.top,20)
+            TiboChallengeSettingsEntry(manager:model.challenge,now:model.now,open:openChallenge).padding(.top,20)
         }
     }
 
@@ -178,9 +190,7 @@ struct SettingsGroup<Content:View>: View {
     @ViewBuilder var content: Content
     var body: some View {
         VStack(alignment:.leading,spacing:0) { content }
-            .padding(16).frame(maxWidth:.infinity,alignment:.leading)
-            .background(Color(nsColor:.controlBackgroundColor),in:RoundedRectangle(cornerRadius:12))
-            .overlay(RoundedRectangle(cornerRadius:12).stroke(Color(nsColor:.separatorColor).opacity(0.4),lineWidth:0.5))
+            .padding(.vertical,6).frame(maxWidth:.infinity,alignment:.leading)
     }
 }
 
@@ -188,16 +198,19 @@ struct SettingsToggleRow: View {
     var title: String
     var detail: String
     var selection: Binding<Bool>
+    var compact = false
     var body: some View {
         HStack(spacing:20) {
             VStack(alignment:.leading,spacing:4) {
-                Text(title)
-                Text(detail).font(.system(size:11)).foregroundStyle(.secondary)
-                    .fixedSize(horizontal:false,vertical:true)
+                Text(title).font(.system(size:compact ? 12 : 13,weight:.medium))
+                if !compact {
+                    Text(detail).font(.system(size:11)).foregroundStyle(.secondary).lineSpacing(2)
+                        .fixedSize(horizontal:false,vertical:true)
+                }
             }.frame(maxWidth:.infinity,alignment:.leading)
-            Toggle(title,isOn:selection).labelsHidden().toggleStyle(.switch)
+            Toggle(title,isOn:selection).labelsHidden().toggleStyle(.switch).controlSize(compact ? .small : .regular)
                 .accessibilityHint(detail).help(detail)
-        }.frame(minHeight:42)
+        }.frame(minHeight:compact ? 30 : 44)
     }
 }
 

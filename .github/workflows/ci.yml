@@ -2,7 +2,9 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore: [announcements/messages.json, announcements/tibo-28.json]
   pull_request:
+    paths-ignore: [announcements/messages.json, announcements/tibo-28.json]
 permissions:
   contents: read
 concurrency:

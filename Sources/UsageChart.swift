@@ -26,6 +26,7 @@ struct DailyUsageChart: View {
     private var color: Color { scheme == .dark ? Color(red:0.64,green:0.54,blue:1) : .blue }
     private var points: [DailyTokenUsage] { statistics?.history(days:days,now:now) ?? [] }
     private var domain: ClosedRange<Date> {
+        if let first = points.first, let last = points.last { return first.date...last.date }
         var calendar = Calendar(identifier:.gregorian);calendar.timeZone = .autoupdatingCurrent
         let end = calendar.startOfDay(for:now)
         return calendar.date(byAdding:.day,value:1-days,to:end)!...end

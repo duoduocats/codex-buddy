@@ -80,6 +80,14 @@ struct ResetCreditDetails: Equatable {
         return onlySoonest ? Array(values.filter { $0.expiresAt != nil }.prefix(1)) : values
     }
 
+    func groupsExpiring(now:Date,withinDays:Int,calendar:Calendar = .autoupdatingCurrent) -> [ResetCreditGroup] {
+        guard (1...30).contains(withinDays), let end = calendar.date(byAdding:.day,value:withinDays,to:now) else { return [] }
+        return groups(now:now,onlySoonest:false).filter { group in
+            guard let expiry = group.expiresAt else { return false }
+            return expiry > now && expiry <= end
+        }
+    }
+
     static func decode(_ data:Data) throws -> Self {
         guard data.count <= 1_048_576,
               let root = try? JSONSerialization.jsonObject(with:data) as? [String:Any],

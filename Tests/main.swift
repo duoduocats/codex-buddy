@@ -134,3 +134,16 @@ for invalid in [#"{"available_count":-1,"credits":[]}"#,
     catch UsageFailure.malformed {}
 }
 print("Reset expiry tests passed: authoritative dates, spent/expired suppression, tied soonest dates, unknown vs no expiry, partial data and malformed rejection")
+
+var expiryCalendar = Calendar(identifier:.gregorian);expiryCalendar.timeZone = TimeZone(identifier:"America/Los_Angeles")!
+let expiryNow = ISO8601DateFormatter().date(from:"2026-10-31T17:00:00Z")!
+let expiryEnd = expiryCalendar.date(byAdding:.day,value:7,to:expiryNow)!
+let rangeFixture = ResetCreditDetails(availableCount:6,credits:[
+    .init(expiresAt:expiryNow),.init(expiresAt:expiryNow.addingTimeInterval(1)),
+    .init(expiresAt:expiryEnd),.init(expiresAt:expiryEnd.addingTimeInterval(1)),
+    .init(expiresAt:nil),.init(expiresAt:nil,expiryKnown:false)])
+precondition(rangeFixture.groupsExpiring(now:expiryNow,withinDays:7,calendar:expiryCalendar).map(\.expiresAt) == [expiryNow.addingTimeInterval(1),expiryEnd],
+             "Upcoming range includes its final calendar-day boundary and excludes expired, outside, unknown and non-expiring credits")
+precondition(expiryEnd.timeIntervalSince(expiryNow) == 7*86_400+3_600,"Expiry windows must follow the system calendar across DST")
+precondition(rangeFixture.groupsExpiring(now:expiryNow,withinDays:0).isEmpty)
+print("Upcoming expiry range passed: forward window, inclusive boundary, DST and no fabricated dates")

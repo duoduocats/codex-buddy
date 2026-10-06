@@ -18,7 +18,7 @@ swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 \
   "$ROOT/Sources/RefreshPolicy.swift" "$ROOT/Sources/Localization.swift" "$ROOT/Sources/Statistics.swift" "$ROOT/Sources/Usage.swift" "$ROOT/Tests/StatisticsTests.swift" -o "$TEST_BUILD/statistics-tests"
 "$TEST_BUILD/statistics-tests"
 swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 -framework AppKit -framework ServiceManagement -framework UserNotifications \
-  "$ROOT/Sources/RefreshPolicy.swift" "$ROOT/Sources/Localization.swift" "$ROOT/Sources/MenuBarTheme.swift" "$ROOT/Sources/Statistics.swift" "$ROOT/Sources/Usage.swift" "$ROOT/Sources/ResetAnnouncements.swift" "$ROOT/Sources/ResetReminders.swift" "$ROOT/Sources/Model.swift" "$ROOT/Tests/ModelTests.swift" -o "$TEST_BUILD/model-tests"
+  "$ROOT/Sources/RefreshPolicy.swift" "$ROOT/Sources/Localization.swift" "$ROOT/Sources/MenuBarTheme.swift" "$ROOT/Sources/Statistics.swift" "$ROOT/Sources/Usage.swift" "$ROOT/Sources/ResetAnnouncements.swift" "$ROOT/Sources/ResetReminders.swift" "$ROOT/Sources/TiboChallenge.swift" "$ROOT/Sources/Model.swift" "$ROOT/Tests/ModelTests.swift" -o "$TEST_BUILD/model-tests"
 "$TEST_BUILD/model-tests"
 swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 -framework AppKit -framework UserNotifications \
   "$ROOT/Sources/Localization.swift" "$ROOT/Sources/ResetAnnouncements.swift" "$ROOT/Sources/ResetReminders.swift" "$ROOT/Tests/ResetReminderTests.swift" -o "$TEST_BUILD/reset-tests"
@@ -40,3 +40,9 @@ swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 -O -target
   -framework AppKit -framework SwiftUI -framework Charts -framework ServiceManagement -framework UserNotifications \
   "${SHARE_SOURCES[@]}" "$ROOT/Tests/ShareTests.swift" -o "$TEST_BUILD/share-tests"
 "$TEST_BUILD/share-tests" "$ROOT/Resources/AppIcon.icns" "$ROOT/Resources/BuddyMark.png"
+
+swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 \
+  "$ROOT/Sources/Localization.swift" "$ROOT/Sources/ResetAnnouncements.swift" "$ROOT/Sources/TiboChallenge.swift" "$ROOT/Tests/ChallengeTests.swift" -o "$TEST_BUILD/challenge-tests"
+"$TEST_BUILD/challenge-tests"
+bash "$ROOT/scripts/validate-feeds.sh"
+python3 "$ROOT/scripts/test-feed-publisher.py"
