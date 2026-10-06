@@ -34,6 +34,9 @@ import ServiceManagement
     @Published var resetDetailsOnlySoonest: Bool {
         didSet { preferences.set(resetDetailsOnlySoonest,forKey:"resetDetailsOnlySoonest") }
     }
+    @Published var resetExpiryWindowDays: Int {
+        didSet { preferences.set(resetExpiryWindowDays,forKey:"resetExpiryWindowDays") }
+    }
     @Published var resetCreditDetails: ResetCreditDetails?
     @Published var resetCreditsRefreshing = false
     @Published var resetCreditsError: String?
@@ -43,8 +46,11 @@ import ServiceManagement
     @Published var statisticsRefreshing = false
     let client: UsageClient
     let reminders: ResetReminderManager
+    let challenge: TiboChallengeManager
     private let preferences: UserDefaults
     private var reminderSubscription: AnyCancellable?
+    private var challengeSubscription: AnyCancellable?
+    private var messageReceptionSubscription: AnyCancellable?
     private var environmentSubscriptions = Set<AnyCancellable>()
     private var timer: Timer?
     private var lastAttempt = Date.distantPast
@@ -62,18 +68,27 @@ import ServiceManagement
         self.preferences = preferences
         self.client = client ?? UsageClient()
         self.reminders = ResetReminderManager(preferences:preferences)
+        self.challenge = TiboChallengeManager(preferences:preferences,enabled:self.reminders.acceptsActivityMessages)
         self.menuBarTheme = (preferences.object(forKey:"menuBarTheme") as? String).flatMap(MenuBarTheme.init(rawValue:)) ?? .duoDuoCat
         self.menuShowsPercentage = preferences.bool(forKey:"menuShowsPercentage")
         self.showDailyTokenUsage = preferences.object(forKey:"showDailyTokenUsage") as? Bool ?? true
         self.showUsageShareButton = preferences.object(forKey:"showUsageShareButton") as? Bool ?? true
         self.showResetDetails = preferences.bool(forKey:"showResetDetails")
         self.resetDetailsOnlySoonest = preferences.bool(forKey:"resetDetailsOnlySoonest")
+        let savedExpiryDays = preferences.object(forKey:"resetExpiryWindowDays") as? Int ?? 7
+        self.resetExpiryWindowDays = [1,3,7,14,30].contains(savedExpiryDays) ? savedExpiryDays : 7
         reminderSubscription = reminders.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
+        challengeSubscription = challenge.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
+        messageReceptionSubscription = reminders.$messagesEnabled.combineLatest(reminders.$activityMessagesEnabled)
+            .sink { [weak self] messages, activities in self?.challenge.setEnabled(messages && activities) }
+        challenge.$document.sink { [weak self] document in
+            self?.reminders.setActivityMessages(document.activityMessages)
+        }.store(in:&environmentSubscriptions)
         for name in [Notification.Name.NSSystemTimeZoneDidChange, NSLocale.currentLocaleDidChangeNotification] {
             environmentNotifications.publisher(for:name).receive(on:DispatchQueue.main).sink { [weak self] _ in
                 // Refresh visible dates when macOS changes its time zone or regional format.
                 // This invalidates the panel without making another network request.
-                self?.now = Date()
+                self?.now = Date();self?.challenge.refreshClock()
             }.store(in:&environmentSubscriptions)
         }
     }
@@ -87,12 +102,12 @@ import ServiceManagement
     var stale: Bool { error != nil || updated.map { now.timeIntervalSince($0) > 150 } == true }
     func start(demo: Bool = false) {
         guard timer == nil else { return }
-        if demo { useDemo() } else { refresh(includeStatistics:false);reminders.start() }
+        if demo { useDemo() } else { refresh(includeStatistics:false);reminders.start();challenge.start() }
         timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
                 self.now = Date()
-                if !demo { self.reminders.tick(now:self.now) }
+                if !demo { self.reminders.tick(now:self.now);self.challenge.tick() }
                 if !demo, self.now.timeIntervalSince(self.lastAttempt) >= RefreshPolicy.interval(failures:self.failures) { self.refresh(includeStatistics:false) }
                 if !demo, self.panelVisible { self.refreshStatistics();self.refreshResetCredits() }
             }
@@ -126,7 +141,7 @@ import ServiceManagement
         cancelResetCreditRequest()
         now = Date();usage = .demo;statistics = .demo(now:now);updated = now;statisticsUpdated = now
         resetCreditDetails = .demo(now:now,count:credits ?? 2);resetCreditsError = nil
-        reminders.useDemo(now:now)
+        reminders.useDemo(now:now);challenge.useDemo()
     }
     func setPanelVisible(_ visible: Bool) {
         panelVisible = visible

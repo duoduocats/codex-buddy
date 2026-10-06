@@ -30,12 +30,22 @@ import Foundation
         let month = old.history(days:30,now:now)
         precondition(month.count == 30 && month.first?.day == "2026-09-01" && month.last?.day == "2026-09-30")
         let noToday = UsageStatistics(lifetimeTokens:nil,peakDailyTokens:nil,longestRunningTurnSec:nil,longestStreakDays:nil,currentStreakDays:nil,daily:[DailyTokenUsage(day:"2026-09-28",tokens:3)])
-        precondition(noToday.history(days:30,now:now).last?.tokens == 0,"Absent current day must still complete the curve")
+        precondition(noToday.history(days:30,now:now).last?.day == "2026-09-29" && noToday.history(days:30,now:now).count == 30,
+                     "Absent current day must be omitted; retain a full range ending yesterday")
+        let todayZero = UsageStatistics(lifetimeTokens:nil,peakDailyTokens:nil,longestRunningTurnSec:nil,longestStreakDays:nil,currentStreakDays:nil,
+            daily:[DailyTokenUsage(day:"2026-09-30",tokens:0)])
+        precondition(todayZero.history(days:7,now:now).last?.day == "2026-09-30" && todayZero.history(days:7,now:now).last?.tokens == 0,
+                     "An explicitly returned zero for today remains real data")
+        precondition(duplicates.history(days:7,now:now).last?.day == "2026-09-29","An ambiguous current-day bucket must not be fabricated")
+        for days in [7,14,30] {
+            let history = noToday.history(days:days,now:now)
+            precondition(history.count == days && history.last?.day == "2026-09-29")
+        }
         precondition(empty.history(days:30,now:now).count == 30 && empty.history(days:30,now:now).allSatisfy { $0.tokens == 0 })
         precondition(absent.history(days:30,now:now).isEmpty && invalid.history(days:30,now:now).isEmpty,"Unavailable or malformed history must stay unavailable")
         let newYear = calendar.date(from:DateComponents(year:2027,month:1,day:2,hour:12))!
         let boundary = empty.history(days:7,now:newYear)
-        precondition(boundary.first?.day == "2026-12-27" && boundary.last?.day == "2027-01-02")
+        precondition(boundary.first?.day == "2026-12-26" && boundary.last?.day == "2027-01-01")
         let time = Date(timeIntervalSince1970:1000)
         precondition(!UsageStatistics.shouldRefresh(now:time,lastAttempt:time.addingTimeInterval(-299),failures:0))
         precondition(UsageStatistics.shouldRefresh(now:time,lastAttempt:time.addingTimeInterval(-300),failures:0))

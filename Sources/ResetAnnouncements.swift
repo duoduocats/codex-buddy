@@ -5,6 +5,7 @@ struct ResetLocalizedText: Codable, Equatable {
     let en: String
     var localized: String { L(zh,en) }
 }
+enum ResetTimestampBasis: String, Codable { case source, collected }
 enum ResetAnnouncementStatus: String, Codable { case scheduled, completed, cancelled }
 struct ResetAnnouncement: Codable, Equatable, Identifiable {
     let id: String
@@ -14,6 +15,7 @@ struct ResetAnnouncement: Codable, Equatable, Identifiable {
     let scheduledAt: Date?
     let publishedAt: Date
     let expiresAt: Date
+    let timestampBasis: ResetTimestampBasis
     let titleText: ResetLocalizedText
     let bodyText: ResetLocalizedText
     let appliesToText: ResetLocalizedText?
@@ -47,7 +49,9 @@ struct ResetAnnouncement: Codable, Equatable, Identifiable {
             return L("预计时间：\(scheduled)", "Expected time: \(scheduled)")
         }
         let published = publishedDateText(locale:locale,timeZone:timeZone)
-        return L("发布时间：\(published)", "Published: \(published)")
+        return timestampBasis == .collected
+            ? L("收录时间：\(published)", "Collected: \(published)")
+            : L("发布时间：\(published)", "Published: \(published)")
     }
     private static func localDateText(for date: Date, locale: Locale, timeZone: TimeZone) -> String {
         // Create a formatter per presentation so locale, hour cycle and time zone
@@ -57,15 +61,15 @@ struct ResetAnnouncement: Codable, Equatable, Identifiable {
         return formatter.string(from:date)
     }
     enum CodingKeys: String, CodingKey {
-        case id, revision, type, status, scheduledAt, publishedAt, expiresAt, sourceURL
+        case id, revision, type, status, scheduledAt, publishedAt, expiresAt, sourceURL, timestampBasis
         case titleText = "title", bodyText = "body", appliesToText = "appliesTo"
     }
     init(id: String, revision: Int, type: String, status: ResetAnnouncementStatus = .scheduled,
          scheduledAt: Date? = nil, publishedAt: Date, expiresAt: Date,
          titleText: ResetLocalizedText, bodyText: ResetLocalizedText,
-         appliesToText: ResetLocalizedText? = nil, sourceURL: URL? = nil) {
+         appliesToText: ResetLocalizedText? = nil, sourceURL: URL? = nil, timestampBasis: ResetTimestampBasis = .source) {
         self.id = id;self.revision = revision;self.type = type;self.status = status
-        self.scheduledAt = scheduledAt;self.publishedAt = publishedAt;self.expiresAt = expiresAt
+        self.scheduledAt = scheduledAt;self.publishedAt = publishedAt;self.expiresAt = expiresAt;self.timestampBasis = timestampBasis
         self.titleText = titleText;self.bodyText = bodyText;self.appliesToText = appliesToText;self.sourceURL = sourceURL
     }
     init(from decoder: Decoder) throws {
@@ -77,6 +81,7 @@ struct ResetAnnouncement: Codable, Equatable, Identifiable {
         scheduledAt = try values.decodeIfPresent(Date.self,forKey:.scheduledAt)
         publishedAt = try values.decode(Date.self,forKey:.publishedAt)
         expiresAt = try values.decode(Date.self,forKey:.expiresAt)
+        timestampBasis = try values.decodeIfPresent(ResetTimestampBasis.self,forKey:.timestampBasis) ?? .source
         titleText = try values.decode(ResetLocalizedText.self,forKey:.titleText)
         bodyText = try values.decode(ResetLocalizedText.self,forKey:.bodyText)
         appliesToText = try values.decodeIfPresent(ResetLocalizedText.self,forKey:.appliesToText)
@@ -152,14 +157,14 @@ struct ResetAnnouncementDocument: Codable {
             (48...57).contains($0.value) || (65...90).contains($0.value) || (97...122).contains($0.value) || "-_.".unicodeScalars.contains($0)
         }
     }
-    private static func validText(_ text: ResetLocalizedText, maximum: Int) -> Bool {
+    static func validText(_ text: ResetLocalizedText, maximum: Int) -> Bool {
         [text.zh,text.en].allSatisfy {
             !$0.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty && $0.count <= maximum &&
             !$0.unicodeScalars.contains { CharacterSet.controlCharacters.contains($0) && $0 != "\n" }
         }
     }
 }
-enum ResetAnnouncementFailure: Error { case invalid, network }
+enum ResetAnnouncementFailure: Error { case invalid, network, notPublished }
 enum ResetFetchResult {
     case notModified
     case document(Data, etag: String?)
@@ -168,20 +173,28 @@ protocol ResetAnnouncementFetching {
     func fetch(etag: String?) async throws -> ResetFetchResult
 }
 private final class ResetFeedRedirectDelegate: NSObject, URLSessionTaskDelegate {
+    let endpoint: URL
+    init(endpoint: URL) { self.endpoint = endpoint }
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
                     newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
-        completionHandler(request.url == ResetAnnouncementClient.feedURL ? request : nil)
+        completionHandler(request.url == endpoint ? request : nil)
     }
 }
 final class ResetAnnouncementClient: ResetAnnouncementFetching {
     static let feedURL = URL(string:"https://raw.githubusercontent.com/duoduocats/codex-buddy/main/announcements/messages.json")!
     private let session: URLSession
-    init(configuration: URLSessionConfiguration = .ephemeral) {
+    private let endpoint: URL
+    private let maximumBytes: Int
+    init(configuration: URLSessionConfiguration = .ephemeral, feedURL: URL = ResetAnnouncementClient.feedURL,
+         maximumBytes: Int = ResetAnnouncementDocument.maximumBytes) {
+        precondition([Self.feedURL,URL(string:"https://raw.githubusercontent.com/duoduocats/codex-buddy/main/announcements/tibo-28.json")!].contains(feedURL))
+        precondition((1...131_072).contains(maximumBytes))
+        self.endpoint = feedURL;self.maximumBytes = maximumBytes
         configuration.timeoutIntervalForRequest = 10;configuration.timeoutIntervalForResource = 15
         configuration.urlCache = nil;configuration.httpCookieStorage = nil;configuration.urlCredentialStorage = nil
         configuration.httpShouldSetCookies = false;configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
         configuration.httpAdditionalHeaders = [:]
-        session = URLSession(configuration:configuration,delegate:ResetFeedRedirectDelegate(),delegateQueue:nil)
+        session = URLSession(configuration:configuration,delegate:ResetFeedRedirectDelegate(endpoint:feedURL),delegateQueue:nil)
     }
     deinit { session.invalidateAndCancel() }
     static func validETag(_ value: String?) -> String? {
@@ -190,19 +203,20 @@ final class ResetAnnouncementClient: ResetAnnouncementFetching {
         return value
     }
     func fetch(etag: String?) async throws -> ResetFetchResult {
-        var request = URLRequest(url:Self.feedURL)
+        var request = URLRequest(url:endpoint)
         request.setValue("application/json",forHTTPHeaderField:"Accept")
         // A fixed identifier contains no installed version or machine/account information.
         request.setValue("Codex-Buddy-Announcements",forHTTPHeaderField:"User-Agent")
         if let tag = Self.validETag(etag) { request.setValue(tag,forHTTPHeaderField:"If-None-Match") }
         let (bytes,response) = try await session.bytes(for:request)
-        guard let response = response as? HTTPURLResponse, response.url == Self.feedURL else { throw ResetAnnouncementFailure.invalid }
+        guard let response = response as? HTTPURLResponse, response.url == endpoint else { throw ResetAnnouncementFailure.invalid }
         if response.statusCode == 304 { return .notModified }
+        if response.statusCode == 404, endpoint.lastPathComponent == "tibo-28.json" { throw ResetAnnouncementFailure.notPublished }
         guard response.statusCode == 200,
-              response.expectedContentLength <= Int64(ResetAnnouncementDocument.maximumBytes) else { throw ResetAnnouncementFailure.network }
+              response.expectedContentLength <= Int64(maximumBytes) else { throw ResetAnnouncementFailure.network }
         var data = Data();data.reserveCapacity(4_096)
         for try await byte in bytes {
-            guard data.count < ResetAnnouncementDocument.maximumBytes else { throw ResetAnnouncementFailure.invalid }
+            guard data.count < maximumBytes else { throw ResetAnnouncementFailure.invalid }
             data.append(byte)
         }
         guard !data.isEmpty else { throw ResetAnnouncementFailure.invalid }

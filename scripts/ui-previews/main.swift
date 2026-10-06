@@ -21,7 +21,7 @@ struct Overview: View {
                 Spacer()
                 Image(systemName:"wifi").font(.system(size:14,weight:.medium))
                 Image(systemName:"battery.100").font(.system(size:19))
-                Text("9:41").font(.system(size:12,weight:.medium)).monospacedDigit()
+                Text("12:00").font(.system(size:12,weight:.medium)).monospacedDigit()
             }.padding(.horizontal,30).frame(height:34)
                 .background(Color(nsColor:.windowBackgroundColor).opacity(dark ? 0.9 : 0.8))
             UsageView(model:model,settings:{})
@@ -63,13 +63,28 @@ struct Themes:View {
         let model=AppModel(preferences:PreviewPreferences(),client:UsageClient(credentialProvider:{fatalError("Screenshots cannot access credentials")}))
         model.useDemo()
         var calendar=Calendar(identifier:.gregorian);calendar.timeZone = .autoupdatingCurrent
-        let now=calendar.date(from:DateComponents(year:2026,month:10,day:1,hour:9,minute:41))!
+        let now=calendar.date(from:DateComponents(year:2026,month:10,day:6,hour:12,minute:0))!
         model.now=now;model.updated=now;model.statisticsUpdated=now
         model.usage=UsageResponse(rateLimits:LimitBucket(limitId:"codex",limitName:nil,primary:LimitWindow(usedPercent:32,windowDurationMins:10080,resetsAt:now.addingTimeInterval(396000).timeIntervalSince1970),secondary:nil,planType:"test"),rateLimitsByLimitId:nil,rateLimitResetCredits:ResetCredits(availableCount:3))
         model.statistics = .demo(now:now);model.menuBarTheme = .duoDuoCat
+        model.challenge.useDemo(now:now)
+        model.showResetDetails = true;model.resetDetailsOnlySoonest = true;model.resetExpiryWindowDays = 7
+        model.resetCreditDetails = .init(availableCount:3,credits:[
+            .init(expiresAt:now.addingTimeInterval(2*86_400)),
+            .init(expiresAt:now.addingTimeInterval(5*86_400)),
+            .init(expiresAt:now.addingTimeInterval(14*86_400))])
+        if args.contains("--without-today"), let statistics = model.statistics {
+            let formatter = DateFormatter();formatter.calendar = calendar;formatter.locale = Locale(identifier:"en_US_POSIX")
+            formatter.timeZone = calendar.timeZone;formatter.dateFormat = "yyyy-MM-dd"
+            let today = formatter.string(from:now)
+            model.statistics = UsageStatistics(lifetimeTokens:statistics.lifetimeTokens,peakDailyTokens:statistics.peakDailyTokens,
+                longestRunningTurnSec:statistics.longestRunningTurnSec,longestStreakDays:statistics.longestStreakDays,
+                currentStreakDays:statistics.currentStreakDays,daily:statistics.daily?.filter { $0.day != today })
+        }
         self.model=model
         let root:AnyView
-        if args.contains("--settings") { root=AnyView(SettingsView(model:model).environment(\.colorScheme,dark ? .dark : .light)) }
+        if args.contains("--challenge") { root=AnyView(TiboChallengeView(manager:model.challenge).environment(\.colorScheme,dark ? .dark : .light).frame(width:args.contains("--minimum") ? 780 : 960,height:args.contains("--minimum") ? 600 : 760)) }
+        else if args.contains("--settings") { root=AnyView(SettingsView(model:model).environment(\.colorScheme,dark ? .dark : .light)) }
         else if args.contains("--themes") { root=AnyView(Themes(model:model)) }
         else { root=AnyView(Overview(model:model,dark:dark)) }
         let hosting=NSHostingView(rootView:root)

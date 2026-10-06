@@ -147,6 +147,8 @@ final class ResetFetchFixture: ResetAnnouncementFetching {
         try await panelDismissalTests()
         try await independentMessageSettingsTests()
         try await receivingCancellationTests()
+        try await categorySettingsTests()
+        try await activitySystemReminderTests()
     }
     static func decodeTests() throws {
         let decoded = try ResetAnnouncementDocument.decode(try document([event()]),now:origin)
@@ -582,6 +584,91 @@ final class ResetFetchFixture: ResetAnnouncementFetching {
                 NSDictionary(dictionary:beforeDemo).isEqual(NSDictionary(dictionary:preferences.persistentDomain(forName:suite) ?? [:])),
                 "Synthetic preview choices must not change real preferences")
         print("Message receiving tests passed: master opt out, separate push consent, saved choices, restart, no replay and preview migration")
+    }
+    @MainActor static func activitySystemReminderTests() async throws {
+        let suite = "buddy-activity-system-alerts-\(UUID().uuidString)"
+        let preferences = UserDefaults(suiteName:suite)!
+        defer { preferences.removePersistentDomain(forName:suite) }
+        let client = ResetFetchFixture(try document([])), center = ResetCenterFixture()
+        let manager = ResetReminderManager(preferences:preferences,client:client,notifications:center,now:{origin})
+        defer { manager.stop() }
+        let activity = ResetAnnouncement(id:"activity-synthetic",revision:1,type:"activity",status:.completed,
+            publishedAt:origin,expiresAt:origin.addingTimeInterval(86_400),
+            titleText:.init(zh:"合成活动",en:"Synthetic activity"),bodyText:.init(zh:"合成改进",en:"Synthetic improvement"),
+            sourceURL:URL(string:"https://x.com/thsottiaux/status/123456")!,timestampBasis:.collected)
+        manager.setResetMessagesEnabled(false);manager.setActivityMessages([activity]);manager.start();try await settle(manager)
+        require(manager.panelAnnouncements(at:origin) == [activity] && client.requests.isEmpty && center.schedules.isEmpty,
+                "Activity-only receipt displays content without reset fetches or push consent")
+        manager.setEnabled(true);try await settle(manager)
+        require(manager.enabled && center.permissionRequests == 1 && center.schedules.count == 1 && center.schedules[0].eventID == activity.id,
+                "System alerts must support the selected activity type")
+        manager.setActivityMessages([activity]);manager.tick(now:origin);try await settle(manager)
+        require(center.schedules.count == 1,"Unchanged activity must not repeat its system alert")
+        manager.setEnabled(false);try await settle(manager)
+        require(manager.panelAnnouncements(at:origin) == [activity] && center.pending.isEmpty,
+                "Disabling push keeps message receipt and display")
+        manager.setEnabled(true);try await settle(manager)
+        require(center.permissionRequests == 1 && center.schedules.count == 1,"Restore push without a new permission request or duplicate")
+        let changed = ResetAnnouncement(id:activity.id,revision:2,type:"activity",status:.completed,
+            publishedAt:origin,expiresAt:activity.expiresAt,titleText:activity.titleText,bodyText:.init(zh:"合成更正",en:"Synthetic correction"),
+            sourceURL:activity.sourceURL,timestampBasis:.collected)
+        manager.setActivityMessages([changed]);try await settle(manager)
+        require(center.schedules.count == 2 && center.pending.count == 1,"A changed activity revision delivers once")
+        manager.setResetMessagesEnabled(true);try await settle(manager)
+        manager.setResetMessagesEnabled(false);try await settle(manager)
+        require(manager.acceptsActivityMessages && center.pending.count == 1,"Turning reset reception off must retain selected activity alerts")
+        manager.dismissPanelMessage(changed.id)
+        require(manager.panelAnnouncements(at:origin).isEmpty,"Dismissal hides the message for this run")
+        manager.setMessagesEnabled(false);try await settle(manager)
+        require(manager.panelAnnouncements(at:origin).isEmpty && center.pending.isEmpty,"Message master stops both types and their push")
+        manager.setMessagesEnabled(true);try await settle(manager)
+        require(center.schedules.count == 2,"Restoring receipt does not replay an already delivered revision")
+        print("Activity system alerts passed: shared content selection, independent push, revision dedupe and category cleanup")
+    }
+    @MainActor static func categorySettingsTests() async throws {
+        let suite = "buddy-message-category-tests-\(UUID().uuidString)"
+        let preferences = UserDefaults(suiteName:suite)!
+        defer { preferences.removePersistentDomain(forName:suite) }
+        let client = ResetFetchFixture(try document([event()])), center = ResetCenterFixture()
+        let manager = ResetReminderManager(preferences:preferences,client:client,notifications:center,now:{origin})
+        defer { manager.stop() }
+        manager.start();try await settle(manager)
+        require(manager.resetMessagesEnabled && manager.activityMessagesEnabled,"Both categories default on for existing users")
+        manager.setActivityMessagesEnabled(false)
+        require(manager.panelAnnouncement(at:origin) != nil && manager.acceptsResetMessages && !manager.acceptsActivityMessages,
+                "Disabling activity must not hide reset messages")
+        manager.setResetMessagesEnabled(false);manager.check(force:true);try await settle(manager)
+        require(manager.messagesEnabled && manager.upcoming == nil && client.requests.count == 1,
+                "Reset opt out stops fetching without disabling the master")
+        manager.setEnabled(true);try await settle(manager)
+        require(center.permissionRequests == 0,"Reset opt out must not request push permission")
+        manager.setActivityMessagesEnabled(true)
+        require(manager.acceptsActivityMessages && !manager.acceptsResetMessages,"Activity works independently of reset reminders")
+        manager.setMessagesEnabled(false)
+        require(!manager.messagesEnabled && manager.activityMessagesEnabled && !manager.resetMessagesEnabled,
+                "The master must still turn off while reset reminders are off and retain child choices")
+        let restored = ResetReminderManager(preferences:preferences,client:client,notifications:center,now:{origin})
+        defer { restored.stop() }
+        restored.start();try await settle(restored)
+        require(!restored.messagesEnabled && !restored.resetMessagesEnabled && restored.activityMessagesEnabled && client.requests.count == 1,
+                "Restart preserves all three choices without fetching")
+        restored.setMessagesEnabled(true);try await settle(restored)
+        require(restored.acceptsActivityMessages && !restored.acceptsResetMessages && client.requests.count == 1,
+                "Restoring master does not override disabled reset category")
+        restored.setResetMessagesEnabled(true);try await settle(restored)
+        require(restored.panelAnnouncement(at:origin) != nil && client.requests.count == 2 && center.permissionRequests == 0,
+                "Reset reception resumes independently without push consent")
+        preferences.removeObject(forKey:ResetReminderManager.preferencePrefix+"lastAttempt")
+        let suspended = SuspendedResetFetchFixture()
+        let cancellation = ResetReminderManager(preferences:preferences,client:suspended,notifications:center,now:{origin})
+        defer { cancellation.stop() }
+        cancellation.start();cancellation.check(force:true)
+        for _ in 0..<200 where suspended.pending == nil { try await Task.sleep(nanoseconds:1_000_000) }
+        require(suspended.pending != nil,"Category cancellation fixture must suspend a request")
+        cancellation.setResetMessagesEnabled(false);suspended.complete(try document([event(id:"new-synthetic")]))
+        try await settle(cancellation)
+        require(cancellation.upcoming == nil,"Reset category opt out rejects in-flight delivery")
+        print("Message categories passed: independent reception, saved choices, master gating, permission and cancellation")
     }
     @MainActor static func receivingCancellationTests() async throws {
         let suite = "buddy-message-cancel-receiving-\(UUID().uuidString)"
