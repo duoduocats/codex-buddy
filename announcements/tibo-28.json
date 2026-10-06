@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "tibo-28-2026-10-05",
-  "revision": 5,
+  "revision": 6,
   "startDate": "2026-10-05",
   "days": 28,
   "timeZone": "America/Los_Angeles",
@@ -65,6 +65,40 @@
       },
       "sourceURL": "https://x.com/thsottiaux/status/2107548725359104441",
       "collectedAt": "2026-10-06T19:33:28.760Z"
+    },
+    {
+      "id": "tibo-day-2-meetings",
+      "revision": 1,
+      "day": 2,
+      "kind": "improvement",
+      "status": "completed",
+      "title": {
+        "zh": "Meetings 自动整理会议笔记",
+        "en": "Meetings takes notes and prepares follow-ups"
+      },
+      "body": {
+        "zh": "Meetings 插件可记录会议，并在 ChatGPT Space 保存个性化摘要和后续步骤，支持私下保留或与团队分享。现向 macOS 版 ChatGPT 的 Pro 和 Business 用户开放测试，Enterprise 支持尚未推出。",
+        "en": "The Meetings plugin takes notes and saves personalized summaries and next steps in ChatGPT Space. Notes can stay private or be shared with your team. It is available in beta for Pro and Business users in the ChatGPT macOS app; Enterprise support is coming later."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2107573405553938664",
+      "collectedAt": "2026-10-06T21:03:43.791Z"
+    },
+    {
+      "id": "tibo-day-2-decisions-api",
+      "revision": 1,
+      "day": 2,
+      "kind": "improvement",
+      "status": "completed",
+      "title": {
+        "zh": "Decisions API 开放公测",
+        "en": "Decisions API enters public beta"
+      },
+      "body": {
+        "zh": "Decisions API 现向所有开发者开放公测，可帮助应用近乎实时选择模型、工具或操作。官方称，其决策速度最高可达通过 Responses API 使用 GPT-6 Luna 的 10 倍。Tibo 计划将其用于改善应用体验。",
+        "en": "Decisions API is available to all developers in public beta for choosing models, tools, or actions in near real-time. OpenAI says it makes decisions up to 10 times faster than GPT-6 Luna through the Responses API. Tibo plans to use it to improve the app experience."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2107574912349303197",
+      "collectedAt": "2026-10-06T21:04:00.287Z"
     }
   ]
 }
