@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "tibo-28-2026-10-05",
-  "revision": 7,
+  "revision": 8,
   "startDate": "2026-10-05",
   "days": 28,
   "timeZone": "America/Los_Angeles",
@@ -104,6 +104,24 @@
       "sourceURL": "https://x.com/thsottiaux/status/2107574912349303197",
       "collectedAt": "2026-10-06T21:04:00.287Z",
       "sourcePublishedAt": "2026-10-06T20:53:00Z"
+    },
+    {
+      "id": "tibo-day-2-reset",
+      "revision": 1,
+      "day": 2,
+      "kind": "reset",
+      "status": "completed",
+      "title": {
+        "zh": "第 2 天额度重置已完成",
+        "en": "Day 2 quota reset complete"
+      },
+      "body": {
+        "zh": "Tibo 宣布本次额度重置已处理完成，并确认此前发布的改进会保留。可刷新查看当前账号额度。",
+        "en": "Tibo has confirmed that the reset has been processed and that the earlier improvements will remain available. Refresh to check your account’s current quota."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2107676072871600470",
+      "collectedAt": "2026-10-07T04:03:42.394Z",
+      "sourcePublishedAt": "2026-10-07T03:35:00Z"
     }
   ]
 }
