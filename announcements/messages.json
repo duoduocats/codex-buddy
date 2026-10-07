@@ -39,6 +39,28 @@
       },
       "sourceURL": "https://x.com/thsottiaux/status/2107676072871600470",
       "timestampBasis": "source"
+    },
+    {
+      "id": "tibo-day-3-bank-reset",
+      "revision": 1,
+      "type": "message",
+      "status": "scheduled",
+      "publishedAt": "2026-10-07T19:19:00Z",
+      "expiresAt": "2026-10-08T19:19:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "将赠送一次可留存重置",
+        "en": "One banked reset to be added"
+      },
+      "body": {
+        "zh": "Tibo 宣布向所有付费账户补入一次可留存的重置次数，并在回复中称会在“EOD PST”前到账。尚未确认全部发放完成；可查看当前账号的可用重置次数。",
+        "en": "Tibo announced one banked reset for all paid accounts, with a reply saying it will be there by “EOD PST”. Full delivery has not been confirmed; check your account’s available resets."
+      },
+      "appliesTo": {
+        "zh": "所有付费账户",
+        "en": "All paid accounts"
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2107913674593644711"
     }
   ]
 }

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "tibo-28-2026-10-05",
-  "revision": 8,
+  "revision": 9,
   "startDate": "2026-10-05",
   "days": 28,
   "timeZone": "America/Los_Angeles",
@@ -122,6 +122,42 @@
       "sourceURL": "https://x.com/thsottiaux/status/2107676072871600470",
       "collectedAt": "2026-10-07T04:03:42.394Z",
       "sourcePublishedAt": "2026-10-07T03:35:00Z"
+    },
+    {
+      "id": "tibo-day-3-gpt-6-chat",
+      "revision": 1,
+      "day": 3,
+      "kind": "improvement",
+      "status": "completed",
+      "title": {
+        "zh": "ChatGPT 推出新版 GPT-6",
+        "en": "New GPT-6 rolling out in ChatGPT"
+      },
+      "body": {
+        "zh": "Tibo 宣布向所有 ChatGPT 用户推出新版 GPT-6，包含模型和基础设施改进；第 3 天总结明确将 GPT-6 in Chat 列为当天主要改进。新版正在推出，不代表所有账户已同时收到。",
+        "en": "Tibo announced a new version of GPT-6 for all ChatGPT users, with model and infrastructure improvements. His Day 3 roundup identifies GPT-6 in Chat as the day’s main improvement. Rollout is underway; this does not mean every account has received it simultaneously."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2107912709715132482",
+      "collectedAt": "2026-10-07T19:34:47.866Z",
+      "sourcePublishedAt": "2026-10-07T19:15:00Z"
+    },
+    {
+      "id": "tibo-day-3-bank-reset",
+      "revision": 1,
+      "day": 3,
+      "kind": "reset",
+      "status": "scheduled",
+      "title": {
+        "zh": "第 3 天将赠送一次重置",
+        "en": "Day 3: one banked reset to be added"
+      },
+      "body": {
+        "zh": "Tibo 宣布向所有付费账户补入一次可留存的重置次数，并在回复中称会在“EOD PST”前到账。尚未确认全部发放完成；可查看当前账号的可用重置次数。",
+        "en": "Tibo announced one banked reset for all paid accounts, with a reply saying it will be there by “EOD PST”. Full delivery has not been confirmed; check your account’s available resets."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2107913674593644711",
+      "collectedAt": "2026-10-07T19:34:47.866Z",
+      "sourcePublishedAt": "2026-10-07T19:19:00Z"
     }
   ]
 }
