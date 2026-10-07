@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "tibo-28-2026-10-05",
-  "revision": 6,
+  "revision": 7,
   "startDate": "2026-10-05",
   "days": 28,
   "timeZone": "America/Los_Angeles",
@@ -17,7 +17,7 @@
   "records": [
     {
       "id": "tibo-day-1-speed",
-      "revision": 1,
+      "revision": 2,
       "day": 1,
       "kind": "improvement",
       "status": "completed",
@@ -30,11 +30,12 @@
         "en": "Tibo announced faster defaults for GPT-6 Astra and GPT-6.1 Sol across subscription products and partners using Sign in With ChatGPT. No user action is needed; the post expected rollout over the following two hours."
       },
       "sourceURL": "https://x.com/thsottiaux/status/2107158998495748264",
-      "collectedAt": "2026-10-06T02:09:40Z"
+      "collectedAt": "2026-10-06T02:09:40Z",
+      "sourcePublishedAt": "2026-10-05T17:20:00Z"
     },
     {
       "id": "tibo-day-2-auto-review-free",
-      "revision": 3,
+      "revision": 4,
       "day": 2,
       "kind": "improvement",
       "status": "completed",
@@ -47,11 +48,12 @@
         "en": "Users who sign in with a ChatGPT account can use Auto-review without a charge against their subscription usage. Open the permissions menu below the composer and select “Approve for me” to review actions taken during longer tasks."
       },
       "sourceURL": "https://x.com/thsottiaux/status/2107368734981517634",
-      "collectedAt": "2026-10-06T07:22:08Z"
+      "collectedAt": "2026-10-06T07:22:08Z",
+      "sourcePublishedAt": "2026-10-06T07:13:00Z"
     },
     {
       "id": "tibo-day-2-api-usage-tiers",
-      "revision": 1,
+      "revision": 2,
       "day": 2,
       "kind": "improvement",
       "status": "completed",
@@ -64,11 +66,12 @@
         "en": "OpenAI API paid usage tiers are simplified from five to three: Build, Launch, and Grow. The total API payment threshold for Grow, the highest tier, is reduced from $1,000 to $500, making it easier to qualify for higher rate limits."
       },
       "sourceURL": "https://x.com/thsottiaux/status/2107548725359104441",
-      "collectedAt": "2026-10-06T19:33:28.760Z"
+      "collectedAt": "2026-10-06T19:33:28.760Z",
+      "sourcePublishedAt": "2026-10-06T19:09:00Z"
     },
     {
       "id": "tibo-day-2-meetings",
-      "revision": 1,
+      "revision": 2,
       "day": 2,
       "kind": "improvement",
       "status": "completed",
@@ -81,11 +84,12 @@
         "en": "The Meetings plugin takes notes and saves personalized summaries and next steps in ChatGPT Space. Notes can stay private or be shared with your team. It is available in beta for Pro and Business users in the ChatGPT macOS app; Enterprise support is coming later."
       },
       "sourceURL": "https://x.com/thsottiaux/status/2107573405553938664",
-      "collectedAt": "2026-10-06T21:03:43.791Z"
+      "collectedAt": "2026-10-06T21:03:43.791Z",
+      "sourcePublishedAt": "2026-10-06T20:47:00Z"
     },
     {
       "id": "tibo-day-2-decisions-api",
-      "revision": 1,
+      "revision": 2,
       "day": 2,
       "kind": "improvement",
       "status": "completed",
@@ -98,7 +102,8 @@
         "en": "Decisions API is available to all developers in public beta for choosing models, tools, or actions in near real-time. OpenAI says it makes decisions up to 10 times faster than GPT-6 Luna through the Responses API. Tibo plans to use it to improve the app experience."
       },
       "sourceURL": "https://x.com/thsottiaux/status/2107574912349303197",
-      "collectedAt": "2026-10-06T21:04:00.287Z"
+      "collectedAt": "2026-10-06T21:04:00.287Z",
+      "sourcePublishedAt": "2026-10-06T20:53:00Z"
     }
   ]
 }
