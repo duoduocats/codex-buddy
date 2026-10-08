@@ -40,6 +40,10 @@ swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 -O -target
   -framework AppKit -framework SwiftUI -framework Charts -framework ServiceManagement -framework UserNotifications \
   "${SHARE_SOURCES[@]}" "$ROOT/Tests/ShareTests.swift" -o "$TEST_BUILD/share-tests"
 "$TEST_BUILD/share-tests" "$ROOT/Resources/AppIcon.icns" "$ROOT/Resources/BuddyMark.png"
+swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 -Osize -target arm64-apple-macosx13.0 \
+  -framework AppKit -framework SwiftUI -framework Charts -framework ServiceManagement -framework UserNotifications \
+  "${SHARE_SOURCES[@]}" "$ROOT/Tests/PanelLayoutTests.swift" -o "$TEST_BUILD/panel-layout-tests"
+"$TEST_BUILD/panel-layout-tests"
 
 swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 \
   "$ROOT/Sources/Localization.swift" "$ROOT/Sources/ResetAnnouncements.swift" "$ROOT/Sources/TiboChallenge.swift" "$ROOT/Tests/ChallengeTests.swift" -o "$TEST_BUILD/challenge-tests"

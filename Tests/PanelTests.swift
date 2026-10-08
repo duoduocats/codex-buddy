@@ -24,6 +24,13 @@ private final class FlippedContent: NSView {
         panel.contentSize = NSSize(width:380,height:400)
         precondition(panel.contentSize.height == 400 && !scroll.hasVerticalScroller)
         precondition(controller.view.frame.height == 400)
+        precondition(scroll.contentView.bounds.minY == 0,"Collapsed content must return to its top")
+        panel.contentSize = NSSize(width:380,height:700)
+        scroll.contentView.scroll(to:NSPoint(x:0,y:60))
+        scroll.reflectScrolledClipView(scroll.contentView)
+        panel.contentSize = NSSize(width:380,height:680)
+        precondition(scroll.contentView.bounds.minY == 0,"Expiry at the screen cap must clear stale scroll offsets")
+        panel.contentSize = NSSize(width:380,height:400)
         precondition(!scroll.drawsBackground,"Scroll surface must preserve native material")
         print("Native panel bounds tests passed: short-screen cap, full content, footer scrolling and compact recovery")
     }

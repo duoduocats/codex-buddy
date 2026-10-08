@@ -11,7 +11,6 @@ import Darwin
     var settingsWindow: NSWindow?
     var challengeWindow: NSWindow?
     var subscription: AnyCancellable?
-    private var updateSubscription: AnyCancellable?
     private var lastStatusKey = ""
     var appearanceObservation: NSKeyValueObservation?
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -30,8 +29,7 @@ import Darwin
             DispatchQueue.main.async { self?.updateStatus() }
         }
         let hosting = NSHostingController(rootView:UsageView(model:model,settings:{ [weak self] in self?.showSettings() },openChallenge:{ [weak self] in self?.showChallenge() },sharePresentationChanged:{ [weak self] presenting in self?.popover.isPresentingAuxiliaryUI = presenting },contentHeightChanged:{ [weak self] height in
-            guard height.isFinite, height > 0 else { return }
-            self?.popover.contentSize = NSSize(width:380,height:ceil(height))
+            self?.popover.setContentHeight(height)
         }))
         hosting.sizingOptions = []
         usageHosting = hosting
@@ -39,10 +37,6 @@ import Darwin
         popover.onClose = { [weak self] in self?.model.setPanelVisible(false) }
         subscription = model.objectWillChange.sink { [weak self] _ in DispatchQueue.main.async {
             self?.updateStatus()
-            if self?.popover.isShown == true { self?.resizePopover() }
-        } }
-        updateSubscription = UpdateManager.shared.objectWillChange.sink { [weak self] _ in DispatchQueue.main.async {
-            if self?.popover.isShown == true { self?.resizePopover() }
         } }
         NSWorkspace.shared.notificationCenter.addObserver(self,selector:#selector(wake),name:NSWorkspace.didWakeNotification,object:nil)
         updateStatus()
@@ -145,16 +139,10 @@ import Darwin
             model.setPanelVisible(true)
             if model.updated == nil || Date().timeIntervalSince(model.updated!) > 5 { model.refresh(includeStatistics:false) }
             NSApp.activate(ignoringOtherApps:true)
-            resizePopover()
             // NSStatusBarButton can be flipped: its visual bottom is then maxY.
             let below: NSRectEdge = button.isFlipped ? .maxY : .minY
             popover.show(relativeTo:button.bounds,of:button,preferredEdge:below)
         }
-    }
-    func resizePopover() {
-        guard let hosting = usageHosting else { return }
-        let size = hosting.sizeThatFits(in:NSSize(width:380,height:1600))
-        if size.height > 0 && (abs(popover.contentSize.height-size.height) > 1 || popover.contentSize.width != 380) { popover.contentSize = NSSize(width:380,height:size.height) }
     }
     func closePopover() {
         popover.close()
