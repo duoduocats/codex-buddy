@@ -114,6 +114,7 @@ struct MessageCenterView: View {
                                 Image(systemName:expanded ? "chevron.up" : "chevron.down")
                             }.font(.system(size:10))
                         }.buttonStyle(.plain).help(L("展开或收起消息", "Expand or collapse messages"))
+                            .accessibilityIdentifier("message-center-toggle")
                     }
                 }
                 ForEach(expanded ? messages : Array(messages.prefix(1))) { message in
@@ -141,40 +142,45 @@ private struct MessageCenterCard: View {
         return message.timestampBasis == .collected ? L("收录于 \(value)", "Collected \(value)") : L("发布于 \(value)", "Published \(value)")
     }
     var body: some View {
-        HStack(alignment:.top,spacing:10) {
-            Image(systemName:message.type == "activity" ? "calendar" : "arrow.clockwise.circle")
-                .font(.system(size:19,weight:.medium)).foregroundStyle(Color.accentColor)
-                .frame(width:28,height:30).accessibilityHidden(true)
-            VStack(alignment:.leading,spacing:5) {
-                HStack(alignment:.top,spacing:8) {
-                    Text(message.title).font(.system(size:13,weight:.semibold)).lineLimit(1)
-                    Spacer(minLength:4)
-                    Button(action:dismiss) { Image(systemName:"xmark").font(.system(size:9)).frame(width:16,height:17) }
-                        .buttonStyle(.plain).foregroundStyle(.secondary)
-                        .help(L("本次运行隐藏，重启后恢复", "Hide until the app restarts"))
-                        .accessibilityLabel(L("隐藏消息，重启后恢复", "Hide message until restart"))
-                }
-                Text(message.body.components(separatedBy:"\n").first ?? message.body)
-                    .font(.system(size:11,weight:.medium)).lineLimit(1).foregroundStyle(Color.primary)
-                if let deadline = message.scheduledAt {
-                    Text(L("还有 \(LimitWindow(usedPercent:0,windowDurationMins:nil,resetsAt:deadline.timeIntervalSince1970).detailCountdown(now:now))",
-                           "In \(LimitWindow(usedPercent:0,windowDurationMins:nil,resetsAt:deadline.timeIntervalSince1970).detailCountdown(now:now))"))
-                        .font(.system(size:11,weight:.medium)).monospacedDigit()
-                }
-                HStack(alignment:.top,spacing:6) {
-                    Text(shortTime).font(.system(size:10)).foregroundStyle(.secondary)
-                        .fixedSize(horizontal:false,vertical:true)
-                    Spacer(minLength:4)
-                    if message.sourceURL != nil {
-                        Button(action:open) {
+        Button(action:open) {
+            HStack(alignment:.top,spacing:10) {
+                Image(systemName:message.type == "activity" ? "calendar" : "arrow.clockwise.circle")
+                    .font(.system(size:19,weight:.medium)).foregroundStyle(Color.accentColor)
+                    .frame(width:28,height:30).accessibilityHidden(true)
+                VStack(alignment:.leading,spacing:5) {
+                    HStack(alignment:.top,spacing:8) {
+                        Text(message.title).font(.system(size:13,weight:.semibold)).lineLimit(1)
+                        Spacer(minLength:4)
+                        Color.clear.frame(width:16,height:17)
+                    }
+                    Text(message.body.components(separatedBy:"\n").first ?? message.body)
+                        .font(.system(size:11,weight:.medium)).lineLimit(1).foregroundStyle(Color.primary)
+                    if let deadline = message.scheduledAt {
+                        Text(L("还有 \(LimitWindow(usedPercent:0,windowDurationMins:nil,resetsAt:deadline.timeIntervalSince1970).detailCountdown(now:now))",
+                               "In \(LimitWindow(usedPercent:0,windowDurationMins:nil,resetsAt:deadline.timeIntervalSince1970).detailCountdown(now:now))"))
+                            .font(.system(size:11,weight:.medium)).monospacedDigit()
+                    }
+                    HStack(alignment:.top,spacing:6) {
+                        Text(shortTime).font(.system(size:10)).foregroundStyle(.secondary)
+                            .fixedSize(horizontal:false,vertical:true)
+                        Spacer(minLength:4)
+                        if message.sourceURL != nil {
                             Text(message.type == "activity" ? L("查看活动 ›", "View activity ›") : L("查看原帖 ›", "View source ›"))
-                                .font(.system(size:10,weight:.medium))
-                        }.buttonStyle(.plain).foregroundStyle(Color.primary).fixedSize()
+                                .font(.system(size:10,weight:.medium)).foregroundStyle(Color.primary).fixedSize()
+                        }
                     }
                 }
+            }.padding(12).frame(maxWidth:.infinity,alignment:.leading)
+                .background(Color.primary.opacity(0.04),in:RoundedRectangle(cornerRadius:12,style:.continuous))
+                .contentShape(RoundedRectangle(cornerRadius:12,style:.continuous))
+        }.buttonStyle(.plain)
+            .accessibilityIdentifier("message-card-"+message.id)
+            .overlay(alignment:.topTrailing) {
+                Button(action:dismiss) { Image(systemName:"xmark").font(.system(size:9)).frame(width:16,height:17) }
+                    .buttonStyle(.plain).foregroundStyle(.secondary).padding(12)
+                    .help(L("本次运行隐藏，重启后恢复", "Hide until the app restarts"))
+                    .accessibilityLabel(L("隐藏消息，重启后恢复", "Hide message until restart"))
             }
-        }.padding(12).frame(maxWidth:.infinity,alignment:.leading)
-            .background(Color.primary.opacity(0.04),in:RoundedRectangle(cornerRadius:12,style:.continuous))
             .help([message.title,message.body,message.timeDescription(),message.appliesTo].filter { !$0.isEmpty }.joined(separator:"\n"))
     }
 }

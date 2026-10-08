@@ -29,7 +29,10 @@ import Darwin
         appearanceObservation = item.button?.observe(\.effectiveAppearance, options:[.new]) { [weak self] _,_ in
             DispatchQueue.main.async { self?.updateStatus() }
         }
-        let hosting = NSHostingController(rootView:UsageView(model:model,settings:{ [weak self] in self?.showSettings() },openChallenge:{ [weak self] in self?.showChallenge() },sharePresentationChanged:{ [weak self] presenting in self?.popover.isPresentingAuxiliaryUI = presenting }))
+        let hosting = NSHostingController(rootView:UsageView(model:model,settings:{ [weak self] in self?.showSettings() },openChallenge:{ [weak self] in self?.showChallenge() },sharePresentationChanged:{ [weak self] presenting in self?.popover.isPresentingAuxiliaryUI = presenting },contentHeightChanged:{ [weak self] height in
+            guard height.isFinite, height > 0 else { return }
+            self?.popover.contentSize = NSSize(width:380,height:ceil(height))
+        }))
         hosting.sizingOptions = []
         usageHosting = hosting
         popover.contentViewController = hosting
