@@ -26,7 +26,9 @@ private final class MenuPanel: NSPanel {
     private var globalMonitor: Any?
     private var localMonitor: Any?
     private let scrollView = NSScrollView()
-    private var requestedSize = NSSize(width:340,height:500)
+    private var requestedSize = NSSize(width:380,height:500)
+    private var pendingHeight: CGFloat?
+    private var heightUpdateScheduled = false
     private let maximumHeight: CGFloat?
     var contentViewController: NSViewController? { didSet { installContent() } }
     var onClose: (() -> Void)?
@@ -35,8 +37,11 @@ private final class MenuPanel: NSPanel {
     var contentSize: NSSize {
         get { panel.frame.size }
         set {
+            guard newValue.width.isFinite, newValue.height.isFinite,
+                  newValue.width > 0, newValue.height > 0 else { return }
+            let changed = requestedSize != newValue
             requestedSize = newValue
-            updateSize()
+            updateSize(resetScroll:changed)
         }
     }
     init(maximumHeight: CGFloat? = nil) {
@@ -50,7 +55,23 @@ private final class MenuPanel: NSPanel {
         scrollView.scrollerStyle = .overlay;scrollView.autohidesScrollers = true
         scrollView.hasHorizontalScroller = false
     }
-    private func updateSize() {
+    // Use only the height reported by the rendered SwiftUI content. Measuring
+    // again from objectWillChange can apply a stale height after the new layout.
+    // Coalesce changes after SwiftUI finishes the current layout transaction.
+    func setContentHeight(_ height: CGFloat) {
+        guard height.isFinite, height > 0 else { return }
+        pendingHeight = ceil(height)
+        guard !heightUpdateScheduled else { return }
+        heightUpdateScheduled = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.heightUpdateScheduled = false
+            guard let height = self.pendingHeight else { return }
+            self.pendingHeight = nil
+            self.contentSize = NSSize(width:380,height:height)
+        }
+    }
+    private func updateSize(resetScroll: Bool = false) {
         let screen = anchor?.window?.screen ?? NSScreen.main
         let availableHeight = max(1,(screen?.visibleFrame.height ?? requestedSize.height+9)-9)
         let height = min(requestedSize.height,availableHeight,maximumHeight ?? availableHeight)
@@ -58,6 +79,15 @@ private final class MenuPanel: NSPanel {
         scrollView.hasVerticalScroller = height < requestedSize.height
         scrollView.documentView?.setFrameSize(requestedSize)
         if panel.frame.size != size { panel.setContentSize(size);panel.invalidateShadow() }
+        panel.contentView?.layoutSubtreeIfNeeded()
+        if resetScroll {
+            // Message expiry, category changes and collapse must all return to
+            // the top, even if the previous longer document was scrolled.
+            let top = scrollView.documentView?.isFlipped == false
+                ? max(0,requestedSize.height-scrollView.contentSize.height) : 0
+            scrollView.contentView.scroll(to:NSPoint(x:0,y:top))
+            scrollView.reflectScrolledClipView(scrollView.contentView)
+        }
         if isShown { position() }
     }
     private func installContent() {
@@ -100,7 +130,7 @@ private final class MenuPanel: NSPanel {
         panel.invalidateShadow()
     }
     func show(relativeTo rect: NSRect, of view: NSView, preferredEdge: NSRectEdge) {
-        anchor = view;updateSize();position()
+        anchor = view;updateSize(resetScroll:true);position()
         panel.makeKeyAndOrderFront(nil)
         globalMonitor = NSEvent.addGlobalMonitorForEvents(matching:[.leftMouseDown,.rightMouseDown]) { [weak self] _ in
             Task { @MainActor in
