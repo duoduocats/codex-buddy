@@ -6,6 +6,7 @@ struct UsageView: View {
     var settings: () -> Void
     var openChallenge: () -> Void = {}
     var sharePresentationChanged: (Bool) -> Void = { _ in }
+    var contentHeightChanged: (CGFloat) -> Void = { _ in }
     @ObservedObject var updates: UpdateManager = .shared
     @StateObject private var chartRange = UsageChartRange()
     private var resetTime: String {
@@ -86,6 +87,11 @@ struct UsageView: View {
                 Button { NSApp.terminate(nil) } label: { Image(systemName:"power") }.help(L("退出", "Quit"))
             }.buttonStyle(.borderless)
         }.padding(20).frame(width:380).fixedSize(horizontal:false,vertical:true)
+            .background(GeometryReader { geometry in
+                Color.clear
+                    .onAppear { contentHeightChanged(geometry.size.height) }
+                    .onChange(of:geometry.size.height) { height in contentHeightChanged(height) }
+            })
     }
 }
 
