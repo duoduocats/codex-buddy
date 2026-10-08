@@ -3,7 +3,8 @@ import os, re, plistlib, json
 from pathlib import Path
 root=Path(__file__).resolve().parents[1]
 tag=os.environ['RELEASE_TAG']
-assert re.fullmatch(r'v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)',tag), 'Invalid stable tag'
+assert re.fullmatch(r'v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-beta(?:\.(0|[1-9][0-9]*))?)?',tag), 'Invalid release tag'
+prerelease='-beta' in tag
 with (root/'Info.plist').open('rb') as f:info=plistlib.load(f)
 assert info['CFBundleShortVersionString']==tag[1:], 'Tag and app version differ'
 assert info['CFBundleIdentifier']=='com.duoduocat.codexbuddy', 'Unexpected bundle identifier'
@@ -23,5 +24,5 @@ if os.environ.get('UPDATE_MODE'):
 (root/'dist/release-notes.md').write_text(notes)
 (root/'dist/update-policy.json').write_text(json.dumps(policy,indent=2)+'\n')
 if os.environ.get('GITHUB_OUTPUT'):
- with open(os.environ['GITHUB_OUTPUT'],'a') as f:f.write('tag='+tag+'\n')
+ with open(os.environ['GITHUB_OUTPUT'],'a') as f:f.write('tag='+tag+'\nprerelease='+str(prerelease).lower()+'\n')
 print('Validated release',tag)

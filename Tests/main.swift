@@ -25,7 +25,11 @@ func release(_ tag: String = "v2.0.0", body: String = "", draft: Bool = false, p
 }
 precondition(AppVersion("1.10.0")! > AppVersion("1.9.9")!)
 precondition(AppVersion("v2.0.0")! > AppVersion("1.99.99")!)
-for invalid in ["1.0", "1.0.0-beta", "1..0", "1.0.-1", "garbage", "9999999999999999999999999.0.0"] { precondition(AppVersion(invalid) == nil) }
+for invalid in ["1.0", "1.0.0-beta.x", "1.0.0-beta.01", "1.0.0-alpha.1", "1..0", "1.0.-1", "garbage", "9999999999999999999999999.0.0"] { precondition(AppVersion(invalid) == nil) }
+precondition(AppVersion("2.4.4-beta")! < AppVersion("2.4.4-beta.1")!)
+precondition(AppVersion("2.4.4-beta.2")! < AppVersion("2.4.4-beta.10")!)
+precondition(AppVersion("2.4.4-beta.10")! < AppVersion("2.4.4")!)
+precondition(AppVersion("2.4.3")! < AppVersion("2.4.4-beta.1")!)
 precondition(!UpdatePolicy.shouldNotify(release:release(),current:"1.0.0",ignored:[],announced:[]),"Major version number alone must stay silent")
 let important = release(body:"<!-- codex-buddy:important -->\nNotes")
 precondition(UpdatePolicy.shouldNotify(release:important,current:"1.0.0",ignored:[],announced:[]))

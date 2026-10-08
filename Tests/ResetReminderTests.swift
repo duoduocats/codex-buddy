@@ -142,6 +142,7 @@ final class ResetFetchFixture: ResetAnnouncementFetching {
         try await lifecycleTests()
         try await historyTests()
         try await cacheFailureTests()
+        try await startupFetchTests()
         try await concurrentRevisionTests()
         try await scheduleFailureTests()
         try await panelDismissalTests()
@@ -433,6 +434,39 @@ final class ResetFetchFixture: ResetAnnouncementFetching {
             }
         }
         print("Message history tests passed: overdue/expired suppression, future publication rejection, opt-in history suppression, newly published messages")
+    }
+    @MainActor static func startupFetchTests() async throws {
+        let suite = "buddy-startup-message-tests-\(UUID().uuidString)"
+        let preferences = UserDefaults(suiteName:suite)!
+        defer { preferences.removePersistentDomain(forName:suite) }
+        var clock = origin
+        let bytes = try document([event()])
+        preferences.set(bytes,forKey:ResetReminderManager.preferencePrefix+"cache")
+        preferences.set("\"saved-validator\"",forKey:ResetReminderManager.preferencePrefix+"etag")
+        preferences.set(clock,forKey:ResetReminderManager.preferencePrefix+"lastAttempt")
+        preferences.set(5,forKey:ResetReminderManager.preferencePrefix+"failures")
+        let client = ResetFetchFixture(bytes), center = ResetCenterFixture()
+        client.reply = .notModified
+        let manager = ResetReminderManager(preferences:preferences,client:client,notifications:center,now:{clock})
+        defer { manager.stop() }
+        manager.start();try await settle(manager)
+        require(client.requests.count == 1 && client.requests[0] == "\"saved-validator\"",
+                "Startup must fetch immediately despite persisted backoff, while retaining ETag")
+        require(manager.upcoming?.id == "synthetic-message","Startup 304 must preserve valid cached content")
+        manager.start();manager.tick(now:clock);try await settle(manager)
+        require(client.requests.count == 1,"Repeated start and immediate tick must not duplicate startup fetch")
+        manager.stop();manager.start();try await settle(manager)
+        require(client.requests.count == 2,"Stop/start must immediately check again")
+        manager.stop();client.failure = ResetAnnouncementFailure.network
+        manager.start();try await settle(manager)
+        require(client.requests.count == 3,"A new session gets one immediate attempt even offline")
+        clock = clock.addingTimeInterval(1_799);manager.check(force:true);try await settle(manager)
+        require(client.requests.count == 3,"Outage retry backoff resumes after the immediate startup attempt")
+        manager.stop();preferences.set(false,forKey:ResetReminderManager.preferencePrefix+"messagesEnabled")
+        let disabled = ResetReminderManager(preferences:preferences,client:client,notifications:center,now:{clock})
+        disabled.start();try await settle(disabled);disabled.stop()
+        require(client.requests.count == 3,"Startup must continue to respect receiving opt out")
+        print("Startup message checks passed: persisted backoff, cached ETag/304, immediate stop/start, single-flight and opt out")
     }
     @MainActor static func cacheFailureTests() async throws {
         let suite = "buddy-message-cache-tests-\(UUID().uuidString)"

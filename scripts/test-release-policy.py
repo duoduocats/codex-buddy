@@ -31,3 +31,23 @@ for mode in ['none','notify','silent']:
         env['UPDATE_MODE']='unexpected'
         assert subprocess.run(['python3',str(root/'scripts/release-metadata.py')],env=env,capture_output=True).returncode != 0
         print('Release metadata scenario passed:',mode)
+
+with tempfile.TemporaryDirectory(prefix='buddy-beta-release-') as temporary:
+    root=Path(temporary);(root/'scripts').mkdir()
+    for name in ['prepare-release.py','release-metadata.py']:
+        shutil.copyfile(source/'scripts'/name,root/'scripts'/name)
+    shutil.copyfile(source/'LICENSE',root/'LICENSE')
+    info={'CFBundleShortVersionString':'2.0.0','CFBundleVersion':'1',
+          'CFBundleIdentifier':'com.duoduocat.codexbuddy','GitHubRepository':'example/buddy'}
+    (root/'Info.plist').write_bytes(plistlib.dumps(info))
+    for version in ['2.1.0-beta','2.1.0-beta.1','2.1.0-beta.10','2.1.0']:
+        subprocess.run(['python3',str(root/'scripts/prepare-release.py'),version],check=True,capture_output=True)
+        (root/'releases'/f'v{version}.md').write_text('Synthetic release notes')
+        output=root/'github-output';output.write_text('')
+        env=os.environ.copy();env.update(RELEASE_TAG='v'+version,EXPECTED_REPOSITORY='example/buddy',UPDATE_MODE='',GITHUB_OUTPUT=str(output))
+        subprocess.run(['python3',str(root/'scripts/release-metadata.py')],env=env,check=True,capture_output=True)
+        assert json.loads((root/'dist/update-policy.json').read_text())=={'schemaVersion':1,'version':version,'mode':'none'}
+        assert ('prerelease='+('true' if '-beta' in version else 'false')) in output.read_text()
+    for invalid in ['2.1.0-beta.2','2.2.0-beta.x','2.2.0-beta.01','2.2.0-alpha.1']:
+        assert subprocess.run(['python3',str(root/'scripts/prepare-release.py'),invalid],capture_output=True).returncode!=0
+    print('Beta release preparation passed: beta ordering, stable promotion, prerelease flags and unchanged mode default')

@@ -3,8 +3,28 @@ import SwiftUI
 import Combine
 import Darwin
 
+// Native preview checks use synthetic data and independent in-memory settings.
+private final class PreviewPreferences: UserDefaults {
+    private var values: [String:Any] = [:]
+    override func object(forKey key:String) -> Any? { values[key] }
+    override func bool(forKey key:String) -> Bool { values[key] as? Bool ?? false }
+    override func integer(forKey key:String) -> Int { values[key] as? Int ?? 0 }
+    override func string(forKey key:String) -> String? { values[key] as? String }
+    override func data(forKey key:String) -> Data? { values[key] as? Data }
+    override func dictionary(forKey key:String) -> [String:Any]? { values[key] as? [String:Any] }
+    override func set(_ value:Any?,forKey key:String) { values[key] = value }
+    override func removeObject(forKey key:String) { values.removeValue(forKey:key) }
+}
+
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
-    let model = AppModel()
+    let model: AppModel = {
+        if ["--ui-check","--performance-check","--snapshot"].contains(where:CommandLine.arguments.contains) {
+            return AppModel(preferences:PreviewPreferences(),client:UsageClient(credentialProvider:{
+                fatalError("Synthetic previews must not read credentials")
+            }))
+        }
+        return AppModel()
+    }()
     var item: NSStatusItem!
     let popover = QuotaPanel()
     var usageHosting: NSHostingController<UsageView>?

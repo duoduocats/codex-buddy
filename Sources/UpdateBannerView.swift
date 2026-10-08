@@ -26,6 +26,10 @@ struct SettingsUpdateSection: View {
     @ObservedObject var updates: UpdateManager = .shared
     var body: some View {
         VStack(alignment:.leading,spacing:12) {
+            SettingsToggleRow(title:L("接收 Beta 更新", "Receive Beta updates"),
+                detail:L("开启后检查正式版和 Beta 测试版。", "Check for stable and Beta releases when enabled."),
+                selection:Binding(get:{updates.includesBeta},set:{updates.setIncludesBeta($0)}))
+                .disabled(updates.installing)
             HStack {
                 Text(L("当前版本 \(updates.currentVersion)", "Installed version \(updates.currentVersion)"))
                     .font(.system(size:12)).foregroundStyle(.secondary)

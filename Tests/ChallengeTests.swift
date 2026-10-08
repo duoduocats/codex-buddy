@@ -82,6 +82,12 @@ private final class ChallengeHTTPFixture: URLProtocol {
         client.delay = false;client.fail = true
         cached.start();await wait(cached)
         precondition(cached.document == document && cached.error != nil,"Failures retain the verified history")
+        let restartCalls = client.calls
+        client.fail = false;cached.stop();cached.start();await wait(cached)
+        precondition(client.calls == restartCalls+1 && cached.error == nil,
+                     "Stop/start must immediately retry despite the previous session failure backoff")
+        cached.start();cached.tick();await wait(cached)
+        precondition(client.calls == restartCalls+1,"Repeated start and tick must not duplicate startup fetch")
         cached.stop();pending.stop()
         client.fail = false;client.notPublished = true
         let bootstrap = TiboChallengeManager(preferences:ChallengePreferences(),client:client,initialDocument:seed,now:{now})

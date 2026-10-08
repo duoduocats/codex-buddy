@@ -51,9 +51,9 @@ enum UpdateInstaller {
         }
     }
     static func stage(release: GitHubRelease, repository: String, target: URL,
-                      configuration: URLSessionConfiguration = .ephemeral,
+                      configuration: URLSessionConfiguration = .ephemeral, includeBeta: Bool = false,
                       progress: @escaping @MainActor (String) -> Void) async throws -> URL {
-        guard release.publishedURL(repository:repository) != nil,
+        guard release.publishedURL(repository:repository,includeBeta:includeBeta) != nil,
               let asset=release.installAsset(repository:repository),let downloadURL=URL(string:asset.browserDownloadURL ?? ""),
               let digest=asset.digest, digest.hasPrefix("sha256:") else { throw UpdateInstallFailure.invalid }
         let expected=String(digest.dropFirst(7)).lowercased()

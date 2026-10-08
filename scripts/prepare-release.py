@@ -3,14 +3,19 @@
 import argparse, plistlib, re, json
 from pathlib import Path
 parser = argparse.ArgumentParser()
-parser.add_argument('version', help='e.g. 1.2.1')
+parser.add_argument('version', help='e.g. 1.2.1 or 1.2.2-beta.1')
 parser.add_argument('--mode', choices=['none','notify','silent'], default='none', help='Maintainer-selected release policy; defaults to none')
 args = parser.parse_args()
-if not re.fullmatch(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)',args.version):parser.error('Use a stable x.y.z version')
+def version_key(value):
+    match=re.fullmatch(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-beta(?:\.(0|[1-9][0-9]*))?)?',value)
+    if not match:return None
+    beta='-beta' in value
+    return tuple(map(int,match.group(1,2,3)))+(0 if beta else 1,int(match.group(4)) if match.group(4) else -1)
+if version_key(args.version) is None:parser.error('Use x.y.z or x.y.z-beta.N')
 root = Path(__file__).resolve().parents[1]
 path = root/'Info.plist'
 with path.open('rb') as f:info=plistlib.load(f)
-if tuple(map(int,args.version.split('.'))) <= tuple(map(int,info['CFBundleShortVersionString'].split('.'))):parser.error('Version must increase')
+if version_key(args.version) <= version_key(info['CFBundleShortVersionString']):parser.error('Version must increase')
 notes=root/'releases'/f'v{args.version}.md'
 if notes.exists():parser.error('Release notes already exist')
 info['CFBundleShortVersionString']=args.version
