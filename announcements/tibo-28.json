@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "tibo-28-2026-10-05",
-  "revision": 10,
+  "revision": 11,
   "startDate": "2026-10-05",
   "days": 28,
   "timeZone": "America/Los_Angeles",
@@ -158,6 +158,24 @@
       "sourceURL": "https://x.com/thsottiaux/status/2107913674593644711",
       "collectedAt": "2026-10-07T19:34:47.866Z",
       "sourcePublishedAt": "2026-10-07T19:19:00Z"
+    },
+    {
+      "id": "tibo-day-3-cloud-tailscale",
+      "revision": 1,
+      "day": 3,
+      "kind": "improvement",
+      "status": "completed",
+      "title": {
+        "zh": "Codex Cloud 重新推出",
+        "en": "Codex Cloud re-shipped"
+      },
+      "body": {
+        "zh": "Tibo 在第 3 天追加记录中宣布重新推出 Codex Cloud。他引用的 Tailscale 公告介绍，Codex Cloud 可通过 Tailscale 安全连接其私有网络（tailnet）内的资源。",
+        "en": "In a Day 3 encore, Tibo announced that Codex Cloud has been re-shipped. The Tailscale announcement he quoted describes securely connecting Codex Cloud to resources on a Tailscale private network (tailnet)."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2108084615349170480",
+      "collectedAt": "2026-10-08T06:51:53.140Z",
+      "sourcePublishedAt": "2026-10-08T06:38:00Z"
     }
   ]
 }
