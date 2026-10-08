@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "tibo-28-2026-10-05",
-  "revision": 11,
+  "revision": 12,
   "startDate": "2026-10-05",
   "days": 28,
   "timeZone": "America/Los_Angeles",
@@ -176,6 +176,24 @@
       "sourceURL": "https://x.com/thsottiaux/status/2108084615349170480",
       "collectedAt": "2026-10-08T06:51:53.140Z",
       "sourcePublishedAt": "2026-10-08T06:38:00Z"
+    },
+    {
+      "id": "tibo-day-4-steering-ultrafast",
+      "revision": 1,
+      "day": 4,
+      "kind": "improvement",
+      "status": "completed",
+      "title": {
+        "zh": "即时调整方向与 Sol Ultrafast",
+        "en": "Instant steering and Sol Ultrafast"
+      },
+      "body": {
+        "zh": "Tibo 宣布第 4 天改进：模型能更快响应任务进行中的调整，支持即时修正方向、减少无效工作；同时推出 GPT-6.1 Sol Ultrafast。他引用的官方公告说明，Ultrafast 正在 API、Codex 和 ChatGPT Work 逐步推出，不代表所有账户已同时可用。",
+        "en": "Tibo announced Day 4 improvements: the model reacts faster to adjustments during a task, allowing real-time course correction and reducing wasted effort. He also announced GPT-6.1 Sol Ultrafast. The official post he quoted says Ultrafast is rolling out in the API, Codex, and ChatGPT Work; this does not mean every account has access simultaneously."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2108275041276420573",
+      "collectedAt": "2026-10-08T19:44:41.631Z",
+      "sourcePublishedAt": "2026-10-08T19:15:00Z"
     }
   ]
 }
