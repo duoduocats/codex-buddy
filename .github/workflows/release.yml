@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing version tag (vX.Y.Z)
+        description: Existing version tag (vX.Y.Z or vX.Y.Z-beta.N)
         required: true
         type: string
       update_mode:
@@ -25,6 +25,7 @@ jobs:
     timeout-minutes: 20
     outputs:
       tag: ${{ steps.validate.outputs.tag }}
+      prerelease: ${{ steps.validate.outputs.prerelease }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -81,5 +82,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          RELEASE_PRERELEASE: ${{ needs.build.outputs.prerelease }}
         run: |
-          gh release create "$RELEASE_TAG" dist/*.dmg dist/*.sha256 dist/update-policy.json --verify-tag --draft --title "Codex Buddy $RELEASE_TAG" --notes-file dist/release-notes.md
+          gh release create "$RELEASE_TAG" dist/*.dmg dist/*.sha256 dist/update-policy.json --verify-tag --draft --prerelease="$RELEASE_PRERELEASE" --title "Codex Buddy $RELEASE_TAG" --notes-file dist/release-notes.md

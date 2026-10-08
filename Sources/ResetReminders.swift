@@ -156,6 +156,12 @@ extension ResetNotificationDelivering {
     func start() {
         guard !started, !demo else { return };started = true
         guard acceptsAnyMessages else { if enabled { cancelAll() };return }
+        // A new service session must check immediately, even if the previous
+        // process stopped during polling or outage backoff. Keep cache/ETag and
+        // notification history; only the request schedule starts fresh.
+        lastAttempt = nil;failures = 0
+        preferences.removeObject(forKey:Self.preferencePrefix+"lastAttempt")
+        preferences.set(0,forKey:Self.preferencePrefix+"failures")
         notifications.prepare();processNotifications();check()
     }
     func stop() { started = false;checkGeneration += 1;checkTask?.cancel();checkTask = nil;checking = false }

@@ -170,7 +170,13 @@ struct TiboChallengeDocument: Codable, Equatable, Identifiable {
         if !value { stopRequest();error = nil;onDisabled?() }
         else { lastAttempt = nil;failures = 0;if started { check() } }
     }
-    func start() { guard !demo, !started else { return };started = true;check() }
+    func start() {
+        guard !demo, !started else { return }
+        started = true
+        // Restarting the same service should behave like a fresh process.
+        lastAttempt = nil;failures = 0
+        check()
+    }
     func stop() { started = false;stopRequest();setWindowVisible(false) }
     func setWindowVisible(_ visible: Bool) {
         windowTimer?.invalidate();windowTimer = nil

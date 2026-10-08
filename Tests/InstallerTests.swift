@@ -28,14 +28,21 @@ final class FixtureProtocol: URLProtocol {
         let filename=URL(fileURLWithPath:CommandLine.arguments[1]).lastPathComponent
         let version=filename.replacingOccurrences(of:"Codex-Buddy-",with:"").replacingOccurrences(of:"-arm64.dmg",with:"")
         guard AppVersion(version) != nil else { fatalError("Invalid fixture filename") }
+        let includeBeta = AppVersion(version)!.isBeta
         var release=GitHubRelease(tagName:"v\(version)",htmlURL:"https://github.com/duoduocats/codex-buddy/releases/tag/v\(version)",body:"",draft:false,prerelease:false,assets:[.init(name:"\(filename)",state:"uploaded",browserDownloadURL:"https://github.com/duoduocats/codex-buddy/releases/download/v\(version)/\(filename)",digest:"sha256:\(digest)",size:bytes.count)])
-        let staged=try await UpdateInstaller.stage(release:release,repository:"duoduocats/codex-buddy",target:target,configuration:config) { _ in }
+        if includeBeta {
+            do {
+                _ = try await UpdateInstaller.stage(release:release,repository:"duoduocats/codex-buddy",target:target,configuration:config) { _ in }
+                fatalError("Beta package accepted without opt in")
+            } catch UpdateInstallFailure.invalid { print("Beta package rejected without opt in") }
+        }
+        let staged=try await UpdateInstaller.stage(release:release,repository:"duoduocats/codex-buddy",target:target,configuration:config,includeBeta:includeBeta) { _ in }
         precondition(FileManager.default.fileExists(atPath:staged.appendingPathComponent("Codex Buddy.app/Contents/MacOS/CodexBuddy").path))
         precondition(FileManager.default.fileExists(atPath:target.path))
         print("Real DMG download fixture, checksum, mount, signature and staging passed")
         release=GitHubRelease(tagName:release.tagName,htmlURL:release.htmlURL,body:nil,draft:false,prerelease:false,assets:[.init(name:release.assets[0].name,state:"uploaded",browserDownloadURL:release.assets[0].browserDownloadURL,digest:"sha256:"+String(repeating:"0",count:64),size:bytes.count)])
         do {
-            _ = try await UpdateInstaller.stage(release:release,repository:"duoduocats/codex-buddy",target:target,configuration:config) { _ in }
+            _ = try await UpdateInstaller.stage(release:release,repository:"duoduocats/codex-buddy",target:target,configuration:config,includeBeta:includeBeta) { _ in }
             fatalError("Bad checksum accepted")
         } catch UpdateInstallFailure.verification { print("Tampered download rejected; target preserved") }
     }

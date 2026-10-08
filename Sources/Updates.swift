@@ -13,6 +13,7 @@ private final class UpdateRedirectDelegate: NSObject, URLSessionTaskDelegate {
 
 @MainActor final class UpdateManager: ObservableObject {
     static let shared = UpdateManager()
+    @Published private(set) var includesBeta: Bool
     @Published private(set) var checking = false
     @Published private(set) var installing = false
     @Published private(set) var installFailed = false
@@ -26,6 +27,7 @@ private final class UpdateRedirectDelegate: NSObject, URLSessionTaskDelegate {
     private var lastAttempt: Date?
     private var presenting = false
     private var ignoreRevision = 0
+    private var channelRevision = 0
     private let repository: String
     // Injectable boundaries keep policy integration tests away from installed apps and modal UI.
     private let installOperation: ((GitHubRelease, Bool) async throws -> Void)?
@@ -45,6 +47,7 @@ private final class UpdateRedirectDelegate: NSObject, URLSessionTaskDelegate {
          releaseOpener: ((URL) -> Void)? = nil,
          now: @escaping () -> Date = Date.init) {
         self.defaults=defaults;self.repository=repository;self.currentVersion=currentVersion
+        includesBeta = defaults.bool(forKey:"updates.includesBeta")
         self.installOperation=installOperation;self.presentation=presentation
         self.releaseOpener=releaseOpener
         self.now=now
@@ -61,6 +64,38 @@ private final class UpdateRedirectDelegate: NSObject, URLSessionTaskDelegate {
         }
         timer?.tolerance=300
     }
+    func setIncludesBeta(_ value: Bool) {
+        guard !installing, value != includesBeta else { return }
+        includesBeta = value;defaults.set(value,forKey:"updates.includesBeta")
+        channelRevision += 1
+        if !value, available?.isBeta == true {
+            available = nil;showsPanelUpdate = false;installFailed = false;message = ""
+            defaults.set(false,forKey:"updates.restorePanelOffer")
+        }
+        lastAttempt = nil;defaults.removeObject(forKey:"updates.lastAttempt")
+        if !checking, configured { check(manual:false) }
+    }
+    private func releases(includeBeta: Bool) async throws -> [GitHubRelease] {
+        let path = includeBeta ? "releases?per_page=100" : "releases/latest"
+        var request = URLRequest(url:URL(string:"https://api.github.com/repos/\(repository)/\(path)")!)
+        request.setValue("application/vnd.github+json",forHTTPHeaderField:"Accept")
+        request.setValue("2022-11-28",forHTTPHeaderField:"X-GitHub-Api-Version")
+        request.setValue("Codex-Buddy/\(currentVersion)",forHTTPHeaderField:"User-Agent")
+        let (data,response) = try await session.data(for:request)
+        guard let http = response as? HTTPURLResponse else { throw CheckFailure.invalid }
+        if http.statusCode == 404 { return [] }
+        guard http.statusCode == 200, data.count < 2_000_000 else { throw CheckFailure.invalid }
+        if includeBeta {
+            var values = try JSONDecoder().decode([GitHubRelease].self,from:data)
+            guard values.count <= 100 else { throw CheckFailure.invalid }
+            // Even a full page of betas must not hide the stable fallback.
+            if !values.contains(where:{ $0.publishedURL(repository:repository) != nil }) {
+                values += try await releases(includeBeta:false)
+            }
+            return values
+        }
+        return [try JSONDecoder().decode(GitHubRelease.self,from:data)]
+    }
     func check(manual: Bool) {
         guard !checking, !presenting, !installing else { return }
         guard configured else { message=L("尚未配置 GitHub 发布仓库。", "No GitHub release repository is configured.");return }
@@ -71,28 +106,29 @@ private final class UpdateRedirectDelegate: NSObject, URLSessionTaskDelegate {
         if !manual, !restoreOffer, let last, now().timeIntervalSince(last) < 6*3600 { return }
         lastAttempt=now();defaults.set(lastAttempt,forKey:"updates.lastAttempt")
         checking=true
-        let ignoreTicket = ignoreRevision
+        let ignoreTicket = ignoreRevision, channelTicket = channelRevision, includeBeta = includesBeta
         Task {
-            defer { checking=false }
+            defer {
+                checking = false
+                if channelTicket != channelRevision { check(manual:false) }
+            }
             do {
-                var request=URLRequest(url:URL(string:"https://api.github.com/repos/\(repository)/releases/latest")!)
-                request.setValue("application/vnd.github+json",forHTTPHeaderField:"Accept")
-                request.setValue("2022-11-28",forHTTPHeaderField:"X-GitHub-Api-Version")
-                request.setValue("Codex-Buddy/\(currentVersion)",forHTTPHeaderField:"User-Agent")
-                let (data,response)=try await session.data(for:request)
-                guard !installing else { return }
-                guard let http=response as? HTTPURLResponse else { throw CheckFailure.invalid }
-                if http.statusCode == 404 { available=nil;showsPanelUpdate=false;defaults.set(false,forKey:"updates.restorePanelOffer");message=L("暂未找到公开的正式版本。", "No public stable release is available yet.");return }
-                guard http.statusCode == 200, data.count < 2_000_000 else { throw CheckFailure.invalid }
-                let release=try JSONDecoder().decode(GitHubRelease.self,from:data)
-                guard release.publishedURL(repository:repository) != nil,
-                      let latest=AppVersion(release.tagName),let current=AppVersion(currentVersion) else { throw CheckFailure.invalid }
+                let values = try await releases(includeBeta:includeBeta)
+                guard !installing, channelTicket == channelRevision else { return }
+                guard let release = UpdatePolicy.latestRelease(values,repository:repository,includeBeta:includeBeta) else {
+                    available=nil;showsPanelUpdate=false;defaults.set(false,forKey:"updates.restorePanelOffer")
+                    message = includeBeta
+                        ? L("暂未找到公开版本。", "No public release is available yet.")
+                        : L("暂未找到公开的正式版本。", "No public stable release is available yet.")
+                    return
+                }
+                guard let latest=AppVersion(release.tagName),let current=AppVersion(currentVersion) else { throw CheckFailure.invalid }
                 guard latest > current else {
                     available=nil;showsPanelUpdate=false;defaults.set(false,forKey:"updates.restorePanelOffer");message=L("当前已是最新版本（\(currentVersion)）。", "You are up to date (\(currentVersion)).")
                     return
                 }
                 let mode = await mode(for:release)
-                guard !installing else { return }
+                guard !installing, channelTicket == channelRevision else { return }
                 let ignored=defaults.stringArray(forKey:"updates.ignored") ?? []
                 let announced=defaults.stringArray(forKey:"updates.announced") ?? []
                 // A dismiss click during the request takes precedence over even
@@ -104,12 +140,12 @@ private final class UpdateRedirectDelegate: NSObject, URLSessionTaskDelegate {
                 // The legacy announcement record only deduplicates policy callbacks.
                 showsPanelUpdate = (manualOffer || mode == .notify) && (manualOffer || !ignored.contains(release.tagName)) && mode != .silent
                 defaults.set(showsPanelUpdate && mode == .notify,forKey:"updates.restorePanelOffer")
-                switch UpdatePolicy.action(release:release,mode:mode,current:currentVersion,manual:manualOffer,ignored:ignored,announced:announced) {
+                switch UpdatePolicy.action(release:release,mode:mode,current:currentVersion,manual:manualOffer,ignored:ignored,announced:announced,includeBeta:includeBeta) {
                 case .install: installAvailable(silent:true)
                 case .notify: present(release,manual:manual)
                 case .none: break
                 }
-            } catch { if manual && !installing { message=L("检查失败，请稍后重试。", "Could not check for updates. Try again later.") } }
+            } catch { if manual && !installing && channelTicket == channelRevision { message=L("检查失败，请稍后重试。", "Could not check for updates. Try again later.") } }
         }
     }
     private func mode(for release: GitHubRelease) async -> ReleaseUpdateMode {
@@ -126,11 +162,13 @@ private final class UpdateRedirectDelegate: NSObject, URLSessionTaskDelegate {
         } catch { return .none }
     }
     func installAvailable(silent: Bool = false) {
-        guard !installing,let release=available else { return }
+        guard !installing,let release=available,
+              release.publishedURL(repository:repository,includeBeta:includesBeta) != nil else { return }
         installing=true
         installFailed=false
         message=L("正在下载并校验更新…", "Downloading and verifying the update…")
         if !silent { beforeInstall?() }
+        let includeBeta = includesBeta
         Task {
             do {
                 if let installOperation {
@@ -139,14 +177,14 @@ private final class UpdateRedirectDelegate: NSObject, URLSessionTaskDelegate {
                     return
                 }
                 let target=Bundle.main.bundleURL
-                let work=try await UpdateInstaller.stage(release:release,repository:repository,target:target) { status in self.message=status }
+                let work=try await UpdateInstaller.stage(release:release,repository:repository,target:target,includeBeta:includeBeta) { status in self.message=status }
                 message=L("正在安装，应用即将重新启动…", "Installing. The app will restart shortly…")
                 try UpdateInstaller.replaceAndRelaunch(staged:work,target:target,background:silent)
             } catch { message=(error as? UpdateInstallFailure)?.localizedDescription ?? L("更新失败，当前版本未被替换。", "Update failed. Your current version has not been replaced.");installing=false;installFailed=true }
         }
     }
     func openRelease() {
-        guard let url=available?.publishedURL(repository:repository) else { return }
+        guard let url=available?.publishedURL(repository:repository,includeBeta:includesBeta) else { return }
         if let releaseOpener { releaseOpener(url);return }
         NSWorkspace.shared.open(url)
     }

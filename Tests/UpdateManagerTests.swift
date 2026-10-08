@@ -93,6 +93,7 @@ final class PolicyFixtureProtocol: URLProtocol {
             precondition(!manager.checking,"Repeated background checks must be throttled")
             print("Update integration passed:",scenario)
         }
+        try await betaChannelTests()
         // Native presentation has no modal or activation hook. A verified offer
         // must survive relaunch even when its legacy announcement was recorded.
         try configure("notify")
@@ -175,4 +176,84 @@ final class PolicyFixtureProtocol: URLProtocol {
             }
         }
     }
+    @MainActor static func betaChannelTests() async throws {
+        let repo = "example/buddy"
+        let latestURL = "https://api.github.com/repos/\(repo)/releases/latest"
+        let listURL = "https://api.github.com/repos/\(repo)/releases?per_page=100"
+        func fixture(_ version:String, mode:String, draft:Bool = false) throws -> ([String:Any],String,Data) {
+            let tag = "v"+version, url = "https://github.com/\(repo)/releases/download/\(tag)/update-policy.json"
+            let policy = try JSONSerialization.data(withJSONObject:["schemaVersion":1,"version":version,"mode":mode])
+            let hash = SHA256.hash(data:policy).map { String(format:"%02x",$0) }.joined()
+            let release:[String:Any] = ["tag_name":tag,"html_url":"https://github.com/\(repo)/releases/tag/\(tag)",
+                "draft":draft,"prerelease":version.contains("-beta"),"body":"Synthetic release",
+                "assets":[["name":"Codex-Buddy-\(version)-arm64.dmg","state":"uploaded"],
+                          ["name":"update-policy.json","state":"uploaded","browser_download_url":url,"size":policy.count,"digest":"sha256:"+hash]]]
+            return (release,url,policy)
+        }
+        let stable = try fixture("2.0.0",mode:"none")
+        let beta1 = try fixture("2.1.0-beta.1",mode:"none")
+        let beta10 = try fixture("2.1.0-beta.10",mode:"silent")
+        let draft = try fixture("3.0.0-beta.1",mode:"silent",draft:true)
+        func configure(_ extra:[[String:Any]] = []) throws {
+            PolicyFixtureProtocol.responses = [latestURL:(200,try JSONSerialization.data(withJSONObject:stable.0)),
+                listURL:(200,try JSONSerialization.data(withJSONObject:[beta1.0,draft.0,stable.0,beta10.0]+extra))]
+            for item in [stable,beta1,beta10,draft] { PolicyFixtureProtocol.responses[item.1] = (200,item.2) }
+            PolicyFixtureProtocol.requests = []
+        }
+        func wait(_ manager:UpdateManager) async throws {
+            for _ in 0..<1000 {
+                if !manager.checking && !manager.installing { return }
+                try await Task.sleep(nanoseconds:5_000_000)
+            }
+            preconditionFailure("Synthetic beta check timed out")
+        }
+        for includeBeta in [false,true] {
+            for manual in [false,true] {
+                try configure()
+                let suite="buddy-beta-updates-\(UUID().uuidString)", defaults=UserDefaults(suiteName:suite)!
+                defer { defaults.removePersistentDomain(forName:suite) }
+                if includeBeta { defaults.set(true,forKey:"updates.includesBeta") }
+                let config=URLSessionConfiguration.ephemeral;config.protocolClasses=[PolicyFixtureProtocol.self]
+                var installed:[String] = []
+                let manager=UpdateManager(defaults:defaults,configuration:config,repository:repo,currentVersion:"1.0.0",
+                    installOperation:{ release,silent in precondition(silent);installed.append(release.tagName) })
+                precondition(manager.includesBeta == includeBeta,"Beta is off by default and restores explicit opt in")
+                manager.check(manual:manual);try await wait(manager)
+                precondition(manager.available?.tagName == (includeBeta ? "v2.1.0-beta.10" : "v2.0.0"))
+                precondition(installed == (includeBeta ? ["v2.1.0-beta.10"] : []))
+                precondition(PolicyFixtureProtocol.requests.contains(listURL) == includeBeta)
+                if !includeBeta { precondition(!PolicyFixtureProtocol.requests.contains(beta10.1),"Beta opt out must not fetch beta metadata") }
+            }
+        }
+        // Turning off the channel while verified silent metadata is in flight
+        // must discard that result and then check the stable channel.
+        try configure()
+        let suite="buddy-beta-race-\(UUID().uuidString)", defaults=UserDefaults(suiteName:suite)!
+        defer { defaults.removePersistentDomain(forName:suite);PolicyFixtureProtocol.resume() }
+        defaults.set(true,forKey:"updates.includesBeta")
+        let config=URLSessionConfiguration.ephemeral;config.protocolClasses=[PolicyFixtureProtocol.self]
+        var installs=0
+        let manager=UpdateManager(defaults:defaults,configuration:config,repository:repo,currentVersion:"1.0.0",
+            installOperation:{ _,_ in installs += 1 })
+        PolicyFixtureProtocol.pause(beta10.1);manager.check(manual:true)
+        for _ in 0..<1000 {
+            if PolicyFixtureProtocol.pausedRequests == 1 { break }
+            try await Task.sleep(nanoseconds:2_000_000)
+        }
+        precondition(PolicyFixtureProtocol.pausedRequests == 1)
+        manager.setIncludesBeta(false);PolicyFixtureProtocol.resume();try await wait(manager)
+        precondition(installs == 0 && manager.available?.tagName == "v2.0.0" && !manager.includesBeta)
+        let restored=UpdateManager(defaults:defaults,configuration:config,repository:repo,currentVersion:"1.0.0")
+        precondition(!restored.includesBeta,"Channel choice survives relaunch")
+        let finalStable = try fixture("2.1.0",mode:"none")
+        try configure([finalStable.0]);PolicyFixtureProtocol.responses[finalStable.1]=(200,finalStable.2)
+        manager.setIncludesBeta(true);try await wait(manager)
+        precondition(manager.available?.tagName == "v2.1.0","Final stable supersedes beta of the same version")
+        let disabledRelease = try JSONDecoder().decode(GitHubRelease.self,from:JSONSerialization.data(withJSONObject:beta10.0))
+        precondition(disabledRelease.publishedURL(repository:repo) == nil && disabledRelease.publishedURL(repository:repo,includeBeta:true) != nil)
+        precondition(UpdatePolicy.action(release:disabledRelease,mode:.silent,current:"1.0.0",manual:true,ignored:[],announced:[]) == .none)
+        precondition(UpdatePolicy.action(release:disabledRelease,mode:.silent,current:"3.0.0",manual:false,ignored:[],announced:[],includeBeta:true) == .none)
+        print("Beta update checks passed: default opt out, manual/background filtering, numeric sorting, stable promotion, persistence and channel-change race")
+    }
+
 }

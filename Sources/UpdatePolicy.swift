@@ -3,14 +3,36 @@ import CryptoKit
 
 struct AppVersion: Comparable, Equatable {
     let parts: [Int]
+    let beta: [Int]?
+    var isBeta: Bool { beta != nil }
     init?(_ string: String) {
         let value = string.hasPrefix("v") ? String(string.dropFirst()) : string
-        let fields = value.split(separator:".",omittingEmptySubsequences:false)
+        guard value.utf8.count <= 80 else { return nil }
+        let halves = value.components(separatedBy:"-beta")
+        guard halves.count <= 2 else { return nil }
+        let fields = halves[0].split(separator:".",omittingEmptySubsequences:false)
         guard fields.count == 3, fields.allSatisfy({ !$0.isEmpty && $0.allSatisfy({ $0.isASCII && $0.isNumber }) }),
               fields.allSatisfy({ Int($0) != nil }) else { return nil }
         parts = fields.map { Int($0)! }
+        if halves.count == 1 { beta = nil }
+        else if halves[1].isEmpty { beta = [] }
+        else {
+            let suffix = halves[1]
+            guard suffix.hasPrefix("."), suffix.count > 1 else { return nil }
+            let number = String(suffix.dropFirst())
+            guard number.allSatisfy({ $0.isASCII && $0.isNumber }),
+                  number == "0" || !number.hasPrefix("0"), let value = Int(number) else { return nil }
+            beta = [value]
+        }
     }
-    static func < (lhs: Self, rhs: Self) -> Bool { lhs.parts.lexicographicallyPrecedes(rhs.parts) }
+    static func < (lhs: Self, rhs: Self) -> Bool {
+        if lhs.parts != rhs.parts { return lhs.parts.lexicographicallyPrecedes(rhs.parts) }
+        switch (lhs.beta,rhs.beta) {
+        case (nil,_): return false
+        case (_,nil): return true
+        case let (left?,right?): return left.lexicographicallyPrecedes(right)
+        }
+    }
 }
 
 struct GitHubRelease: Decodable {
@@ -53,8 +75,9 @@ struct GitHubRelease: Decodable {
         case tagName = "tag_name", htmlURL = "html_url", body, draft, prerelease, assets
     }
     var isImportant: Bool { (body ?? "").components(separatedBy:.newlines).contains { $0.trimmingCharacters(in:.whitespaces) == "<!-- codex-buddy:important -->" } }
-    func publishedURL(repository: String) -> URL? {
-        guard !draft, !prerelease, AppVersion(tagName) != nil,
+    var isBeta: Bool { prerelease || AppVersion(tagName)?.isBeta == true }
+    func publishedURL(repository: String, includeBeta: Bool = false) -> URL? {
+        guard !draft, (includeBeta || !isBeta), AppVersion(tagName) != nil,
               let url = URL(string:htmlURL), url.scheme == "https", url.host == "github.com",
               url.user == nil, url.password == nil, url.port == nil,
               url.query == nil, url.fragment == nil,
@@ -85,20 +108,24 @@ enum UpdatePolicy {
         return document.mode
     }
     static func action(release: GitHubRelease, mode: ReleaseUpdateMode, current: String,
-                       manual: Bool, ignored: [String], announced: [String]) -> ReleaseUpdateAction {
+                       manual: Bool, ignored: [String], announced: [String], includeBeta: Bool = false) -> ReleaseUpdateAction {
         guard let latest = AppVersion(release.tagName), let installed = AppVersion(current),
-              latest > installed, !release.draft, !release.prerelease else { return .none }
+              latest > installed, !release.draft, (includeBeta || !release.isBeta) else { return .none }
         if !manual && ignored.contains(release.tagName) { return .none }
         if mode == .silent { return .install }
         if manual { return .notify }
         return mode == .notify && !announced.contains(release.tagName) ? .notify : .none
+    }
+    static func latestRelease(_ releases: [GitHubRelease], repository: String, includeBeta: Bool) -> GitHubRelease? {
+        releases.filter { $0.publishedURL(repository:repository,includeBeta:includeBeta) != nil }
+            .max { AppVersion($0.tagName)! < AppVersion($1.tagName)! }
     }
     static func validRepository(_ value: String) -> Bool {
         value.range(of:#"^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9][A-Za-z0-9._-]*$"#,options:.regularExpression) != nil
     }
     static func shouldNotify(release: GitHubRelease, current: String, ignored: [String], announced: [String]) -> Bool {
         guard let latest = AppVersion(release.tagName), let installed = AppVersion(current) else { return false }
-        return latest > installed && release.isImportant && !release.draft && !release.prerelease
+        return latest > installed && release.isImportant && !release.draft && !release.isBeta
             && !ignored.contains(release.tagName) && !announced.contains(release.tagName)
     }
 }
