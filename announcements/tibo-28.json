@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "tibo-28-2026-10-05",
-  "revision": 12,
+  "revision": 13,
   "startDate": "2026-10-05",
   "days": 28,
   "timeZone": "America/Los_Angeles",
@@ -194,6 +194,42 @@
       "sourceURL": "https://x.com/thsottiaux/status/2108275041276420573",
       "collectedAt": "2026-10-08T19:44:41.631Z",
       "sourcePublishedAt": "2026-10-08T19:15:00Z"
+    },
+    {
+      "id": "tibo-day-5-composer-predictions",
+      "revision": 1,
+      "day": 5,
+      "kind": "improvement",
+      "status": "completed",
+      "title": {
+        "zh": "桌面端输入预测",
+        "en": "Composer predictions in the desktop app"
+      },
+      "body": {
+        "zh": "Tibo 宣布第 5 天改进：Codex 桌面端输入预测已向 Pro 用户开放测试，可根据当前对话及用户的表达方式建议下一条消息。该功能包含在 Pro 套餐中，不消耗套餐用量。",
+        "en": "Tibo announced Day 5 composer predictions in the Codex desktop app, available in beta for Pro users. Codex can suggest the next message based on the conversation and how the user talks to it. The feature is included in Pro plans without consuming subscription usage."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2108645667451318747",
+      "collectedAt": "2026-10-09T19:55:10.067Z",
+      "sourcePublishedAt": "2026-10-09T19:47:00Z"
+    },
+    {
+      "id": "tibo-day-5-mobile-dots",
+      "revision": 1,
+      "day": 5,
+      "kind": "improvement",
+      "status": "completed",
+      "title": {
+        "zh": "手机端创建并使用 dot",
+        "en": "Create and text a dot on mobile"
+      },
+      "body": {
+        "zh": "Tibo 在第 5 天 dot 专题中宣布，用户现可完全通过 ChatGPT 手机应用创建自己的 dot，并与它发消息交流。他引用的 ChatGPT 官方公告明确支持 iOS 和 Android。",
+        "en": "In his Day 5 dots edition, Tibo announced that users can now create and text their dot entirely from the ChatGPT mobile app. The ChatGPT announcement he quoted confirms support for iOS and Android."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2108646052178092403",
+      "collectedAt": "2026-10-09T19:55:10.067Z",
+      "sourcePublishedAt": "2026-10-09T19:49:00Z"
     }
   ]
 }
