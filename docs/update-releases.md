@@ -63,3 +63,24 @@ Clients with the earlier updater cannot acquire these new guarantees retroactive
 Startup confirmation catches crashes and hangs during initialization, not layout
 or functional defects after startup. Continue real UI regression checks and Beta
 validation before wider distribution.
+
+## Public messages and activity data
+
+These data checks are separate from software release checks. During the active
+campaign, successful checks run five minutes apart. Failures retry after one,
+five, fifteen, then sixty minutes; server Retry-After and quota reset deadlines
+still take precedence across restart, wake, manual checks and window opens.
+Inactive campaign history checks run hourly. Receiving switches stop requests.
+
+The fixed raw feed remains the usual source. Connection failures and unavailable
+or malformed responses can use the same public repository's Contents API without
+credentials. Foreground activity opens verify this official branch endpoint even
+when an intermediary returns an old raw-source 304. Validators are scoped to
+their source; a successful alternate stays usable, and an hourly byte comparison
+can return it to the CDN when the content matches the validated cache. Existing
+schema and revision checks still reject altered or older history.
+
+Network recovery uses the existing native path monitor. No new background timer,
+account identifier, cookie, credential, third-party mirror or telemetry is added.
+The anonymous Contents API remains subject to GitHub's rate limits; a final
+successful quota-zero response is retained while its next deadline is respected.

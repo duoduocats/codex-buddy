@@ -44,6 +44,9 @@ private final class PreviewPreferences: UserDefaults {
             if !self.popover.isShown { self.togglePopover() }
         }
         model.challenge.onDisabled = { [weak self] in self?.challengeWindow?.close() }
+        UpdateManager.shared.onNetworkRecovery = { [weak self] in
+            self?.model.reminders.networkRecovered();self?.model.challenge.networkRecovered()
+        }
         item.button?.target = self;item.button?.action = #selector(togglePopover)
         appearanceObservation = item.button?.observe(\.effectiveAppearance, options:[.new]) { [weak self] _,_ in
             DispatchQueue.main.async { self?.updateStatus() }

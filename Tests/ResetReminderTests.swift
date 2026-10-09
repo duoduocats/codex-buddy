@@ -12,10 +12,11 @@ final class ResetFeedFixture: URLProtocol {
     }
     private static let lock = NSLock()
     private static var reply = Reply(status:200,body:Data())
+    private static var fallbackReply: Reply?
     private static var recorded = [URLRequest]()
-    static func configure(_ value: Reply) {
+    static func configure(_ value: Reply, fallback: Reply? = nil) {
         lock.lock();defer { lock.unlock() }
-        reply = value;recorded = []
+        reply = value;fallbackReply = fallback;recorded = []
     }
     static var requests: [URLRequest] {
         lock.lock();defer { lock.unlock() };return recorded
@@ -23,7 +24,9 @@ final class ResetFeedFixture: URLProtocol {
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
-        Self.lock.lock();Self.recorded.append(request);let fixture = Self.reply;Self.lock.unlock()
+        Self.lock.lock();Self.recorded.append(request)
+        let fixture = request.url?.host == "api.github.com" ? Self.fallbackReply ?? Self.reply : Self.reply
+        Self.lock.unlock()
         if let failure = fixture.failure {
             client?.urlProtocol(self,didFailWithError:failure);return
         }
@@ -273,7 +276,7 @@ final class ResetFetchFixture: ResetAnnouncementFetching {
         let bytes = try document([event()])
         ResetFeedFixture.configure(.init(status:200,body:bytes,headers:["ETag":"\"synthetic-etag\""]))
         switch try await client.fetch(etag:nil) {
-        case .document(let body,let etag): require(body == bytes && etag == "\"synthetic-etag\"","Public feed must preserve data and ETag")
+        case .document(let body,let etag): require(body == bytes && etag == "raw:\"synthetic-etag\"","Public feed must preserve data and scope ETag to its source")
         case .notModified: preconditionFailure("Fresh response incorrectly treated as cached")
         }
         let request = ResetFeedFixture.requests[0]
@@ -291,7 +294,7 @@ final class ResetFetchFixture: ResetAnnouncementFetching {
         }
         require(ResetFeedFixture.requests.first?.url == url && ResetFeedFixture.requests.first?.value(forHTTPHeaderField:"If-None-Match") == "\"synthetic-etag\"",
                 "Conditional checks must retain the fixed URL and use the server's validator")
-        ResetFeedFixture.configure(.init(status:304,body:Data()))
+        ResetFeedFixture.configure(.init(status:200,body:bytes))
         _ = try await client.fetch(etag:"synthetic\r\nCookie: forbidden")
         require(ResetFeedFixture.requests.first?.value(forHTTPHeaderField:"If-None-Match") == nil,"Malformed validators must not enter request headers")
         for fixture in [
@@ -304,6 +307,52 @@ final class ResetFetchFixture: ResetAnnouncementFetching {
             do { _ = try await client.fetch(etag:nil);preconditionFailure("Untrusted or failed message feed accepted") }
             catch {}
         }
+        let api = URL(string:"https://api.github.com/repos/duoduocats/codex-buddy/contents/announcements/messages.json?ref=main")!
+        ResetFeedFixture.configure(.init(status:503,body:Data()),fallback:.init(status:200,body:bytes,headers:["ETag":"\"api-tag\""]))
+        switch try await client.fetch(etag:"raw:\"old-tag\"") {
+        case .document(let data,let tag): require(data == bytes && tag == "api:\"api-tag\"","Official fallback must preserve the feed and its scoped validator")
+        case .notModified: preconditionFailure("Fallback did not return its data")
+        }
+        require(ResetFeedFixture.requests.map(\.url) == [url,api],"Fallback must use only the fixed same-repository endpoint")
+        let fallbackRequest = ResetFeedFixture.requests[1]
+        require(fallbackRequest.value(forHTTPHeaderField:"Accept") == "application/vnd.github.raw+json" &&
+                fallbackRequest.value(forHTTPHeaderField:"If-None-Match") == nil &&
+                fallbackRequest.value(forHTTPHeaderField:"Authorization") == nil && fallbackRequest.value(forHTTPHeaderField:"Cookie") == nil,
+                "Fallback must be anonymous and never reuse another source's ETag")
+        ResetFeedFixture.configure(.init(status:503,body:Data()),fallback:.init(status:304,body:Data()))
+        _ = try await client.fetch(etag:"api:\"api-tag\"")
+        require(ResetFeedFixture.requests.count == 1 && ResetFeedFixture.requests[0].url == api &&
+                ResetFeedFixture.requests[0].value(forHTTPHeaderField:"If-None-Match") == "\"api-tag\"","A successful alternate source stays preferred and uses its exact validator")
+        ResetFeedFixture.configure(.init(status:304,body:Data()),fallback:.init(status:200,body:bytes,headers:["ETag":"\"fresh\""]))
+        _ = try await client.fetchFresh(etag:"raw:\"cached\"")
+        require(ResetFeedFixture.requests.count == 1 && ResetFeedFixture.requests[0].url == api,
+                "Foreground refresh must bypass an old primary 304 through the official branch endpoint")
+        client.retainCachedData(bytes)
+        ResetFeedFixture.configure(.init(status:200,body:bytes,headers:["ETag":"\"raw-restored\""]),fallback:.init(status:304,body:Data()))
+        switch try await client.fetch(etag:"api:\"fresh\"") {
+        case .document(let data,let token): require(data == bytes && token == "raw:\"raw-restored\"","Matching content safely restores the CDN source")
+        case .notModified: preconditionFailure("Expected restored primary")
+        }
+        ResetFeedFixture.configure(.init(status:200,body:Data("<html>blocked</html>".utf8)),fallback:.init(status:200,body:bytes))
+        _ = try await client.fetch(etag:nil)
+        require(ResetFeedFixture.requests.count == 2,"An HTML error page must try the official fallback")
+        ResetFeedFixture.configure(.init(status:429,body:Data(),headers:["Retry-After":"3600"]),fallback:.init(status:200,body:bytes))
+        do { _ = try await client.fetch(etag:nil);preconditionFailure("Server backoff was bypassed") }
+        catch ResetAnnouncementFailure.retryAfter(let date) { require(date > Date().addingTimeInterval(3_500),"Server delay must be preserved") }
+        require(ResetFeedFixture.requests.count == 1,"Rate limits must stop fallback requests")
+        let limitedClock = origin, resetDate = origin.addingTimeInterval(3_600)
+        let limitedClient = ResetAnnouncementClient(configuration:configuration,now:{limitedClock})
+        ResetFeedFixture.configure(.init(status:503,body:Data()),fallback:.init(status:200,body:bytes,
+            headers:["ETag":"\"last-allowed\"","X-RateLimit-Remaining":"0","X-RateLimit-Reset":String(Int(resetDate.timeIntervalSince1970))]))
+        switch try await limitedClient.fetch(etag:nil) {
+        case .document(let data,_): require(data == bytes && limitedClient.retryNotBefore == resetDate,"A final allowed response remains usable while preserving its next server deadline")
+        case .notModified: preconditionFailure("Expected final allowed response")
+        }
+        ResetFeedFixture.configure(.init(status:503,body:Data()),fallback:.init(status:200,body:bytes))
+        do { _ = try await limitedClient.fetch(etag:nil);preconditionFailure("Quota-zero API was requested again") }
+        catch ResetAnnouncementFailure.retryAfter(let date) { require(date == resetDate,"Quota reset date must remain exact") }
+        require(ResetFeedFixture.requests.count == 1,"No further request may reach the quota-limited API")
+        print("Public fallback passed: fixed anonymous endpoints, scoped ETag304, HTML rejection and server limits")
         print("Message public-fetch tests passed: fixed feed, no credentials/IDs, ETag304, HTTP/offline/origin/size rejection")
     }
     @MainActor static func settle(_ manager: ResetReminderManager) async throws {
@@ -460,12 +509,27 @@ final class ResetFetchFixture: ResetAnnouncementFetching {
         manager.stop();client.failure = ResetAnnouncementFailure.network
         manager.start();try await settle(manager)
         require(client.requests.count == 3,"A new session gets one immediate attempt even offline")
-        clock = clock.addingTimeInterval(1_799);manager.check(force:true);try await settle(manager)
-        require(client.requests.count == 3,"Outage retry backoff resumes after the immediate startup attempt")
+        clock = clock.addingTimeInterval(59);manager.check();try await settle(manager)
+        require(client.requests.count == 3,"Background retry waits one minute after startup failure")
+        client.failure = nil;manager.networkRecovered();try await settle(manager)
+        require(client.requests.count == 4,"A recovered connection retries immediately with cached content")
+        manager.networkRecovered();try await settle(manager)
+        require(client.requests.count == 4,"Healthy recovery must not cause duplicate requests")
+        clock = clock.addingTimeInterval(300)
+        let serverDeadline = clock.addingTimeInterval(3_600)
+        client.failure = ResetAnnouncementFailure.retryAfter(serverDeadline)
+        manager.check();try await settle(manager)
+        require(client.requests.count == 5,"A normal scheduled check may receive a server deadline")
+        clock = clock.addingTimeInterval(31);manager.check(force:true);manager.networkRecovered();try await settle(manager)
+        require(client.requests.count == 5,"Manual checks and recovery respect the server deadline")
+        manager.stop();manager.start();try await settle(manager)
+        require(client.requests.count == 5,"Restart preserves server backoff")
+        clock = serverDeadline;client.failure = nil;manager.check();try await settle(manager)
+        require(client.requests.count == 6 && manager.upcoming?.id == "synthetic-message","Checking resumes at the server deadline without losing the message")
         manager.stop();preferences.set(false,forKey:ResetReminderManager.preferencePrefix+"messagesEnabled")
         let disabled = ResetReminderManager(preferences:preferences,client:client,notifications:center,now:{clock})
         disabled.start();try await settle(disabled);disabled.stop()
-        require(client.requests.count == 3,"Startup must continue to respect receiving opt out")
+        require(client.requests.count == 6,"Startup must continue to respect receiving opt out")
         print("Startup message checks passed: persisted backoff, cached ETag/304, immediate stop/start, single-flight and opt out")
     }
     @MainActor static func cacheFailureTests() async throws {
@@ -480,16 +544,16 @@ final class ResetFetchFixture: ResetAnnouncementFetching {
         defer { manager.stop() }
         manager.check();manager.check();try await settle(manager)
         require(client.requests.count == 1,"Concurrent message checks must stay single-flight")
-        clock = origin.addingTimeInterval(899);manager.check();try await settle(manager)
-        require(client.requests.count == 1,"Public message checks must poll no sooner than15 minutes")
-        clock = origin.addingTimeInterval(900);client.reply = .document(Data("malformed".utf8),etag:"\"bad\"")
+        clock = origin.addingTimeInterval(299);manager.check();try await settle(manager)
+        require(client.requests.count == 1,"Public message checks must poll no sooner than five minutes")
+        clock = origin.addingTimeInterval(300);client.reply = .document(Data("malformed".utf8),etag:"\"bad\"")
         manager.check(force:true);try await settle(manager)
         require(manager.upcoming?.id == "synthetic-message" && preferences.data(forKey:ResetReminderManager.preferencePrefix+"cache") == bytes &&
                 preferences.string(forKey:ResetReminderManager.preferencePrefix+"etag") == "\"manager-fixture\"","Malformed response must not erase cached message or validator")
-        clock = origin.addingTimeInterval(2_699);manager.check(force:true);try await settle(manager)
-        require(client.requests.count == 2,"Manual/wake checks must respect outage backoff")
-        clock = origin.addingTimeInterval(2_700);client.reply = .notModified
-        manager.check(force:true);try await settle(manager)
+        clock = origin.addingTimeInterval(359);manager.check();try await settle(manager)
+        require(client.requests.count == 2,"Background checks must respect the one-minute first retry")
+        clock = origin.addingTimeInterval(360);client.reply = .notModified
+        manager.check();try await settle(manager)
         require(client.requests.count == 3 && manager.upcoming?.id == "synthetic-message","304 after backoff must preserve message and restore normal cadence")
         clock = clock.addingTimeInterval(31)
         var altered = event();altered["body"] = ["zh":"未增修订号的改动","en":"Changed without revision"]

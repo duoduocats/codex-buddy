@@ -78,6 +78,7 @@ enum UpdateStatus: Equatable {
     private var responses: [String:CachedResponse] = [:]
     private var pathMonitor: NWPathMonitor?
     private var pathWasUnavailable = false
+    var onNetworkRecovery: (() -> Void)?
     // Injectable boundaries keep integration tests away from installed apps.
     private let installOperation: ((GitHubRelease, Bool) async throws -> Void)?
     private let stagingOperation: ((GitHubRelease, Bool) async throws -> URL)?
@@ -124,7 +125,7 @@ enum UpdateStatus: Equatable {
                 guard let self else { return }
                 let recovered = reachable && (self.pathWasUnavailable || self.status == .failed(.network))
                 self.pathWasUnavailable = !reachable
-                if recovered { self.networkRecovered() }
+                if recovered { self.networkRecovered();self.onNetworkRecovery?() }
             }
         }
         monitor.start(queue:DispatchQueue(label:"com.duoduocat.codexbuddy.update-network",qos:.utility))
