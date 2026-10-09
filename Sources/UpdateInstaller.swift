@@ -28,6 +28,8 @@ enum UpdateInstallFailure: LocalizedError {
     }
 }
 
+enum UpdateInstallPhase { case downloading, verifying }
+
 enum UpdateInstaller {
     static func run(_ executable: String, _ arguments: [String]) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void,Error>) in
@@ -52,7 +54,7 @@ enum UpdateInstaller {
     }
     static func stage(release: GitHubRelease, repository: String, target: URL,
                       configuration: URLSessionConfiguration = .ephemeral, includeBeta: Bool = false,
-                      progress: @escaping @MainActor (String) -> Void) async throws -> URL {
+                      progress: @escaping @MainActor (UpdateInstallPhase) -> Void) async throws -> URL {
         guard release.publishedURL(repository:repository,includeBeta:includeBeta) != nil,
               let asset=release.installAsset(repository:repository),let downloadURL=URL(string:asset.browserDownloadURL ?? ""),
               let digest=asset.digest, digest.hasPrefix("sha256:") else { throw UpdateInstallFailure.invalid }
@@ -71,14 +73,14 @@ enum UpdateInstaller {
             config.urlCache=nil;config.httpCookieStorage=nil
             let session=URLSession(configuration:config,delegate:delegate,delegateQueue:nil)
             defer { session.invalidateAndCancel() }
-            await progress(L("正在下载更新…", "Downloading update…"))
+            await progress(.downloading)
             let (temp,response)=try await session.download(from:downloadURL)
             guard let http=response as? HTTPURLResponse,http.statusCode==200 else { throw UpdateInstallFailure.download }
             let dmg=work.appendingPathComponent("update.dmg")
             try FileManager.default.moveItem(at:temp,to:dmg)
             let size=(try FileManager.default.attributesOfItem(atPath:dmg.path)[.size] as? NSNumber)?.intValue ?? 0
             guard size>0, size==asset.size, size<100_000_000 else { throw UpdateInstallFailure.verification }
-            await progress(L("正在校验更新包…", "Verifying update…"))
+            await progress(.verifying)
             let bytes=try Data(contentsOf:dmg,options:.mappedIfSafe)
             let actual=SHA256.hash(data:bytes).map { String(format:"%02x",$0) }.joined()
             guard actual==expected else { throw UpdateInstallFailure.verification }
@@ -120,12 +122,27 @@ enum UpdateInstaller {
             if try file.resourceValues(forKeys:[.isSymbolicLinkKey]).isSymbolicLink == true { throw UpdateInstallFailure.verification }
         }
     }
+    static func discardStaged(_ work: URL, target: URL) {
+        guard work.deletingLastPathComponent().standardizedFileURL == target.deletingLastPathComponent().standardizedFileURL,
+              work.lastPathComponent.hasPrefix(".codex-buddy-update-"), work.lastPathComponent.hasSuffix(".noindex"),
+              !FileManager.default.fileExists(atPath:work.appendingPathComponent("previous.app").path),
+              !FileManager.default.fileExists(atPath:work.appendingPathComponent("mount").path),
+              (try? work.resourceValues(forKeys:[.isSymbolicLinkKey]).isSymbolicLink) == false else { return }
+        try? FileManager.default.removeItem(at:work)
+    }
     @MainActor static func replaceAndRelaunch(staged work: URL, target: URL, background: Bool = false) throws {
         guard let script=Bundle.main.url(forResource:"install-update",withExtension:"sh") else { throw UpdateInstallFailure.invalid }
+        let staged=work.appendingPathComponent("Codex Buddy.app")
+        guard let info=NSDictionary(contentsOf:staged.appendingPathComponent("Contents/Info.plist")),
+              let version=info["CFBundleShortVersionString"] as? String,
+              let protocolVersion=info["BuddyUpdateHealthProtocol"] as? Int, protocolVersion == 1 else { throw UpdateInstallFailure.invalid }
+        let token=UUID().uuidString
+        let request:[String:Any]=["token":token,"version":version,"target":target.standardizedFileURL.path]
+        try JSONSerialization.data(withJSONObject:request).write(to:work.appendingPathComponent("health-request.json"),options:.atomic)
         let localScript=work.appendingPathComponent("install-update.sh")
         try FileManager.default.copyItem(at:script,to:localScript)
         let task=Process();task.executableURL=URL(fileURLWithPath:"/bin/bash")
-        task.arguments=[localScript.path,work.path,target.path,String(ProcessInfo.processInfo.processIdentifier), background ? "background" : "foreground"]
+        task.arguments=[localScript.path,work.path,target.path,String(ProcessInfo.processInfo.processIdentifier), background ? "background" : "foreground",token]
         task.standardInput=FileHandle.nullDevice;task.standardOutput=FileHandle.nullDevice;task.standardError=FileHandle.nullDevice
         try task.run()
         NSApp.terminate(nil)

@@ -99,7 +99,14 @@ struct MessageCenterView: View {
     @ObservedObject var manager: ResetReminderManager
     var now: Date
     var openChallenge: () -> Void
+    var presentationChanged: (Bool) -> Void = { _ in }
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var expanded = false
+    private var motion: Animation? { reduceMotion ? nil : .easeInOut(duration:PanelMessageMotion.duration) }
+    private func changePresentation(_ change: () -> Void) {
+        presentationChanged(!reduceMotion)
+        withAnimation(motion,change)
+    }
     var body: some View {
         let messages = manager.panelAnnouncements(at:now)
         if !messages.isEmpty {
@@ -108,10 +115,11 @@ struct MessageCenterView: View {
                     Text(L("消息", "Messages")).font(.system(size:13,weight:.semibold))
                     Spacer()
                     if messages.count > 1 {
-                        Button { expanded.toggle() } label: {
+                        Button { changePresentation { expanded.toggle() } } label: {
                             HStack(spacing:4) {
                                 Text(L("\(messages.count) 条", "\(messages.count) messages"))
-                                Image(systemName:expanded ? "chevron.up" : "chevron.down")
+                                Image(systemName:"chevron.down")
+                                    .rotationEffect(.degrees(expanded ? 180 : 0))
                             }.font(.system(size:10))
                         }.buttonStyle(.plain).help(L("展开或收起消息", "Expand or collapse messages"))
                             .accessibilityIdentifier("message-center-toggle")
@@ -120,9 +128,11 @@ struct MessageCenterView: View {
                 ForEach(expanded ? messages : Array(messages.prefix(1))) { message in
                     MessageCenterCard(message:message,now:now,
                         open:{ message.type == "activity" ? openChallenge() : manager.openSource(for:message) },
-                        dismiss:{manager.dismissPanelMessage(message.id)})
+                        dismiss:{changePresentation { manager.dismissPanelMessage(message.id) }})
+                        .transition(reduceMotion ? .identity : .opacity.combined(with:.offset(y:-6)))
                 }
             }.frame(maxWidth:.infinity,alignment:.leading)
+                .transition(reduceMotion ? .identity : .opacity)
         }
     }
 }

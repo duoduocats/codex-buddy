@@ -42,7 +42,7 @@ struct GitHubRelease: Decodable {
     let draft: Bool
     let prerelease: Bool
     let assets: [Asset]
-    struct Asset: Decodable {
+    struct Asset: Decodable, Equatable {
         let name: String
         let state: String
         var browserDownloadURL: String? = nil
@@ -94,18 +94,38 @@ private struct ReleaseUpdateDocument: Decodable {
     let schemaVersion: Int
     let version: String
     let mode: ReleaseUpdateMode
+    let rolloutPercentage: Int?
+}
+
+struct VerifiedUpdatePolicy: Equatable {
+    let mode: ReleaseUpdateMode
+    var rolloutPercentage: Int = 100
+    func permitsBackgroundUpdate(repository: String, installationID: String) -> Bool {
+        guard rolloutPercentage < 100 else { return true }
+        let hash = SHA256.hash(data:Data((repository + "\n" + installationID).utf8))
+        let bucket = hash.prefix(4).reduce(UInt32(0)) { ($0 << 8) | UInt32($1) } % 100
+        return Int(bucket) < rolloutPercentage
+    }
 }
 
 enum UpdatePolicy {
-    static func verifiedMode(data: Data, asset: GitHubRelease.Asset, tag: String) -> ReleaseUpdateMode? {
+    static func verified(data: Data, asset: GitHubRelease.Asset, tag: String) -> VerifiedUpdatePolicy? {
         guard data.count > 0, data.count <= 4096, data.count == asset.size,
               let digest = asset.digest, digest.hasPrefix("sha256:"),
               String(digest.dropFirst(7)).lowercased() == SHA256.hash(data:data).map({ String(format:"%02x",$0) }).joined(),
               let document = try? JSONDecoder().decode(ReleaseUpdateDocument.self,from:data),
-              (document.schemaVersion == 1 || (document.schemaVersion == 2 && document.mode == .notify)),
               document.version == (tag.hasPrefix("v") ? String(tag.dropFirst()) : tag),
               AppVersion(document.version) != nil else { return nil }
-        return document.mode
+        switch document.schemaVersion {
+        case 1: guard document.rolloutPercentage == nil else { return nil }
+        case 2: guard document.mode == .notify, document.rolloutPercentage == nil else { return nil }
+        case 3: guard let percentage = document.rolloutPercentage, (0...100).contains(percentage) else { return nil }
+        default: return nil
+        }
+        return VerifiedUpdatePolicy(mode:document.mode,rolloutPercentage:document.rolloutPercentage ?? 100)
+    }
+    static func verifiedMode(data: Data, asset: GitHubRelease.Asset, tag: String) -> ReleaseUpdateMode? {
+        verified(data:data,asset:asset,tag:tag)?.mode
     }
     static func action(release: GitHubRelease, mode: ReleaseUpdateMode, current: String,
                        manual: Bool, ignored: [String], announced: [String], includeBeta: Bool = false) -> ReleaseUpdateAction {

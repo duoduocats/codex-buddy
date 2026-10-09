@@ -44,7 +44,9 @@ Under **Messages**, turn **Reset reminders** and **Activity messages** on or off
 
 Click **Check for updates** in Settings to see new versions and release notes. When an update is available, use the **Download update** button beside Settings in the expanded panel to upgrade within the app.
 
-Beta updates are off by default. Enable **Receive Beta updates** under **General & updates** to receive Beta releases. With it off, both automatic and manual checks use stable releases only.
+Beta updates are off by default. Enable **Receive Beta updates** under **General & updates** to receive Beta releases. With it off, both automatic and manual checks use stable releases only. Turning Beta off does not downgrade the app; a newer installed Beta waits for a later stable release.
+
+Settings shows the last successful update check. Temporary connection failures retry automatically, and failed updates preserve a working version.
 
 ## Download and install
 

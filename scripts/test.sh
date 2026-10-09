@@ -8,6 +8,9 @@ swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 \
 "$TEST_BUILD/tests"
 python3 "$ROOT/scripts/check-source.py"
 python3 "$ROOT/scripts/test-installer.py"
+swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 \
+  "$ROOT/Sources/UpdateHealth.swift" "$ROOT/Tests/UpdateHealthTests.swift" -o "$TEST_BUILD/update-health-tests"
+"$TEST_BUILD/update-health-tests"
 python3 "$ROOT/scripts/test-privacy.py"
 python3 "$ROOT/scripts/test-pdf-privacy.py"
 python3 "$ROOT/scripts/test-release-policy.py"

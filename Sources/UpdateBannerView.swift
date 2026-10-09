@@ -50,22 +50,25 @@ struct SettingsUpdateSection: View {
                         .buttonStyle(.borderedProminent).controlSize(.small).disabled(updates.installing)
                 }
             }
-            if let message = detailMessage {
+            if let message = updates.detailMessage {
                 Text(message).font(.system(size:11))
                     .foregroundStyle(updates.installFailed ? Color.red : Color.secondary)
                     .fixedSize(horizontal:false,vertical:true)
             }
+            if let checked = updates.lastSuccessfulCheckAt {
+                Text(L("最近成功检查：", "Last successful check: ") + Self.timestamp(checked))
+                    .font(.system(size:11)).foregroundStyle(.secondary)
+                    .fixedSize(horizontal:false,vertical:true)
+            }
+            if let retry = updates.nextRetryAt {
+                Text(L("下次重试：", "Next retry: ") + Self.timestamp(retry))
+                    .font(.system(size:11)).foregroundStyle(.secondary)
+                    .fixedSize(horizontal:false,vertical:true)
+            }
         }.padding(.vertical,4)
     }
-    private var detailMessage: String? {
-        let message = updates.message
-        guard !message.isEmpty else { return nil }
-        if let release = updates.available,
-           message == L("发现新版本 \(release.tagName)。", "Update available: \(release.tagName).") { return nil }
-        if updates.available == nil,
-           message == L("当前已是最新版本（\(updates.currentVersion)）。", "You are up to date (\(updates.currentVersion)).") {
-            return L("已是最新版本", "You're up to date")
-        }
-        return message
+    private static func timestamp(_ date: Date) -> String {
+        let formatter=DateFormatter();formatter.dateStyle = .medium;formatter.timeStyle = .short
+        return formatter.string(from:date) + " " + (TimeZone.current.abbreviation(for:date) ?? TimeZone.current.identifier)
     }
 }

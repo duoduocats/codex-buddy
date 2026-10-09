@@ -151,3 +151,20 @@ precondition(rangeFixture.groupsExpiring(now:expiryNow,withinDays:7,calendar:exp
 precondition(expiryEnd.timeIntervalSince(expiryNow) == 7*86_400+3_600,"Expiry windows must follow the system calendar across DST")
 precondition(rangeFixture.groupsExpiring(now:expiryNow,withinDays:0).isEmpty)
 print("Upcoming expiry range passed: forward window, inclusive boundary, DST and no fabricated dates")
+
+// Background rollout membership is local, stable and expands monotonically.
+let sampleIDs=(0..<1000).map { "synthetic-installation-\($0)" }
+let ten=VerifiedUpdatePolicy(mode:.silent,rolloutPercentage:10)
+let fifty=VerifiedUpdatePolicy(mode:.silent,rolloutPercentage:50)
+let selected=sampleIDs.filter { ten.permitsBackgroundUpdate(repository:"example/buddy",installationID:$0) }
+precondition(!selected.isEmpty && selected.count < sampleIDs.count)
+precondition(selected.allSatisfy { fifty.permitsBackgroundUpdate(repository:"example/buddy",installationID:$0) })
+precondition(sampleIDs.allSatisfy { !VerifiedUpdatePolicy(mode:.silent,rolloutPercentage:0).permitsBackgroundUpdate(repository:"example/buddy",installationID:$0) })
+precondition(sampleIDs.allSatisfy { VerifiedUpdatePolicy(mode:.silent).permitsBackgroundUpdate(repository:"example/buddy",installationID:$0) })
+for percentage in [-1,0,10,100,101] {
+    let data=try JSONSerialization.data(withJSONObject:["schemaVersion":3,"version":"2.0.0","mode":"silent","rolloutPercentage":percentage])
+    let hash=SHA256.hash(data:data).map { String(format:"%02x",$0) }.joined()
+    let asset=GitHubRelease.Asset(name:"update-policy.json",state:"uploaded",digest:"sha256:"+hash,size:data.count)
+    precondition((UpdatePolicy.verified(data:data,asset:asset,tag:"v2.0.0") != nil) == (0...100).contains(percentage))
+}
+print("Phased rollout policy passed: explicit percentage bounds, all-users default and stable expanding membership")
