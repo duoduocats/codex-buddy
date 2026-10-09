@@ -50,6 +50,8 @@ private final class PreviewPreferences: UserDefaults {
         }
         let hosting = NSHostingController(rootView:UsageView(model:model,settings:{ [weak self] in self?.showSettings() },openChallenge:{ [weak self] in self?.showChallenge() },sharePresentationChanged:{ [weak self] presenting in self?.popover.isPresentingAuxiliaryUI = presenting },contentHeightChanged:{ [weak self] height in
             self?.popover.setContentHeight(height)
+        },messagePresentationChanged:{ [weak self] animated in
+            self?.popover.prepareForMessageTransition(animated:animated)
         }))
         hosting.sizingOptions = []
         usageHosting = hosting
@@ -63,6 +65,17 @@ private final class PreviewPreferences: UserDefaults {
         if CommandLine.arguments.contains("--ui-check") { model.useDemo() }
         else { model.start(demo:CommandLine.arguments.contains("--performance-check")) }
         if !CommandLine.arguments.contains("--ui-check"), !CommandLine.arguments.contains("--performance-check") { UpdateManager.shared.start() }
+        if let version=UpdateHealth.restoredVersion(arguments:CommandLine.arguments,bundleURL:Bundle.main.bundleURL) {
+            UpdateManager.shared.reportRestoredUpdate(failedVersion:version)
+        }
+        if CommandLine.arguments.contains("--update-work") {
+            // Give the native run loop time to exercise initialization. Offline startup is healthy.
+            DispatchQueue.main.asyncAfter(deadline:.now()+5) {
+                guard self.item.button != nil, self.usageHosting != nil else { return }
+                _ = UpdateHealth.acknowledge(arguments:CommandLine.arguments,bundleURL:Bundle.main.bundleURL,
+                    version:Bundle.main.object(forInfoDictionaryKey:"CFBundleShortVersionString") as? String ?? "")
+            }
+        }
         if CommandLine.arguments.contains("--performance-check") {
             let cpuStart=clock(), wallStart=ProcessInfo.processInfo.systemUptime
             DispatchQueue.main.asyncAfter(deadline:.now()+60) {
@@ -167,7 +180,7 @@ private final class PreviewPreferences: UserDefaults {
     func closePopover() {
         popover.close()
     }
-    @objc func wake() { model.refresh(includeStatistics:false);model.reminders.check(force:true);model.challenge.check(force:true);UpdateManager.shared.check(manual:false) }
+    @objc func wake() { model.refresh(includeStatistics:false);model.reminders.check(force:true);model.challenge.check(force:true);UpdateManager.shared.networkRecovered();UpdateManager.shared.check(manual:false) }
     func showSettings() {
         closePopover()
         if settingsWindow == nil {

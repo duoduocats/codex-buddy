@@ -7,6 +7,7 @@ struct UsageView: View {
     var openChallenge: () -> Void = {}
     var sharePresentationChanged: (Bool) -> Void = { _ in }
     var contentHeightChanged: (CGFloat) -> Void = { _ in }
+    var messagePresentationChanged: (Bool) -> Void = { _ in }
     @ObservedObject var updates: UpdateManager = .shared
     @StateObject private var chartRange = UsageChartRange()
     private var resetTime: String {
@@ -17,7 +18,8 @@ struct UsageView: View {
     }
     var body: some View {
         VStack(spacing:22) {
-            MessageCenterView(manager:model.reminders,now:model.now,openChallenge:openChallenge)
+            MessageCenterView(manager:model.reminders,now:model.now,openChallenge:openChallenge,
+                presentationChanged:messagePresentationChanged)
             HStack {
                 if model.entries.count > 1 {
                     Picker(L("顶栏显示", "Menu bar display"),selection:$model.selection) {

@@ -14,6 +14,11 @@ on:
         default: none
         type: choice
         options: [none, notify, silent]
+      rollout_percentage:
+        description: Optional background rollout percentage (0-100); blank preserves release metadata
+        required: false
+        default: ''
+        type: string
 permissions:
   contents: read
 concurrency:
@@ -38,6 +43,7 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
           EXPECTED_REPOSITORY: ${{ github.repository }}
           UPDATE_MODE: ${{ inputs.update_mode || '' }}
+          ROLLOUT_PERCENTAGE: ${{ inputs.rollout_percentage || '' }}
         run: python3 scripts/release-metadata.py
       - name: Full history privacy scan
         run: python3 scripts/check-source.py --history
