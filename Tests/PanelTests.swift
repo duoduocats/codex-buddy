@@ -8,6 +8,8 @@ private final class FlippedContent: NSView {
     @MainActor static func main() async throws {
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)
+        app.finishLaunching()
+        app.activate(ignoringOtherApps:true)
         let controller = NSViewController()
         controller.view = FlippedContent(frame:NSRect(x:0,y:0,width:380,height:825))
         let panel = QuotaPanel(maximumHeight:640,reduceMotion:{false})
@@ -38,14 +40,21 @@ private final class FlippedContent: NSView {
         let button=NSButton(frame:NSRect(x:0,y:0,width:34,height:24));anchor.contentView=button;anchor.orderFront(nil)
         panel.show(relativeTo:button.bounds,of:button,preferredEdge:.minY)
         defer { panel.close();anchor.close() }
+        // Match native launch before asking WindowServer to animate a newly shown panel.
+        try await Task.sleep(nanoseconds:200_000_000)
         let nativeWindow=controller.view.window!, top=nativeWindow.frame.maxY
+        var frames: [NSRect] = []
+        let observer = NotificationCenter.default.addObserver(forName:NSWindow.didResizeNotification,
+            object:nativeWindow,queue:.main) { _ in
+            MainActor.assumeIsolated { frames.append(nativeWindow.frame) }
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
         panel.prepareForMessageTransition(animated:true)
         panel.contentSize=NSSize(width:380,height:600)
-        try await Task.sleep(nanoseconds:80_000_000)
-        print("Animated frame sample:",nativeWindow.frame.height)
-        precondition(nativeWindow.frame.height > 400 && nativeWindow.frame.height < 600,"A message resize must pass through intermediate heights")
-        precondition(abs(nativeWindow.frame.maxY-top) < 1,"Animation must preserve the menu-bar top anchor")
         try await Task.sleep(nanoseconds:350_000_000)
+        fputs("Animated frame heights: \(frames.map { $0.height })\n",stderr)
+        precondition(frames.contains { $0.height > 400 && $0.height < 600 },"A message resize must pass through intermediate heights")
+        precondition(frames.allSatisfy { abs($0.maxY-top) < 1 },"Every animation frame must preserve the menu-bar top anchor")
         precondition(nativeWindow.frame.height == 600 && scroll.contentView.bounds.minY == 0)
         panel.prepareForMessageTransition(animated:true);panel.contentSize=NSSize(width:380,height:400)
         try await Task.sleep(nanoseconds:50_000_000)
