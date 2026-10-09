@@ -114,6 +114,8 @@ extension ResetNotificationDelivering {
     private var etag: String?
     private var lastAttempt: Date?
     private var failures = 0
+    private var connectionFailure = false
+    private var serverNotBefore: Date?
     private var announced: [String: Date]
     private var ignored: [String: Date]
     private var revisions: [String: Int]
@@ -127,7 +129,8 @@ extension ResetNotificationDelivering {
     static let preferencePrefix = "resetReminders."
     init(preferences: UserDefaults = .standard, client: ResetAnnouncementFetching? = nil,
          notifications: ResetNotificationDelivering? = nil, now: @escaping () -> Date = { Date() }) {
-        self.preferences = preferences;self.client = client ?? ResetAnnouncementClient();self.now = now
+        self.preferences = preferences;self.client = client ?? ResetAnnouncementClient(now:now,
+            validate:{ _ = try ResetAnnouncementDocument.decode($0,now:now()) });self.now = now
         self.notificationDependency = notifications
         enabled = preferences.bool(forKey:Self.preferencePrefix+"enabled")
         messagesEnabled = preferences.object(forKey:Self.preferencePrefix+"messagesEnabled") as? Bool
@@ -145,8 +148,10 @@ extension ResetNotificationDelivering {
         if revisions.count > 100 { revisions = [:] }
         lastAttempt = preferences.object(forKey:Self.preferencePrefix+"lastAttempt") as? Date
         failures = min(5,max(0,preferences.integer(forKey:Self.preferencePrefix+"failures")))
+        serverNotBefore = preferences.object(forKey:Self.preferencePrefix+"serverNotBefore") as? Date
         if let data = preferences.data(forKey:Self.preferencePrefix+"cache"), let value = try? ResetAnnouncementDocument.decode(data,now:now()) {
             document = value;etag = ResetAnnouncementClient.validETag(preferences.string(forKey:Self.preferencePrefix+"etag"))
+            self.client.retainCachedData(data)
         } else {
             preferences.removeObject(forKey:Self.preferencePrefix+"cache");preferences.removeObject(forKey:Self.preferencePrefix+"etag")
         }
@@ -173,14 +178,19 @@ extension ResetNotificationDelivering {
         if previous != upcoming || live != activityLiveIDs { activityLiveIDs = live;processNotifications(replace:true) }
         if started { check() }
     }
+    func networkRecovered() {
+        guard started, acceptsResetMessages, connectionFailure else { return }
+        connectionFailure = false;lastAttempt = nil;check()
+    }
     func check(force: Bool = false) {
         guard !demo, acceptsResetMessages, !checking else { return }
         let timestamp = now()
-        let interval = min(6*3_600.0,900*pow(2,Double(failures)))
+        if let date = serverNotBefore, date > timestamp { return }
+        let interval = PublicFeedRefreshPolicy.interval(failures:failures)
         if let lastAttempt {
             let elapsed = timestamp.timeIntervalSince(lastAttempt)
             if elapsed < 0 { self.lastAttempt = nil }
-            else if elapsed < ((force && failures == 0) ? 30 : interval) { return }
+            else if elapsed < (force ? 30 : interval) { return }
         }
         lastAttempt = timestamp;preferences.set(timestamp,forKey:Self.preferencePrefix+"lastAttempt");checking = true
         checkGeneration += 1;let checkTicket = checkGeneration
@@ -188,7 +198,9 @@ extension ResetNotificationDelivering {
             guard let self else { return }
             defer { if checkTicket == checkGeneration { self.checking = false;self.checkTask = nil } }
             do {
-                let result = try await client.fetch(etag:etag)
+                let result: ResetFetchResult
+                if force { result = try await client.fetchFresh(etag:etag) }
+                else { result = try await client.fetch(etag:etag) }
                 try Task.checkCancellation()
                 guard checkTicket == checkGeneration, !demo, acceptsResetMessages else { throw CancellationError() }
                 switch result {
@@ -206,14 +218,21 @@ extension ResetNotificationDelivering {
                     document = value;etag = ResetAnnouncementClient.validETag(newETag)
                     preferences.set(data,forKey:Self.preferencePrefix+"cache")
                     preferences.set(etag,forKey:Self.preferencePrefix+"etag")
+                    client.retainCachedData(data)
                 }
                 failures = 0;preferences.set(0,forKey:Self.preferencePrefix+"failures")
+                connectionFailure = false;serverNotBefore = client.retryNotBefore
+                preferences.set(serverNotBefore,forKey:Self.preferencePrefix+"serverNotBefore")
                 if message != L("通知未获授权，请在系统设置中允许 Codex Buddy 通知。", "Notifications are not allowed. Enable Codex Buddy notifications in System Settings.") { message = nil }
                 prune();selectUpcoming();processNotifications(replace:true)
             } catch is CancellationError { }
             catch {
                 guard checkTicket == checkGeneration, !Task.isCancelled else { return }
                 failures = min(5,failures+1);preferences.set(failures,forKey:Self.preferencePrefix+"failures")
+                connectionFailure = PublicFeedRefreshPolicy.connectionFailed(error)
+                if case ResetAnnouncementFailure.retryAfter(let date) = error {
+                    serverNotBefore = date;preferences.set(date,forKey:Self.preferencePrefix+"serverNotBefore")
+                }
                 if force { message = L("消息检查失败，将稍后重试。", "Could not check messages. Will retry later.") }
             }
         }

@@ -164,37 +164,63 @@ struct ResetAnnouncementDocument: Codable {
         }
     }
 }
-enum ResetAnnouncementFailure: Error { case invalid, network, notPublished }
+enum ResetAnnouncementFailure: Error { case invalid, network, notPublished, retryAfter(Date) }
+enum PublicFeedRefreshPolicy {
+    static func interval(failures: Int) -> TimeInterval {
+        [300,60,300,900,3_600][min(4,max(0,failures))]
+    }
+    static func connectionFailed(_ error: Error) -> Bool {
+        if case ResetAnnouncementFailure.network = error { return true }
+        return error is URLError
+    }
+}
 enum ResetFetchResult {
     case notModified
     case document(Data, etag: String?)
 }
 protocol ResetAnnouncementFetching {
     func fetch(etag: String?) async throws -> ResetFetchResult
+    func fetchFresh(etag: String?) async throws -> ResetFetchResult
+    func retainCachedData(_ data: Data)
+    var retryNotBefore: Date? { get }
+}
+extension ResetAnnouncementFetching {
+    var retryNotBefore: Date? { nil }
+    func fetchFresh(etag: String?) async throws -> ResetFetchResult { try await fetch(etag:etag) }
+    func retainCachedData(_ data: Data) { }
 }
 private final class ResetFeedRedirectDelegate: NSObject, URLSessionTaskDelegate {
-    let endpoint: URL
-    init(endpoint: URL) { self.endpoint = endpoint }
+    let endpoints: Set<URL>
+    init(endpoints: Set<URL>) { self.endpoints = endpoints }
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
                     newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
-        completionHandler(request.url == endpoint ? request : nil)
+        completionHandler(task.originalRequest?.url == request.url && request.url.map(endpoints.contains) == true ? request : nil)
     }
 }
 final class ResetAnnouncementClient: ResetAnnouncementFetching {
     static let feedURL = URL(string:"https://raw.githubusercontent.com/duoduocats/codex-buddy/main/announcements/messages.json")!
     private let session: URLSession
     private let endpoint: URL
+    private let fallback: URL
     private let maximumBytes: Int
+    private let clock: () -> Date
+    private let validate: ((Data) throws -> Void)?
+    private var endpointNotBefore: [URL:Date] = [:]
+    private var cachedData: Data?
+    private var lastRawProbe: Date?
+    private(set) var retryNotBefore: Date?
     init(configuration: URLSessionConfiguration = .ephemeral, feedURL: URL = ResetAnnouncementClient.feedURL,
-         maximumBytes: Int = ResetAnnouncementDocument.maximumBytes) {
+         maximumBytes: Int = ResetAnnouncementDocument.maximumBytes, now: @escaping () -> Date = { Date() },
+         validate: ((Data) throws -> Void)? = nil) {
         precondition([Self.feedURL,URL(string:"https://raw.githubusercontent.com/duoduocats/codex-buddy/main/announcements/tibo-28.json")!].contains(feedURL))
         precondition((1...131_072).contains(maximumBytes))
-        self.endpoint = feedURL;self.maximumBytes = maximumBytes
+        self.endpoint = feedURL;self.maximumBytes = maximumBytes;self.clock = now;self.validate = validate
+        fallback = URL(string:"https://api.github.com/repos/duoduocats/codex-buddy/contents/announcements/"+feedURL.lastPathComponent+"?ref=main")!
         configuration.timeoutIntervalForRequest = 10;configuration.timeoutIntervalForResource = 15
         configuration.urlCache = nil;configuration.httpCookieStorage = nil;configuration.urlCredentialStorage = nil
         configuration.httpShouldSetCookies = false;configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
         configuration.httpAdditionalHeaders = [:]
-        session = URLSession(configuration:configuration,delegate:ResetFeedRedirectDelegate(endpoint:feedURL),delegateQueue:nil)
+        session = URLSession(configuration:configuration,delegate:ResetFeedRedirectDelegate(endpoints:[feedURL,fallback]),delegateQueue:nil)
     }
     deinit { session.invalidateAndCancel() }
     static func validETag(_ value: String?) -> String? {
@@ -203,14 +229,71 @@ final class ResetAnnouncementClient: ResetAnnouncementFetching {
         return value
     }
     func fetch(etag: String?) async throws -> ResetFetchResult {
-        var request = URLRequest(url:endpoint)
-        request.setValue("application/json",forHTTPHeaderField:"Accept")
+        let primary = etag?.hasPrefix("api:") == true ? fallback : endpoint
+        return try await fetch(primary:primary,etag:etag)
+    }
+    func fetchFresh(etag: String?) async throws -> ResetFetchResult {
+        // A user opening records verifies the canonical branch through the other
+        // official origin even when an intermediary keeps returning an old 304.
+        let primary = endpointNotBefore[fallback].map { $0 > clock() } == true ? endpoint : fallback
+        return try await fetch(primary:primary,etag:etag)
+    }
+    func retainCachedData(_ data: Data) { cachedData = data }
+    private func fetch(primary: URL, etag: String?) async throws -> ResetFetchResult {
+        retryNotBefore = nil
+        do {
+            let result = try await fetch(from:primary,scope:primary == endpoint ? "raw:" : "api:",etag:etag)
+            if primary == fallback, case .notModified = result, let cachedData,
+               lastRawProbe.map({ clock().timeIntervalSince($0) >= 3_600 }) ?? true {
+                lastRawProbe = clock()
+                let serverDelay = retryNotBefore
+                do {
+                    let probe = try await fetch(from:endpoint,scope:"raw:",etag:nil)
+                    if case .document(let bytes,_) = probe, bytes == cachedData {
+                        retryNotBefore = nil;return probe
+                    }
+                } catch { }
+                retryNotBefore = serverDelay
+            }
+            return result
+        }
+        catch {
+            try Task.checkCancellation()
+            if (error as? URLError)?.code == .cancelled { throw CancellationError() }
+            if case ResetAnnouncementFailure.invalid = error { throw error }
+            if case ResetAnnouncementFailure.retryAfter = error { throw error }
+            let secondary = primary == endpoint ? fallback : endpoint
+            return try await fetch(from:secondary,scope:secondary == endpoint ? "raw:" : "api:",etag:etag)
+        }
+    }
+    private func tag(_ token: String?, scope: String) -> String? {
+        guard let token = Self.validETag(token) else { return nil }
+        if token.hasPrefix(scope) { return Self.validETag(String(token.dropFirst(scope.count))) }
+        if token.hasPrefix("raw:") || token.hasPrefix("api:") { return nil }
+        return scope == "raw:" ? token : nil // Existing caches used a raw-source validator.
+    }
+    private func fetch(from url: URL, scope: String, etag: String?) async throws -> ResetFetchResult {
+        if let date = endpointNotBefore[url], date > clock() { throw ResetAnnouncementFailure.retryAfter(date) }
+        var request = URLRequest(url:url)
+        request.setValue(scope == "api:" ? "application/vnd.github.raw+json" : "application/json",forHTTPHeaderField:"Accept")
         // A fixed identifier contains no installed version or machine/account information.
         request.setValue("Codex-Buddy-Announcements",forHTTPHeaderField:"User-Agent")
-        if let tag = Self.validETag(etag) { request.setValue(tag,forHTTPHeaderField:"If-None-Match") }
+        if let value = tag(etag,scope:scope) { request.setValue(value,forHTTPHeaderField:"If-None-Match") }
         let (bytes,response) = try await session.bytes(for:request)
-        guard let response = response as? HTTPURLResponse, response.url == endpoint else { throw ResetAnnouncementFailure.invalid }
-        if response.statusCode == 304 { return .notModified }
+        guard let response = response as? HTTPURLResponse, response.url == url else { throw ResetAnnouncementFailure.invalid }
+        if response.statusCode == 429 || response.statusCode >= 400 &&
+            (response.value(forHTTPHeaderField:"X-RateLimit-Remaining") == "0" || response.value(forHTTPHeaderField:"Retry-After") != nil) {
+            let retry = Self.retryDate(response,now:clock()) ?? clock().addingTimeInterval(60)
+            endpointNotBefore[url] = retry
+            throw ResetAnnouncementFailure.retryAfter(retry)
+        }
+        if response.value(forHTTPHeaderField:"X-RateLimit-Remaining") == "0", let date = Self.retryDate(response,now:clock()) {
+            endpointNotBefore[url] = date;retryNotBefore = date
+        }
+        if response.statusCode == 304 {
+            guard tag(etag,scope:scope) != nil else { throw ResetAnnouncementFailure.network }
+            return .notModified
+        }
         if response.statusCode == 404, endpoint.lastPathComponent == "tibo-28.json" { throw ResetAnnouncementFailure.notPublished }
         guard response.statusCode == 200,
               response.expectedContentLength <= Int64(maximumBytes) else { throw ResetAnnouncementFailure.network }
@@ -220,6 +303,25 @@ final class ResetAnnouncementClient: ResetAnnouncementFetching {
             data.append(byte)
         }
         guard !data.isEmpty else { throw ResetAnnouncementFailure.invalid }
-        return .document(data,etag:Self.validETag(response.value(forHTTPHeaderField:"ETag")))
+        guard let object = try? JSONSerialization.jsonObject(with:data) as? [String:Any],
+              object["schemaVersion"] != nil,
+              object[endpoint.lastPathComponent == "messages.json" ? "events" : "records"] is [Any] else {
+            throw ResetAnnouncementFailure.network
+        }
+        do { try validate?(data) } catch { throw ResetAnnouncementFailure.network }
+        let scopedTag = Self.validETag(response.value(forHTTPHeaderField:"ETag")).flatMap { Self.validETag(scope+$0) }
+        return .document(data,etag:scopedTag)
+    }
+    static func retryDate(_ response: HTTPURLResponse, now: Date) -> Date? {
+        if let text = response.value(forHTTPHeaderField:"Retry-After") {
+            if let seconds = TimeInterval(text), seconds.isFinite, seconds >= 0 { return now.addingTimeInterval(seconds) }
+            let formatter = DateFormatter();formatter.locale = Locale(identifier:"en_US_POSIX");formatter.timeZone = TimeZone(secondsFromGMT:0)
+            formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss zzz"
+            if let date = formatter.date(from:text) { return date }
+        }
+        if let text = response.value(forHTTPHeaderField:"X-RateLimit-Reset"), let seconds = TimeInterval(text), seconds.isFinite {
+            return Date(timeIntervalSince1970:seconds)
+        }
+        return nil
     }
 }

@@ -12,11 +12,13 @@ private final class ChallengeFixture: ResetAnnouncementFetching {
     var delay = false
     var fail = false
     var notPublished = false
+    var failure: Error?
     var data: Data
     var tags: [String?] = []
     init(_ data: Data) { self.data = data }
     func fetch(etag: String?) async throws -> ResetFetchResult {
         calls += 1;tags.append(etag)
+        if let failure { throw failure }
         if delay { try await Task.sleep(nanoseconds:1_000_000_000) }
         if fail { throw ResetAnnouncementFailure.network }
         if notPublished { throw ResetAnnouncementFailure.notPublished }
@@ -27,7 +29,8 @@ private final class ChallengeHTTPFixture: URLProtocol {
     override class func canInit(with request:URLRequest) -> Bool { true }
     override class func canonicalRequest(for request:URLRequest) -> URLRequest { request }
     override func startLoading() {
-        precondition(request.url == TiboChallengeDocument.feedURL)
+        precondition(request.url == TiboChallengeDocument.feedURL ||
+            request.url == URL(string:"https://api.github.com/repos/duoduocats/codex-buddy/contents/announcements/tibo-28.json?ref=main")!)
         precondition(request.value(forHTTPHeaderField:"Authorization") == nil && request.value(forHTTPHeaderField:"Cookie") == nil)
         client?.urlProtocol(self,didReceive:HTTPURLResponse(url:request.url!,statusCode:404,httpVersion:nil,headerFields:nil)!,cacheStoragePolicy:.notAllowed)
         client?.urlProtocolDidFinishLoading(self)
@@ -89,6 +92,37 @@ private final class ChallengeHTTPFixture: URLProtocol {
         cached.start();cached.tick();await wait(cached)
         precondition(client.calls == restartCalls+1,"Repeated start and tick must not duplicate startup fetch")
         cached.stop();pending.stop()
+        var clock = now
+        let refreshClient = ChallengeFixture(bytes)
+        let refreshPreferences = ChallengePreferences()
+        let refresh = TiboChallengeManager(preferences:refreshPreferences,client:refreshClient,initialDocument:seed,now:{clock})
+        refresh.start();await wait(refresh)
+        clock = now.addingTimeInterval(299);refresh.tick();await wait(refresh)
+        precondition(refreshClient.calls == 1)
+        clock = now.addingTimeInterval(300);refreshClient.fail = true;refresh.tick();await wait(refresh)
+        precondition(refreshClient.calls == 2 && refresh.document == document)
+        clock = now.addingTimeInterval(359);refresh.tick();await wait(refresh)
+        precondition(refreshClient.calls == 2,"Transient failures must wait one minute, not thirty")
+        clock = now.addingTimeInterval(360);refresh.tick();await wait(refresh)
+        precondition(refreshClient.calls == 3)
+        refreshClient.fail = false;refresh.networkRecovered();await wait(refresh)
+        precondition(refreshClient.calls == 4 && refresh.error == nil,"Network recovery retries without waiting for failure backoff")
+        refresh.networkRecovered();await wait(refresh)
+        precondition(refreshClient.calls == 4,"Healthy recovery signals must not create extra requests")
+        clock = clock.addingTimeInterval(300);refreshClient.failure = ResetAnnouncementFailure.retryAfter(clock.addingTimeInterval(3_600))
+        refresh.tick();await wait(refresh)
+        let limitedCalls = refreshClient.calls
+        clock = clock.addingTimeInterval(300);refresh.check(force:true);refresh.networkRecovered();refresh.setWindowVisible(true);await wait(refresh)
+        precondition(refreshClient.calls == limitedCalls,"Force, open and recovery cannot bypass server limits")
+        refresh.stop();refreshClient.failure = nil
+        let limitedRestart = TiboChallengeManager(preferences:refreshPreferences,client:refreshClient,initialDocument:seed,now:{clock})
+        limitedRestart.start();await wait(limitedRestart)
+        precondition(refreshClient.calls == limitedCalls,"Restart must retain the server deadline")
+        clock = clock.addingTimeInterval(3_300);limitedRestart.tick();await wait(limitedRestart)
+        precondition(refreshClient.calls == limitedCalls+1 && limitedRestart.document == document)
+        limitedRestart.stop()
+        precondition((0...6).map { PublicFeedRefreshPolicy.interval(failures:$0) } == [300,60,300,900,3600,3600,3600])
+        print("Activity refresh passed: five-minute checks, bounded retries, recovery and persistent server limits")
         client.fail = false;client.notPublished = true
         let bootstrap = TiboChallengeManager(preferences:ChallengePreferences(),client:client,initialDocument:seed,now:{now})
         bootstrap.start();await wait(bootstrap)

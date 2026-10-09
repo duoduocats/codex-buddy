@@ -148,6 +148,8 @@ struct TiboChallengeDocument: Codable, Equatable, Identifiable {
     private var etag: String?
     private var lastAttempt: Date?
     private var failures = 0
+    private var connectionFailure = false
+    private var serverNotBefore: Date?
     private var started = false
     private var demo = false
     private var generation = 0
@@ -156,11 +158,14 @@ struct TiboChallengeDocument: Codable, Equatable, Identifiable {
     init(preferences: UserDefaults = .standard, enabled: Bool = true,
          client: ResetAnnouncementFetching? = nil, initialDocument: TiboChallengeDocument = .initial, now: @escaping () -> Date = { Date() }) {
         self.preferences = preferences;self.enabled = enabled;self.clock = now
-        self.client = client ?? ResetAnnouncementClient(feedURL:TiboChallengeDocument.feedURL,maximumBytes:TiboChallengeDocument.maximumBytes)
+        self.client = client ?? ResetAnnouncementClient(feedURL:TiboChallengeDocument.feedURL,maximumBytes:TiboChallengeDocument.maximumBytes,
+            now:now,validate:{ _ = try TiboChallengeDocument.decode($0,now:now()) })
+        serverNotBefore = preferences.object(forKey:Self.prefix+"serverNotBefore") as? Date
         document = initialDocument
         if let data = preferences.data(forKey:Self.prefix+"cache"),
            let cached = try? TiboChallengeDocument.decode(data,now:now()), document.accepts(cached) {
             document = cached;etag = ResetAnnouncementClient.validETag(preferences.string(forKey:Self.prefix+"etag"))
+            self.client.retainCachedData(data)
             lastChecked = preferences.object(forKey:Self.prefix+"lastChecked") as? Date
         }
     }
@@ -183,6 +188,7 @@ struct TiboChallengeDocument: Codable, Equatable, Identifiable {
         guard visible else { return }
         refreshClock()
         guard !demo else { return }
+        check(force:true)
         windowTimer = Timer.scheduledTimer(withTimeInterval:60,repeats:true) { [weak self] _ in
             Task { @MainActor in self?.refreshClock() }
         }
@@ -191,12 +197,18 @@ struct TiboChallengeDocument: Codable, Equatable, Identifiable {
     func refreshClock() { windowNow = clock() }
     private func stopRequest() { generation += 1;task?.cancel();task = nil;checking = false }
     func tick() { if started { check() } }
+    func networkRecovered() {
+        guard started, enabled, connectionFailure else { return }
+        connectionFailure = false;lastAttempt = nil;check()
+    }
     func check(force: Bool = false) {
         guard enabled, !demo, !checking else { return }
         let timestamp = clock()
+        if let date = serverNotBefore, date > timestamp { return }
         if let lastAttempt {
             let elapsed = timestamp.timeIntervalSince(lastAttempt)
-            if elapsed >= 0 && elapsed < ((force && failures == 0) ? 30 : min(21_600,900*pow(2,Double(failures)))) { return }
+            let interval = failures == 0 && !document.isActive(at:timestamp) ? 3_600 : PublicFeedRefreshPolicy.interval(failures:failures)
+            if elapsed >= 0 && elapsed < (force ? 30 : interval) { return }
         }
         lastAttempt = timestamp;checking = true;generation += 1
         let ticket = generation
@@ -204,7 +216,9 @@ struct TiboChallengeDocument: Codable, Equatable, Identifiable {
             guard let self else { return }
             defer { if ticket == generation { task = nil;checking = false } }
             do {
-                let result = try await client.fetch(etag:etag)
+                let result: ResetFetchResult
+                if force { result = try await client.fetchFresh(etag:etag) }
+                else { result = try await client.fetch(etag:etag) }
                 try Task.checkCancellation()
                 guard enabled, ticket == generation else { return }
                 if case let .document(data,newETag) = result {
@@ -213,19 +227,26 @@ struct TiboChallengeDocument: Codable, Equatable, Identifiable {
                     if next != document { document = next }
                     etag = ResetAnnouncementClient.validETag(newETag)
                     preferences.set(data,forKey:Self.prefix+"cache");preferences.set(etag,forKey:Self.prefix+"etag")
+                    client.retainCachedData(data)
                 } else if etag == nil { throw ResetAnnouncementFailure.invalid }
                 lastChecked = clock();preferences.set(lastChecked,forKey:Self.prefix+"lastChecked")
-                failures = 0;error = nil
+                serverNotBefore = client.retryNotBefore;preferences.set(serverNotBefore,forKey:Self.prefix+"serverNotBefore")
+                failures = 0;connectionFailure = false;error = nil
             } catch is CancellationError { }
             catch ResetAnnouncementFailure.notPublished {
                 guard ticket == generation, !Task.isCancelled else { return }
                 failures = min(failures+1,5)
+                connectionFailure = false
                 // Before the first campaign feed is published, the verified baseline is expected.
                 error = lastChecked == nil ? nil : L("暂时无法更新，已保留最近记录。", "Could not update. The latest saved records are still available.")
             }
             catch {
                 guard ticket == generation, !Task.isCancelled else { return }
                 failures = min(failures+1,5)
+                connectionFailure = PublicFeedRefreshPolicy.connectionFailed(error)
+                if case ResetAnnouncementFailure.retryAfter(let date) = error {
+                    serverNotBefore = date;preferences.set(date,forKey:Self.prefix+"serverNotBefore")
+                }
                 self.error = L("暂时无法更新，已保留最近记录。", "Could not update. The latest saved records are still available.")
             }
         }

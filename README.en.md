@@ -40,6 +40,8 @@ The panel shows messages, quota, reset expiry details and daily tokens in that o
 
 Under **Messages**, turn **Reset reminders** and **Activity messages** on or off independently. Each type controls receiving, displaying and pushing its content. Turning off Activity messages also closes the activity window. Turning off the master disables both child controls while preserving their choices.
 
+During the campaign, messages and activity records check for updates every five minutes. Opening the activity window or recovering the network triggers a follow-up check. Failed reads retry automatically while keeping saved records.
+
 <img src="docs/images/challenge-en.png" width="720" alt="Tibo’s 28-day challenge: day-by-day progress, improvement details and original-post links" />
 
 Click **Check for updates** in Settings to see new versions and release notes. When an update is available, use the **Download update** button beside Settings in the expanded panel to upgrade within the app.
