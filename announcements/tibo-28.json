@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "tibo-28-2026-10-05",
-  "revision": 15,
+  "revision": 16,
   "startDate": "2026-10-05",
   "days": 28,
   "timeZone": "America/Los_Angeles",
@@ -233,7 +233,7 @@
     },
     {
       "id": "tibo-day-5-devin-chatgpt-plan",
-      "revision": 1,
+      "revision": 2,
       "day": 5,
       "kind": "improvement",
       "status": "completed",
@@ -242,8 +242,8 @@
         "en": "Use ChatGPT plan quota in Devin"
       },
       "body": {
-        "zh": "Tibo 引用 Cognition 公告宣布，个人 ChatGPT Go、Plus 或 Pro 套餐现可连接 Devin。连接后，Devin 中的 GPT 模型用量从原 ChatGPT 套餐额度中扣除。",
-        "en": "Tibo shared Cognition’s announcement that personal ChatGPT Go, Plus, or Pro plans can now connect to Devin. Once connected, GPT model usage in Devin draws from the existing ChatGPT plan’s quota."
+        "zh": "Tibo 引用 Cognition 公告宣布，个人 ChatGPT Go、Plus 或 Pro 套餐可连接 Devin。官方文档明确，需 Devin Pro、Max 或 Teams 套餐。连接并启用额度共享后，适用 GPT 模型用量从 ChatGPT 套餐额度扣除；fast/priority 模型变体不适用，其他模型仍使用 Devin 额度。",
+        "en": "Tibo shared Cognition’s announcement that personal ChatGPT Go, Plus, or Pro plans can connect to Devin. The official documentation requires a Devin Pro, Max, or Teams plan. After linking and enabling plan sharing, eligible GPT model usage draws from the ChatGPT plan’s quota. Fast and priority variants are excluded, and usage from other models still draws from Devin quota."
       },
       "sourceURL": "https://x.com/thsottiaux/status/2108777962053292398",
       "collectedAt": "2026-10-10T04:54:42.324Z",
