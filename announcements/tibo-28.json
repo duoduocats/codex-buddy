@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "tibo-28-2026-10-05",
-  "revision": 16,
+  "revision": 17,
   "startDate": "2026-10-05",
   "days": 28,
   "timeZone": "America/Los_Angeles",
@@ -248,6 +248,24 @@
       "sourceURL": "https://x.com/thsottiaux/status/2108777962053292398",
       "collectedAt": "2026-10-10T04:54:42.324Z",
       "sourcePublishedAt": "2026-10-10T04:33:00Z"
+    },
+    {
+      "id": "tibo-day-6-global-reset",
+      "revision": 1,
+      "day": 6,
+      "kind": "reset",
+      "status": "scheduled",
+      "title": {
+        "zh": "第 6 天全球额度重置计划",
+        "en": "Day 6 global quota reset planned"
+      },
+      "body": {
+        "zh": "Tibo 宣布第 6 天将进行全球额度重置，并在回复中称会在“当天结束前”（EOD）进行。尚未确认完成。",
+        "en": "Tibo announced a global quota reset for Day 6, with a reply saying it will happen by end of day (EOD). Completion has not yet been confirmed."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2109045220411351517",
+      "collectedAt": "2026-10-10T22:23:41.733Z",
+      "sourcePublishedAt": "2026-10-10T22:15:00Z"
     }
   ]
 }
