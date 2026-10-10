@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "tibo-28-2026-10-05",
-  "revision": 13,
+  "revision": 14,
   "startDate": "2026-10-05",
   "days": 28,
   "timeZone": "America/Los_Angeles",
@@ -215,17 +215,17 @@
     },
     {
       "id": "tibo-day-5-mobile-dots",
-      "revision": 1,
+      "revision": 2,
       "day": 5,
       "kind": "improvement",
       "status": "completed",
       "title": {
-        "zh": "手机端创建并使用 dot",
-        "en": "Create and text a dot on mobile"
+        "zh": "手机端 dot 与工作委派",
+        "en": "Mobile dots and work delegation"
       },
       "body": {
-        "zh": "Tibo 在第 5 天 dot 专题中宣布，用户现可完全通过 ChatGPT 手机应用创建自己的 dot，并与它发消息交流。他引用的 ChatGPT 官方公告明确支持 iOS 和 Android。",
-        "en": "In his Day 5 dots edition, Tibo announced that users can now create and text their dot entirely from the ChatGPT mobile app. The ChatGPT announcement he quoted confirms support for iOS and Android."
+        "zh": "Tibo 在第 5 天宣布，用户可通过 ChatGPT 的 iOS 和 Android 应用创建 dot 并与它发消息交流。随后他引用同组官方更新：dot 还可在 Codex 启动工作、跟进已有会话，结合 ChatGPT 对话、Codex 会话和自动任务，并更好地判断继续会话还是新建会话；也可查看和编辑 ChatGPT Work 的定时任务。",
+        "en": "Tibo’s Day 5 update lets users create and text a dot in the ChatGPT app on iOS and Android. His follow-up quotes the same update thread: a dot can start work in Codex, follow up on existing threads using ChatGPT conversations, Codex threads and automations, and better decide whether to continue a thread or start fresh. It can also review and edit Scheduled Tasks in ChatGPT Work."
       },
       "sourceURL": "https://x.com/thsottiaux/status/2108646052178092403",
       "collectedAt": "2026-10-09T19:55:10.067Z",
