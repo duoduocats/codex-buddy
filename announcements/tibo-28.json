@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "tibo-28-2026-10-05",
-  "revision": 14,
+  "revision": 15,
   "startDate": "2026-10-05",
   "days": 28,
   "timeZone": "America/Los_Angeles",
@@ -230,6 +230,24 @@
       "sourceURL": "https://x.com/thsottiaux/status/2108646052178092403",
       "collectedAt": "2026-10-09T19:55:10.067Z",
       "sourcePublishedAt": "2026-10-09T19:49:00Z"
+    },
+    {
+      "id": "tibo-day-5-devin-chatgpt-plan",
+      "revision": 1,
+      "day": 5,
+      "kind": "improvement",
+      "status": "completed",
+      "title": {
+        "zh": "ChatGPT 套餐额度接入 Devin",
+        "en": "Use ChatGPT plan quota in Devin"
+      },
+      "body": {
+        "zh": "Tibo 引用 Cognition 公告宣布，个人 ChatGPT Go、Plus 或 Pro 套餐现可连接 Devin。连接后，Devin 中的 GPT 模型用量从原 ChatGPT 套餐额度中扣除。",
+        "en": "Tibo shared Cognition’s announcement that personal ChatGPT Go, Plus, or Pro plans can now connect to Devin. Once connected, GPT model usage in Devin draws from the existing ChatGPT plan’s quota."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2108777962053292398",
+      "collectedAt": "2026-10-10T04:54:42.324Z",
+      "sourcePublishedAt": "2026-10-10T04:33:00Z"
     }
   ]
 }
