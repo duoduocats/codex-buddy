@@ -132,6 +132,7 @@ struct MessageCenterView: View {
                         .transition(reduceMotion ? .identity : .opacity.combined(with:.offset(y:-6)))
                 }
             }.frame(maxWidth:.infinity,alignment:.leading)
+                .usagePreviewAnchor(.target(.messages))
                 .transition(reduceMotion ? .identity : .opacity)
         }
     }

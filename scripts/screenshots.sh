@@ -6,7 +6,7 @@ OUT="${1:-$ROOT/docs/images}"
 APP="$SCREENSHOT_BUILD/Codex Buddy Screenshots.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$OUT"
 SOURCES=()
-for source in "$ROOT"/Sources/*.swift; do [[ "$source" == */main.swift ]] || SOURCES+=("$source");done
+for source in "$ROOT"/Sources/*.swift "$ROOT"/Sources/Pets/*.swift; do [[ "$source" == */main.swift ]] || SOURCES+=("$source");done
 swiftc -module-cache-path "$SCREENSHOT_BUILD/module-cache" -swift-version 5 -Osize -target arm64-apple-macosx13.0 \
  -framework AppKit -framework SwiftUI -framework Charts -framework ServiceManagement -framework UserNotifications \
  "${SOURCES[@]}" "$ROOT/scripts/ui-previews/main.swift" -o "$APP/Contents/MacOS/Screenshots"

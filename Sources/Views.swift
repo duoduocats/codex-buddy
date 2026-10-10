@@ -60,6 +60,7 @@ struct UsageView: View {
             }
             if model.showResetDetails {
                 ResetCreditDetailsView(model:model)
+                    .usagePreviewAnchor(.target(.resets))
             }
             if let error = model.error {
                 Text(error).font(.system(size:11)).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
@@ -85,7 +86,7 @@ struct UsageView: View {
                 if let date = model.updated { Text(date,style:.time).font(.system(size:10)).foregroundStyle(.secondary) }
                 Spacer()
                 PanelUpdateButton(updates:updates)
-                Button { settings() } label: { Image(systemName:"gearshape") }.help(L("设置", "Settings"))
+                Button { settings() } label: { Image(systemName:"gearshape") }.help(L("打开主面板", "Open main window"))
                 Button { NSApp.terminate(nil) } label: { Image(systemName:"power") }.help(L("退出", "Quit"))
             }.buttonStyle(.borderless)
         }.padding(20).frame(width:380).fixedSize(horizontal:false,vertical:true)

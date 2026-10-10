@@ -13,7 +13,7 @@ enum DuoDrawing {
         p.curve(to: .init(x: 582,y: 252), controlPoint1: .init(x: 810,y: 321), controlPoint2: .init(x: 707,y: 226))
         p.close(); return p
     }
-    static func image(size: NSSize, window: LimitWindow?, credits: Int?, now: Date, menu: Bool, stale: Bool = false, dark: Bool = false, menuShowsPercentage: Bool = false, menuTheme: MenuBarTheme = .ring) -> NSImage {
+    static func image(size: NSSize, window: LimitWindow?, credits: Int?, now: Date, menu: Bool, stale: Bool = false, dark: Bool = false, menuShowsPercentage: Bool = false, menuTheme: MenuBarTheme = .ring, showsLabel: Bool = true) -> NSImage {
         let result = NSImage(size: size, flipped: true) { rect in
             guard let ctx = NSGraphicsContext.current?.cgContext else { return false }
             ctx.saveGState()
@@ -84,7 +84,7 @@ enum DuoDrawing {
                 }
             }
             let textSize = text.size()
-            if menu {
+            if menu && showsLabel {
                 text.draw(at:.init(x:-textSize.width/2,y:-textSize.height/2+(cat ? -7 : 2)))
             }
             if !menu {

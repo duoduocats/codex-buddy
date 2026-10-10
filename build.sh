@@ -26,12 +26,14 @@ mkdir -p "$BUILD/icon-assets"
 cp "$BUILD/icon-assets/Assets.car" "$APP/Contents/Resources/Assets.car"
 swiftc -module-cache-path "$BUILD/module-cache" -swift-version 5 -Osize \
   -target arm64-apple-macosx13.0 -framework AppKit -framework SwiftUI -framework Charts -framework ServiceManagement -framework UserNotifications \
-  "$ROOT"/Sources/*.swift -o "$APP/Contents/MacOS/CodexBuddy"
+  "$ROOT"/Sources/*.swift "$ROOT"/Sources/Pets/*.swift -o "$APP/Contents/MacOS/CodexBuddy"
 strip -x "$APP/Contents/MacOS/CodexBuddy"
 cp "$ROOT/Info.plist" "$APP/Contents/Info.plist"
 cp "$BUILD/icon-assets/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 cp "$ROOT/Resources/BuddyMark.png" "$ROOT/Resources/BuddyHead.png" "$ROOT/Resources/install-update.sh" "$APP/Contents/Resources/"
+cp "$ROOT/Resources/ActivityCalendar.png" "$APP/Contents/Resources/"
 cp "$ROOT/LICENSE" "$APP/Contents/Resources/LICENSE.txt"
+cp "$ROOT/THIRD_PARTY_NOTICES.md" "$APP/Contents/Resources/"
 xattr -d com.apple.FinderInfo "$APP" 2>/dev/null || true
 codesign --force --sign - "$APP"
 codesign --verify --deep --strict "$APP"

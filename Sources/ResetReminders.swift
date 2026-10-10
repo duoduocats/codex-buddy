@@ -215,6 +215,7 @@ extension ResetNotificationDelivering {
                                   event.revision != previous.revision || event == previous else { throw ResetAnnouncementFailure.invalid }
                         }
                     }
+                    objectWillChange.send()
                     document = value;etag = ResetAnnouncementClient.validETag(newETag)
                     preferences.set(data,forKey:Self.preferencePrefix+"cache")
                     preferences.set(etag,forKey:Self.preferencePrefix+"etag")
@@ -356,6 +357,11 @@ extension ResetNotificationDelivering {
             .sorted { $0.publishedAt != $1.publishedAt ? $0.publishedAt > $1.publishedAt : $0.id < $1.id }
     }
     func dismissPanelMessage(_ id: String) { panelDismissed.insert(id) }
+    // The main window shows retained history, including expired and temporarily hidden rows.
+    // Reception and category choices still apply; this accessor never fetches or sends notifications.
+    func recentMessages() -> [ResetAnnouncement] {
+        selectedEvents.sorted { $0.publishedAt != $1.publishedAt ? $0.publishedAt > $1.publishedAt : $0.id < $1.id }
+    }
     func openSource(for event: ResetAnnouncement) {
         guard !demo, let url = event.sourceURL, ResetAnnouncementDocument.validSourceURL(url) else { return }
         NSWorkspace.shared.open(url)
@@ -368,11 +374,12 @@ extension ResetNotificationDelivering {
         if demo { upcoming = nil;return }
         if let event = upcoming { ignore(event.id) }
     }
-    func useDemo(now: Date, status: ResetAnnouncementStatus? = .scheduled) {
+    func useDemo(now: Date, status: ResetAnnouncementStatus? = .scheduled, messages: [ResetAnnouncement]? = nil) {
         // Called before start in previews; no network, notification or preference mutations.
         demo = true;started = false;checkGeneration += 1;checkTask?.cancel();checkTask = nil;checking = false
         notificationTask?.cancel();notificationTask = nil;generation += 1
         panelDismissed = []
+        if let messages { document = ResetAnnouncementDocument(schemaVersion:1,events:messages) }
         guard let status else { upcoming = nil;message = nil;return }
         upcoming = ResetAnnouncement(id:"demo-global-reset",revision:1,type:"message",status:status,
             scheduledAt:now.addingTimeInterval(3_600),publishedAt:now,expiresAt:now.addingTimeInterval(86_400),
@@ -478,10 +485,8 @@ extension ResetNotificationDelivering {
         let oldAnnounced = announced, oldIgnored = ignored
         announced = Dictionary(uniqueKeysWithValues:announced.filter { $0.value > time && $0.value < time.addingTimeInterval(367*86_400) }.sorted { $0.value > $1.value }.prefix(256).map { ($0.key,$0.value) })
         ignored = Dictionary(uniqueKeysWithValues:ignored.filter { $0.value > time && $0.value < time.addingTimeInterval(367*86_400) }.sorted { $0.value > $1.value }.prefix(100).map { ($0.key,$0.value) })
-        if let document, !document.events.isEmpty, document.events.allSatisfy({ $0.expiresAt <= time }) {
-            self.document = nil;etag = nil
-            preferences.removeObject(forKey:Self.preferencePrefix+"cache");preferences.removeObject(forKey:Self.preferencePrefix+"etag")
-        }
+        // Keep the validated, bounded feed for the Messages page after panel presentation expires.
+        // Active filtering still controls panel rows and notifications.
         if oldAnnounced != announced || oldIgnored != ignored { persistRecords() }
     }
     private func persistRecords() {

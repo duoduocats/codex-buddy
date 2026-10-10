@@ -56,18 +56,29 @@ struct Themes:View {
 @MainActor final class ScreenshotDelegate:NSObject,NSApplicationDelegate {
     var window:NSWindow?
     var model:AppModel?
+    var petStore:ThemeStoreModel?
     func applicationDidFinishLaunching(_ notification:Notification) {
         let args=CommandLine.arguments
         guard let outputIndex=args.firstIndex(of:"--output"),outputIndex+1<args.count else { fatalError("--output required") }
         let path=args[outputIndex+1],dark=args.contains("--dark")
-        let model=AppModel(preferences:PreviewPreferences(),client:UsageClient(credentialProvider:{fatalError("Screenshots cannot access credentials")}))
+        let preferences = UsagePreviewPreferences()
+        let repository = URL(fileURLWithPath:#filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        if args.contains("--feed-fixtures") {
+            preferences.set(try! Data(contentsOf:repository.appendingPathComponent("announcements/messages.json")),forKey:ResetReminderManager.preferencePrefix+"cache")
+        }
+        let model=AppModel(preferences:preferences,client:UsageClient(credentialProvider:{fatalError("Screenshots cannot access credentials")}))
         model.useDemo()
         var calendar=Calendar(identifier:.gregorian);calendar.timeZone = .autoupdatingCurrent
-        let now=calendar.date(from:DateComponents(year:2026,month:10,day:6,hour:12,minute:0))!
+        let now=calendar.date(from:DateComponents(year:2026,month:10,day:args.contains("--settings") ? 9 : 6,hour:args.contains("--settings") ? 21 : 12,minute:0))!
         model.now=now;model.updated=now;model.statisticsUpdated=now
         model.usage=UsageResponse(rateLimits:LimitBucket(limitId:"codex",limitName:nil,primary:LimitWindow(usedPercent:32,windowDurationMins:10080,resetsAt:now.addingTimeInterval(396000).timeIntervalSince1970),secondary:nil,planType:"test"),rateLimitsByLimitId:nil,rateLimitResetCredits:ResetCredits(availableCount:3))
         model.statistics = .demo(now:now);model.menuBarTheme = .duoDuoCat
+        model.menuShowsPercentage = args.contains("--percentage")
         model.challenge.useDemo(now:now)
+        if args.contains("--feed-fixtures") {
+            let document = try! TiboChallengeDocument.decode(Data(contentsOf:repository.appendingPathComponent("announcements/tibo-28.json")))
+            model.challenge.useDemo(now:now,document:document)
+        }
         model.showResetDetails = true;model.resetDetailsOnlySoonest = true;model.resetExpiryWindowDays = 7
         model.resetCreditDetails = .init(availableCount:3,credits:[
             .init(expiresAt:now.addingTimeInterval(2*86_400)),
@@ -84,7 +95,33 @@ struct Themes:View {
         self.model=model
         let root:AnyView
         if args.contains("--challenge") { root=AnyView(TiboChallengeView(manager:model.challenge).environment(\.colorScheme,dark ? .dark : .light).frame(width:args.contains("--minimum") ? 780 : 960,height:args.contains("--minimum") ? 600 : 760)) }
-        else if args.contains("--settings") { root=AnyView(SettingsView(model:model).environment(\.colorScheme,dark ? .dark : .light)) }
+        else if args.contains("--settings") {
+            let page: BuddyPage = args.contains("--pets") ? .pets : args.contains("--messages") || args.contains("--activities") ? .messages : args.contains("--general") || args.contains("--about") ? .general : .overview
+            if args.contains("--no-messages") { model.reminders.setMessagesEnabled(false) }
+            model.showResetDetails = args.contains("--details")
+            if args.contains("--history") { model.now = model.challenge.document.end;model.challenge.useDemo(now:model.now,document:model.challenge.document) }
+            let updatePreferences = UsagePreviewPreferences()
+            if page == .general { updatePreferences.set(now,forKey:"updates.lastSuccessfulCheck") }
+            let previewUpdates = UpdateManager(defaults:updatePreferences,repository:page == .general ? "duoduocats/codex-buddy" : "",
+                installOperation:{ _,_ in throw UpdateInstallFailure.verification })
+            let petPreferences=UsagePreviewPreferences()
+            if args.contains("--pets") && !args.contains("--pets-all-sources") {
+                petPreferences.set(try! JSONEncoder().encode(PetSource.defaults.map { source in
+                    var item=source;item.enabled=["huaqing","cutechen","senyo"].contains(item.id);return item
+                }),forKey:"pets.sources")
+            }
+            let petRoot=URL(fileURLWithPath:"/private/tmp",isDirectory:true).appendingPathComponent("buddy-pets-ui-"+UUID().uuidString,isDirectory:true)
+            try! FileManager.default.createDirectory(at:petRoot,withIntermediateDirectories:false)
+            let controller=BuddyPetsController(factory:{
+                let store=ThemeStoreModel(preferences:petPreferences,cacheDirectory:petRoot.appendingPathComponent("cache"),libraryRoot:petRoot,
+                    openURL:{ _ in false },openCodexURL:{ _ in .failure(.failed) })
+                self.petStore=store;return store
+            })
+            root=AnyView(SettingsView(model:model,login:LoginModel(preview:true),updates:previewUpdates,pets:controller,
+                initialPage:page).environment(\.colorScheme,dark ? .dark : .light)
+                .frame(width:args.contains("--minimum") ? SettingsView.minimumSize.width : SettingsView.width,
+                       height:args.contains("--minimum") ? SettingsView.minimumSize.height : SettingsView.preferredHeight(for:page)))
+        }
         else if args.contains("--themes") { root=AnyView(Themes(model:model)) }
         else { root=AnyView(Overview(model:model,dark:dark)) }
         let hosting=NSHostingView(rootView:root)
@@ -92,9 +129,23 @@ struct Themes:View {
         let size=hosting.fittingSize
         let window=NSWindow(contentRect:NSRect(origin:.zero,size:size),styleMask:[.borderless],backing:.buffered,defer:false)
         window.appearance=hosting.appearance;window.contentView=hosting;window.isReleasedWhenClosed=false;self.window=window
+        window.title="Codex Buddy · UI Preview";window.center()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps:true)
-        DispatchQueue.main.asyncAfter(deadline:.now()+0.6) {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds:600_000_000)
+            if args.contains("--pets") {
+                let deadline=Date().addingTimeInterval(50)
+                while self.petStore?.loading == true && Date() < deadline { try? await Task.sleep(nanoseconds:100_000_000) }
+                if args.contains("--pets-detail"),let store=self.petStore,let theme=store.themes.first(where:{$0.name.localizedCaseInsensitiveContains("Bella")}) ?? store.themes.first {
+                    store.select(theme)
+                    let detailDeadline=Date().addingTimeInterval(35)
+                    while store.preparing && Date() < detailDeadline { try? await Task.sleep(nanoseconds:100_000_000) }
+                    precondition(store.sheet != nil,"Public pet detail did not load")
+                }
+                try? await Task.sleep(nanoseconds:4_000_000_000)
+                print("Public catalog UI: \(self.petStore?.themes.count ?? 0) entries; \(self.petStore?.sourceErrors.count ?? 0) unavailable sources")
+            }
             hosting.layoutSubtreeIfNeeded()
             guard let bitmap=hosting.bitmapImageRepForCachingDisplay(in:hosting.bounds) else {fatalError("Snapshot unavailable")}
             hosting.cacheDisplay(in:hosting.bounds,to:bitmap)
@@ -115,7 +166,7 @@ struct Themes:View {
             precondition(offset==bytes.count)
             try! clean.write(to:URL(fileURLWithPath:path))
             print("Native synthetic UI image: \(cg.width) × \(cg.height)")
-            exit(0)
+            if !args.contains("--interactive") { exit(0) }
         }
     }
 }

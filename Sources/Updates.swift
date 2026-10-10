@@ -29,7 +29,7 @@ enum UpdateCheckIssue: String, Equatable {
 
 enum UpdateStatus: Equatable {
     case idle, checking, current, noRelease, available, deferred, ignored
-    case failed(UpdateCheckIssue), downloading, verifying, restarting, installationFailed(String), restored
+    case failed(UpdateCheckIssue), preparingInstallation, downloading, verifying, restarting, installationFailed(String), restored
 }
 
 @MainActor final class UpdateManager: ObservableObject {
@@ -53,6 +53,7 @@ enum UpdateStatus: Equatable {
         case .deferred: return L("新版本正逐步开放，也可手动下载。", "The update is rolling out gradually. You can also download it manually.")
         case .ignored: return available.map { L("已忽略 \($0.tagName)。", "Ignored \($0.tagName).") } ?? ""
         case .failed(let issue): return issue.message
+        case .preparingInstallation: return L("正在等待进行中的操作完成…", "Waiting for the current operation to finish…")
         case .downloading: return L("正在下载更新…", "Downloading update…")
         case .verifying: return L("正在校验更新包…", "Verifying update…")
         case .restarting: return L("正在安装，应用即将重新启动…", "Installing. The app will restart shortly…")
@@ -90,6 +91,7 @@ enum UpdateStatus: Equatable {
     var configured: Bool { UpdatePolicy.validRepository(repository) }
     var beforePresent: (() -> Void)?
     var beforeInstall: (() -> Void)?
+    var prepareForInstallation: (() async -> Void)?
 
     init(defaults: UserDefaults = .standard, configuration: URLSessionConfiguration = .ephemeral,
          repository: String = Bundle.main.object(forInfoDictionaryKey:"GitHubRepository") as? String ?? "",
@@ -305,11 +307,13 @@ enum UpdateStatus: Equatable {
     func installAvailable(silent: Bool = false, manual: Bool = true) {
         guard !installing, let release=available,
               release.publishedURL(repository:repository,includeBeta:includesBeta) != nil else { return }
-        installing=true;status = .downloading
+        installing=true;status = prepareForInstallation == nil ? .downloading : .preparingInstallation
         if !silent { beforeInstall?() }
         Task {
             var staged: URL?
             do {
+                await prepareForInstallation?()
+                status = .downloading
                 try await revalidate(release,silent:silent,manual:manual)
                 if let installOperation { try await installOperation(release,silent);installing=false;status = .available;return }
                 let target=Bundle.main.bundleURL

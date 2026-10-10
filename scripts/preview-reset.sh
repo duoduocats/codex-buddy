@@ -8,7 +8,7 @@ APP="$PREVIEW_BUILD/Codex Buddy Preview.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$PREVIEW_BUILD" "$OUT"
 if [[ "${PREVIEW_SKIP_BUILD:-0}" != 1 ]]; then
 SOURCES=()
-for source in "$ROOT"/Sources/*.swift; do [[ "$source" == */main.swift ]] || SOURCES+=("$source");done
+for source in "$ROOT"/Sources/*.swift "$ROOT"/Sources/Pets/*.swift; do [[ "$source" == */main.swift ]] || SOURCES+=("$source");done
 swiftc -module-cache-path "$PREVIEW_BUILD/module-cache" -swift-version 5 -Osize -target arm64-apple-macosx13.0 \
  -framework AppKit -framework SwiftUI -framework Charts -framework ServiceManagement -framework UserNotifications \
  "${SOURCES[@]}" "$ROOT/scripts/reset-previews/main.swift" -o "$APP/Contents/MacOS/Preview"

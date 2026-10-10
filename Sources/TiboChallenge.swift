@@ -2,6 +2,7 @@ import Foundation
 import Combine
 
 enum ChallengeRecordKind: String, Codable { case improvement, reset }
+enum ChallengePhase { case upcoming, active, history }
 struct ChallengeRecord: Codable, Equatable, Identifiable {
     let id: String
     let revision: Int
@@ -53,6 +54,7 @@ struct TiboChallengeDocument: Codable, Equatable, Identifiable {
         calendar.dateComponents([.day],from:start,to:calendar.startOfDay(for:now)).day! + 1
     }
     func isActive(at now: Date) -> Bool { now >= start && now < end }
+    func phase(at now: Date) -> ChallengePhase { now < start ? .upcoming : now < end ? .active : .history }
     func records(for day: Int) -> [ChallengeRecord] { records.filter { $0.day == day } }
     func dateText(for day: Int, includeWeekday: Bool = false) -> String {
         let formatter = DateFormatter();formatter.locale = .autoupdatingCurrent;formatter.timeZone = calendar.timeZone
@@ -251,5 +253,7 @@ struct TiboChallengeDocument: Codable, Equatable, Identifiable {
             }
         }
     }
-    func useDemo(now: Date = Date()) { stopRequest();demo = true;document = .initial;windowNow = now;lastChecked = nil;error = nil }
+    func useDemo(now: Date = Date(), document sample: TiboChallengeDocument = .initial) {
+        stopRequest();demo = true;document = sample;windowNow = now;lastChecked = nil;error = nil
+    }
 }
