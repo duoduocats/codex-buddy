@@ -4,13 +4,13 @@
 
 # Codex Buddy — macOS menu bar ChatGPT / Codex usage monitor
 
-English · [简体中文](README.md) · [Download stable](https://github.com/duoduocats/codex-buddy/releases/latest) · [Try 2.5 Beta](https://github.com/duoduocats/codex-buddy/releases/tag/v2.5.0-beta.1)
+English · [简体中文](README.md) · [Download stable](https://github.com/duoduocats/codex-buddy/releases/latest) · [Beta guide](docs/BETA.md#english)
 
 See your **remaining ChatGPT / Codex quota, reset countdown, and daily token usage** in the Mac menu bar. Click the icon to open quota details and a usage chart.
 
 A native macOS utility for **Apple Silicon · macOS 13+**. It uses your existing local ChatGPT / Codex login; no separate API key is needed.
 
-The redesigned main window and pet features are available in **2.5 Beta**. Enable **Receive Beta updates** in General and check for updates, or install from the Beta link above.
+This page describes the current [stable release, 2.4.5](https://github.com/duoduocats/codex-buddy/releases/tag/v2.4.5). See the [Beta guide](docs/BETA.md#english) for the new main window, live preview and pets in 2.5 Beta.
 
 ## DuoDuoCat
 
@@ -25,22 +25,20 @@ Choose **DuoDuoCat** or the classic Ring. See quota, a reset countdown, and avai
 - **Five usage statistics:** lifetime tokens, peak daily tokens, longest task, longest streak, and current streak.
 - **Share usage images:** turn the selected date range and statistics into an image to share, save, or copy through the system menu.
 - **Messages and reset reminders:** receive announcements in the panel, with countdowns when an exact reset time is announced and optional system notifications.
-- **Usage overview and live preview:** adjust your menu bar and panel around a combined preview. Changes apply instantly.
-- **Tibo’s 28-day challenge:** open the floating entry in Messages for daily improvements and quota resets. After the challenge ends, the entry becomes Past activity and keeps its records.
-- **Codex community pets:** browse, search and save themes, preview all animations, install or remove local pets, and manage public sources.
+- **Tibo’s 28-day challenge:** follow daily improvements and quota resets, select a day for details and original posts, and revisit records in Settings after the challenge ends.
 - **In-app updates:** see your installed version and release notes, then download and install new versions within the app.
 - **Your choice of display:** hide the daily usage section or sharing button, or enable launch at login.
 - **English and Simplified Chinese:** the interface follows macOS preferred languages; reset dates follow your system time zone and 12 / 24-hour preferences.
 
-Enable **Reset details** in **Usage overview** to see when your available resets expire. Choose **All** or **Upcoming**; upcoming details default to the next 7 days, with 1 / 3 / 7 / 14 / 30-day windows. Resets with the same expiration time are grouped together. The preview uses sample data; your actual panel continues to show your account usage.
+Enable **Reset details** under **Panel** to see when your available resets expire. Choose **All** or **Upcoming**; upcoming details default to the next 7 days, with 1 / 3 / 7 / 14 / 30-day windows. Resets with the same expiration time are grouped together.
 
 ## Messages and updates
 
 See quota-reset notices and other messages in the expanded panel, with times following your Mac’s time zone and regional format. When an exact reset time is officially announced, the message shows that time and a countdown; other messages show their publication time, or a clearly labelled collection time when the original time cannot be verified. Expired messages disappear. Click **×** to dismiss a message temporarily; it returns when you reopen the app if it is still valid.
 
-Codex Buddy appears in the Dock while the main window or activity window is open. Closing all windows hides its Dock icon and keeps the app running in the menu bar. The sidebar has **Usage overview, Pets, Messages, and General**. In Usage overview, **Messages** controls receipt and display, with separate Reset reminders and Activity messages choices. **System alerts** in General pushes the same selected message types to macOS Notification Center. Turning off Messages stops receiving and push alerts, hides activity entries and closes the activity window.
+Codex Buddy appears in the Dock while Settings or the activity window is open. Closing all windows hides its Dock icon and keeps the app running in the menu bar. Use the Settings sidebar to jump to a section. Under **Panel**, **Messages** controls receipt and display, with separate Reset reminders and Activity messages choices. **System alerts** independently pushes the same selected message types to macOS Notification Center. Turning off Messages stops receiving and push alerts, hides activity entries and closes the activity window.
 
-The panel shows messages, quota, reset expiry details and daily tokens in that order. The **Messages** page lists recent announcements, newest first, including messages temporarily hidden or no longer displayed in the panel. Use its floating **Special activity** button to open **Tibo’s 28-day challenge**. After it ends, the button becomes **Past activity** and keeps the records available. Challenge dates follow Pacific time; message timestamps follow your Mac’s time zone. System alerts follow your selected message types; disabling push keeps messages available.
+The panel shows messages, quota, reset expiry details and daily tokens in that order. Use **View activity** on an activity message to open the full **Tibo’s 28-day challenge** progress. Challenge dates follow Pacific time; message timestamps follow your Mac’s time zone. After the challenge ends, use **General & updates → Activity records** in Settings to revisit it. System alerts follow your selected message types; disabling push keeps messages available in the panel.
 
 Under **Messages**, turn **Reset reminders** and **Activity messages** on or off independently. Each type controls receiving, displaying and pushing its content. Turning off Activity messages also closes the activity window. Turning off the master disables both child controls while preserving their choices.
 
@@ -48,9 +46,9 @@ During the campaign, messages and activity records check for updates every five 
 
 <img src="docs/images/challenge-en.png" width="720" alt="Tibo’s 28-day challenge: day-by-day progress, improvement details and original-post links" />
 
-Click **Check for updates** in **General** to see new versions and release notes. When an update is available, use the **Download update** button beside Settings in the expanded panel to upgrade within the app.
+Click **Check for updates** in Settings to see new versions and release notes. When an update is available, use the **Download update** button beside Settings in the expanded panel to upgrade within the app.
 
-Beta updates are off by default. Enable **Receive Beta updates** in **General** to receive Beta releases. With it off, both automatic and manual checks use stable releases only. Turning Beta off does not downgrade the app; a newer installed Beta waits for a later stable release.
+Beta updates are off by default. Enable **Receive Beta updates** under **General & updates** to receive Beta releases. With it off, both automatic and manual checks use stable releases only. Turning Beta off does not downgrade the app; a newer installed Beta waits for a later stable release.
 
 Settings shows the last successful update check. Temporary connection failures retry automatically, and failed updates preserve a working version.
 
@@ -72,14 +70,6 @@ Current releases are ad hoc signed and are not Apple notarized. After confirming
 
 macOS saves the app as a security exception. These steps apply to developer-verification or notarization alerts. If macOS reports malware or a damaged file, stop and check the download. See [Apple's instructions](https://support.apple.com/en-us/102445).
 
-## Codex pets
-
-Open **Pets** in the sidebar to browse community themes, search pets or authors, preview animations, and save favorites. Use **Discover, Favorites, Installed, Sources** to switch views or add compatible public HTTPS catalogs.
-
-Choose **Install locally**, review the author, license and destination, then confirm. Open Codex settings, manually select **Pets**, refresh, and choose the installed companion. Installed themes can be moved to Trash; replacing a package keeps a recovery copy.
-
-Buddy and the standalone Codex Pets app keep separate favorites, source preferences and caches, while recognizing the same Codex pet directory. Community artwork is loaded on demand and is not bundled.
-
 ## Default settings
 
 | Setting | First-install default |
@@ -98,7 +88,7 @@ Upgrades preserve your settings. Turning off daily token usage hides the chart a
 
 ## Lightweight and private
 
-A native macOS app with a stable download of about **2.8 MB** and a 2.5 Beta download of about **3.3 MB**. It uses your existing local login to check quota, without reading conversations or project code. Usage images are created on your Mac; you choose when to save or share them.
+A native macOS app with a current download of about **2.8 MB**. It uses your existing local login to check quota, without reading conversations or project code. Usage images are created on your Mac; you choose when to save or share them.
 
 See the [privacy policy](docs/PRIVACY.md).
 
