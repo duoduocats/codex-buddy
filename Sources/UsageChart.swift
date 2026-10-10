@@ -43,6 +43,7 @@ struct DailyUsageChart: View {
                 if allowsSharing && !exporting {
                     UsageShareButton(statistics:statistics,days:days,now:now,dark:scheme == .dark,presentationChanged:sharePresentationChanged)
                         .frame(width:20,height:20)
+                        .usagePreviewAnchor(.target(.sharing))
                 }
                 if exporting {
                     Text(L("近\(days)天", "Last \(days) days")).font(.system(size:11)).foregroundStyle(.secondary)
@@ -56,6 +57,7 @@ struct DailyUsageChart: View {
                 Text(refreshing ? L("读取中…", "Loading…") : L("暂无每日用量", "Daily usage is unavailable"))
                     .font(.system(size:12)).foregroundStyle(.secondary)
                     .frame(maxWidth:.infinity).frame(height:112)
+                    .usagePreviewAnchor(.target(.chart))
             } else {
                 let data = points
                 Chart {
@@ -101,6 +103,7 @@ struct DailyUsageChart: View {
                     }
                 }
                 .frame(height:112)
+                .usagePreviewAnchor(.target(.chart))
             }
         }.transaction { $0.animation = nil }
     }

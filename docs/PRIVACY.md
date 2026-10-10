@@ -19,3 +19,5 @@
 - **System notifications**: Message notifications are off by default. Enable Message reminders in Settings and allow macOS notifications to receive them.
 
 Before reporting a problem, check screenshots or logs for account information and login tokens. For security concerns, see [Security reporting](../SECURITY.md).
+
+- **社区宠物**：只向已启用的公开来源发送不含登录信息的读取请求，不上传浏览、收藏或安装记录。收藏、来源选择和缓存保存在 Buddy 的本机范围。安装和卸载逐包确认，只管理 Codex 公开 pets/avatars 包，不读取或修改内部选中状态。

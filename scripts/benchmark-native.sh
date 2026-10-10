@@ -23,7 +23,7 @@ assert views.count(needle)==1
 (build/'main.swift').write_bytes((root/'scripts/benchmarks/native.swift').read_bytes())
 PY
 SOURCES=()
-for file in "$ROOT"/Sources/*.swift; do
+for file in "$ROOT"/Sources/*.swift "$ROOT"/Sources/Pets/*.swift; do
   case "$file" in */main.swift|*/UsageChart.swift|*/Views.swift) ;; *) SOURCES+=("$file");; esac
 done
 swiftc -module-cache-path "$BENCH_BUILD/module-cache" -swift-version 5 -Osize -target arm64-apple-macosx13.0 \

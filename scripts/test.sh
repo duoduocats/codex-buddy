@@ -36,7 +36,7 @@ swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 -framework
   "$ROOT/Sources/Localization.swift" "$ROOT/Sources/UpdatePolicy.swift" "$ROOT/Sources/UpdateInstaller.swift" "$ROOT/Sources/Updates.swift" "$ROOT/Tests/UpdateManagerTests.swift" -o "$TEST_BUILD/update-tests"
 "$TEST_BUILD/update-tests"
 SHARE_SOURCES=()
-for file in "$ROOT"/Sources/*.swift; do
+for file in "$ROOT"/Sources/*.swift "$ROOT"/Sources/Pets/*.swift; do
   [[ "$file" == */main.swift ]] || SHARE_SOURCES+=("$file")
 done
 swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 -O -target arm64-apple-macosx13.0 \
@@ -47,9 +47,17 @@ swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 -Osize -ta
   -framework AppKit -framework SwiftUI -framework Charts -framework ServiceManagement -framework UserNotifications \
   "${SHARE_SOURCES[@]}" "$ROOT/Tests/PanelLayoutTests.swift" -o "$TEST_BUILD/panel-layout-tests"
 "$TEST_BUILD/panel-layout-tests"
+swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 -Osize -target arm64-apple-macosx13.0 \
+  -framework AppKit -framework SwiftUI -framework Charts -framework ServiceManagement -framework UserNotifications \
+  "${SHARE_SOURCES[@]}" "$ROOT/Tests/OverviewTests.swift" -o "$TEST_BUILD/overview-tests"
+"$TEST_BUILD/overview-tests"
 
 swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 \
   "$ROOT/Sources/Localization.swift" "$ROOT/Sources/ResetAnnouncements.swift" "$ROOT/Sources/TiboChallenge.swift" "$ROOT/Tests/ChallengeTests.swift" -o "$TEST_BUILD/challenge-tests"
 "$TEST_BUILD/challenge-tests"
 bash "$ROOT/scripts/validate-feeds.sh"
 python3 "$ROOT/scripts/test-feed-publisher.py"
+
+swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 -target arm64-apple-macosx13.0 -framework AppKit -framework SwiftUI -framework Charts -framework ServiceManagement -framework UserNotifications \
+  "${SHARE_SOURCES[@]}" "$ROOT"/Tests/Pets/*.swift -o "$TEST_BUILD/pet-store-tests"
+"$TEST_BUILD/pet-store-tests"

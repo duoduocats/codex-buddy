@@ -2,6 +2,7 @@ import AppKit
 
 // Cache the frameless settings glyph and independent sharing artwork.
 enum BuddyBrand {
+    static let activityCalendar = Bundle.main.url(forResource:"ActivityCalendar",withExtension:"png").flatMap { NSImage(contentsOf:$0) }
     static let applicationIcon: NSImage? = {
         guard let url = Bundle.main.url(forResource:"AppIcon",withExtension:"icns") else { return nil }
         return NSImage(contentsOf:url)

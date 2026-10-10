@@ -135,16 +135,18 @@ struct TiboChallengeView: View {
     static let size = NSSize(width:960,height:760)
     static let minimumSize = NSSize(width:780,height:600)
     @ObservedObject var manager: TiboChallengeManager
+    var embedded = false
+    var currentTime: Date? = nil
     @Environment(\.colorScheme) private var colorScheme
     @State private var selectedDay = 0
     private var palette: ChallengePalette { .init(dark:colorScheme == .dark) }
     private var document: TiboChallengeDocument { manager.document }
-    private var currentDay: Int { document.currentDay(at:manager.windowNow) }
+    private var currentDay: Int { document.currentDay(at:currentTime ?? manager.windowNow) }
     private var selection: Int { selectedDay == 0 ? min(28,max(1,currentDay)) : selectedDay }
     private var sourceClock: String {
         let formatter = DateFormatter();formatter.locale = .autoupdatingCurrent;formatter.timeZone = document.calendar.timeZone
         formatter.setLocalizedDateFormatFromTemplate("jmm")
-        return formatter.string(from:manager.windowNow)
+        return formatter.string(from:currentTime ?? manager.windowNow)
     }
     var body: some View {
         ScrollView {
@@ -190,7 +192,7 @@ struct TiboChallengeView: View {
                 }.fixedSize(horizontal:false,vertical:true)
             }.padding(36).frame(maxWidth:.infinity,alignment:.leading)
         }.foregroundStyle(palette.ink).background(palette.paper)
-            .frame(minWidth:Self.minimumSize.width,minHeight:Self.minimumSize.height)
+            .frame(minWidth:embedded ? 0 : Self.minimumSize.width,minHeight:embedded ? 0 : Self.minimumSize.height)
     }
     private func dayCell(_ day: Int) -> some View {
         let records = document.records(for:day)

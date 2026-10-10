@@ -12,14 +12,15 @@ expected = {
     'Contents/Resources/AppIcon.icns', 'Contents/Resources/install-update.sh',
     'Contents/Resources/BuddyHead.png',
     'Contents/Resources/BuddyMark.png',
+    'Contents/Resources/ActivityCalendar.png',
     'Contents/Resources/Assets.car',
-    'Contents/Resources/LICENSE.txt', 'Contents/_CodeSignature/CodeResources',
+    'Contents/Resources/LICENSE.txt', 'Contents/Resources/THIRD_PARTY_NOTICES.md', 'Contents/_CodeSignature/CodeResources',
 }
 files = {str(p.relative_to(app)) for p in app.rglob('*') if p.is_file()}
 assert files == expected, 'Unexpected or missing shipping files'
 assert not any(p.is_symlink() for p in app.rglob('*')), 'Symlink in app'
 size = sum((app / name).stat().st_size for name in files)
-assert size < 4_000_000, 'App exceeds 4 MB budget'
+assert size < 6_000_000, 'App exceeds 6 MB budget'
 info = plistlib.loads((app / 'Contents/Info.plist').read_bytes())
 assert info['CFBundleIdentifier'] == 'com.duoduocat.codexbuddy', 'Unexpected app identity'
 assert info['CFBundleIconName'] == 'AppIcon' and info['CFBundleIconFile'] == 'AppIcon', 'Missing native icon or legacy fallback'

@@ -62,6 +62,23 @@ final class PolicyFixtureProtocol: URLProtocol {
             PolicyFixtureProtocol.responses=[apiURL:(200,try JSONSerialization.data(withJSONObject:release)),policyURL:(policyStatus,policy)]
             PolicyFixtureProtocol.requests=[]
         }
+        try configure("notify")
+        let waitSuite="buddy-transaction-update-tests-"+UUID().uuidString
+        let waitDefaults=UserDefaults(suiteName:waitSuite)!
+        defer { waitDefaults.removePersistentDomain(forName:waitSuite) }
+        let waitConfiguration=URLSessionConfiguration.ephemeral;waitConfiguration.protocolClasses=[PolicyFixtureProtocol.self]
+        var transactionGate:CheckedContinuation<Void,Never>?, didInstall=false
+        let waiting=UpdateManager(defaults:waitDefaults,configuration:waitConfiguration,repository:repo,currentVersion:"1.0.0",installOperation:{ _,_ in didInstall=true })
+        waiting.check(manual:true)
+        for _ in 0..<500 where waiting.checking { try await Task.sleep(nanoseconds:2_000_000) }
+        precondition(waiting.available != nil)
+        waiting.prepareForInstallation={ await withCheckedContinuation { transactionGate=$0 } }
+        waiting.installAvailable()
+        for _ in 0..<500 where transactionGate == nil { try await Task.sleep(nanoseconds:2_000_000) }
+        precondition(waiting.installing && waiting.status == .preparingInstallation && !didInstall)
+        transactionGate?.resume();transactionGate=nil
+        for _ in 0..<500 where waiting.installing { try await Task.sleep(nanoseconds:2_000_000) }
+        precondition(didInstall && !waiting.installing,"Installation resumes only after the transaction barrier")
         for scenario in ["none","notify","schema2-notify","schema2-silent","silent","manual-none","manual-silent","corrupt","unavailable","missing","ignored","install-failure","manual-current","manual-ahead"] {
             let mode=scenario.contains("none") ? "none" : ["notify","schema2-notify"].contains(scenario) ? "notify" : "silent"
             try configure(mode,corrupt:scenario=="corrupt",policyStatus:scenario=="unavailable" ? 503 : 200,missing:scenario=="missing",schemaVersion:scenario.hasPrefix("schema2-") ? 2 : 1)
