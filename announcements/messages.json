@@ -64,21 +64,21 @@
     },
     {
       "id": "tibo-day-6-global-reset",
-      "revision": 1,
+      "revision": 2,
       "type": "message",
-      "status": "scheduled",
-      "publishedAt": "2026-10-10T22:15:00Z",
-      "expiresAt": "2026-10-11T22:15:00Z",
+      "status": "completed",
+      "publishedAt": "2026-10-11T04:01:00Z",
+      "expiresAt": "2026-10-12T04:01:00Z",
       "timestampBasis": "source",
       "title": {
-        "zh": "全球额度重置计划",
-        "en": "Global quota reset planned"
+        "zh": "全球额度重置已完成",
+        "en": "Global quota reset complete"
       },
       "body": {
-        "zh": "Tibo 宣布第 6 天将进行全球额度重置，并在回复中称会在“当天结束前”（EOD）进行。尚未确认完成。",
-        "en": "Tibo announced a global quota reset for Day 6, with a reply saying it will happen by end of day (EOD). Completion has not yet been confirmed."
+        "zh": "Tibo 引用第 6 天的全球额度重置计划，确认本次重置已全部生效。可刷新查看当前账号额度。",
+        "en": "Tibo quoted the Day 6 global quota reset plan and confirmed that the reset has fully propagated. Refresh to check your account’s current quota."
       },
-      "sourceURL": "https://x.com/thsottiaux/status/2109045220411351517"
+      "sourceURL": "https://x.com/thsottiaux/status/2109132167112782291"
     }
   ]
 }
