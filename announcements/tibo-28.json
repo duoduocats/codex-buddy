@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "tibo-28-2026-10-05",
-  "revision": 18,
+  "revision": 19,
   "startDate": "2026-10-05",
   "days": 28,
   "timeZone": "America/Los_Angeles",
@@ -266,6 +266,24 @@
       "sourceURL": "https://x.com/thsottiaux/status/2109045220411351517",
       "collectedAt": "2026-10-10T22:23:41.733Z",
       "sourcePublishedAt": "2026-10-10T22:15:00Z"
+    },
+    {
+      "id": "tibo-day-7-sol-context-500k",
+      "revision": 1,
+      "day": 7,
+      "kind": "improvement",
+      "status": "completed",
+      "title": {
+        "zh": "Sol 默认上下文增至 500k",
+        "en": "Sol default context increased to 500k"
+      },
+      "body": {
+        "zh": "Tibo 宣布第 7 天改进：GPT-6.1 Sol 在 Codex 和 ChatGPT Work 的默认上下文由 272k 增至 500k，约提升 80%，可减少上下文压缩。仍可自行调高或调低，最大上下文为 1M；使用订阅额度时不收取长上下文费用。",
+        "en": "Tibo announced Day 7: GPT-6.1 Sol’s default context in Codex and ChatGPT Work increases from 272k to 500k, about 80%, helping reduce compactions. Users can still override the default up or down, up to a 1M maximum. Long-context fees are not charged when usage draws from a subscription."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2109430343346581527",
+      "collectedAt": "2026-10-11T23:53:56.959Z",
+      "sourcePublishedAt": "2026-10-11T23:45:00Z"
     }
   ]
 }
