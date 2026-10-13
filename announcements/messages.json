@@ -79,6 +79,24 @@
         "en": "Tibo quoted the Day 6 global quota reset plan and confirmed that the reset has fully propagated. Refresh to check your account’s current quota."
       },
       "sourceURL": "https://x.com/thsottiaux/status/2109132167112782291"
+    },
+    {
+      "id": "tibo-day-8-global-reset",
+      "revision": 1,
+      "type": "message",
+      "status": "scheduled",
+      "publishedAt": "2026-10-13T01:03:00Z",
+      "expiresAt": "2026-10-14T01:03:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "全球额度重置计划",
+        "en": "Global quota reset planned"
+      },
+      "body": {
+        "zh": "Tibo 宣布第 8 天将进行全球额度重置，并在回复中称会在“PST 当天结束前”（EOD）生效。尚未确认完成。",
+        "en": "Tibo announced a global quota reset for Day 8, with a reply saying it will land by end of day (EOD) PST. Completion has not yet been confirmed."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2109812216212099456"
     }
   ]
 }
