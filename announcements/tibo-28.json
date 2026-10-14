@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "tibo-28-2026-10-05",
-  "revision": 21,
+  "revision": 22,
   "startDate": "2026-10-05",
   "days": 28,
   "timeZone": "America/Los_Angeles",
@@ -302,6 +302,24 @@
       "sourceURL": "https://x.com/thsottiaux/status/2109812216212099456",
       "collectedAt": "2026-10-13T01:10:06.925Z",
       "sourcePublishedAt": "2026-10-13T01:03:00Z"
+    },
+    {
+      "id": "tibo-day-9-desktop-disk-state",
+      "revision": 1,
+      "day": 9,
+      "kind": "improvement",
+      "status": "completed",
+      "title": {
+        "zh": "桌面端状态存储占用优化",
+        "en": "Desktop state storage optimized"
+      },
+      "body": {
+        "zh": "Tibo 宣布第 9 天改进：ChatGPT 和 Codex 桌面端已推出磁盘状态存储优化，预计可将所存状态的磁盘占用减少约 60%，缓解重度用户磁盘空间不足的问题。",
+        "en": "Tibo announced Day 9: disk state storage optimizations have rolled out for the ChatGPT and Codex desktop apps, expected to reduce the amount of state stored on disk by about 60% and help power users running out of disk space."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2110151780478927344",
+      "collectedAt": "2026-10-14T00:19:47.267Z",
+      "sourcePublishedAt": "2026-10-13T23:32:00Z"
     }
   ]
 }
