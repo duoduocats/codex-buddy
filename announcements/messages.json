@@ -100,21 +100,21 @@
     },
     {
       "id": "tibo-day-10-reset",
-      "revision": 1,
+      "revision": 2,
       "type": "message",
-      "status": "scheduled",
-      "publishedAt": "2026-10-15T04:55:00Z",
-      "expiresAt": "2026-10-16T04:55:00Z",
+      "status": "completed",
+      "publishedAt": "2026-10-15T06:28:00Z",
+      "expiresAt": "2026-10-16T06:28:00Z",
       "timestampBasis": "source",
       "title": {
-        "zh": "第 10 天额度重置计划",
-        "en": "Day 10 quota reset planned"
+        "zh": "第 10 天额度重置已完成",
+        "en": "Day 10 quota reset complete"
       },
       "body": {
-        "zh": "Tibo 宣布第 10 天将进行额度重置，并在回复中称将在接下来两小时内推出。尚未确认完成。",
-        "en": "Tibo announced a quota reset for Day 10 and said in a reply that it would land within the next two hours. Completion has not yet been confirmed."
+        "zh": "Tibo 引用第 10 天的额度重置计划，确认本次重置已完成。可刷新查看当前账号额度。",
+        "en": "Tibo quoted the Day 10 quota reset plan and confirmed that the reset is complete. Refresh to check your account’s current quota."
       },
-      "sourceURL": "https://x.com/thsottiaux/status/2110595484180214059"
+      "sourceURL": "https://x.com/thsottiaux/status/2110618732666257557"
     }
   ]
 }
