@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "tibo-28-2026-10-05",
-  "revision": 24,
+  "revision": 25,
   "startDate": "2026-10-05",
   "days": 28,
   "timeZone": "America/Los_Angeles",
@@ -338,6 +338,24 @@
       "sourceURL": "https://x.com/thsottiaux/status/2110595484180214059",
       "collectedAt": "2026-10-15T05:54:10.207Z",
       "sourcePublishedAt": "2026-10-15T04:55:00Z"
+    },
+    {
+      "id": "tibo-day-11-model-capacity",
+      "revision": 1,
+      "day": 11,
+      "kind": "improvement",
+      "status": "completed",
+      "title": {
+        "zh": "减少模型满载中断",
+        "en": "Fewer model capacity interruptions"
+      },
+      "body": {
+        "zh": "Tibo 宣布第 11 天改进：已推出一系列调整并增加算力，以显著减少“所选模型已满载，请尝试其他模型”的中断。仍遇到时，任务应能随后自动继续，避免一直阻塞。",
+        "en": "Tibo announced Day 11: changes and additional compute have landed to significantly reduce “Selected model is at capacity” interruptions. When they still occur, the task should eventually continue automatically instead of remaining blocked."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2110750421367287996",
+      "collectedAt": "2026-10-15T16:03:54.140Z",
+      "sourcePublishedAt": "2026-10-15T15:11:00Z"
     }
   ]
 }
