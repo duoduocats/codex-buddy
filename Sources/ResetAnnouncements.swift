@@ -7,6 +7,7 @@ struct ResetLocalizedText: Codable, Equatable {
 }
 enum ResetTimestampBasis: String, Codable { case source, collected }
 enum ResetAnnouncementStatus: String, Codable { case scheduled, completed, cancelled }
+enum ResetAnnouncementEffect: String, Codable { case immediateQuotaReset, credits, other }
 struct ResetAnnouncement: Codable, Equatable, Identifiable {
     let id: String
     let revision: Int
@@ -16,6 +17,12 @@ struct ResetAnnouncement: Codable, Equatable, Identifiable {
     let publishedAt: Date
     let expiresAt: Date
     let timestampBasis: ResetTimestampBasis
+    // Optional curated semantics. Legacy records stay unknown; title/body text
+    // is never interpreted as research authority.
+    let resetEffect: ResetAnnouncementEffect?
+    let globalScopeID: String?
+    let campaignID: String?
+    let relatedEventID: String?
     let titleText: ResetLocalizedText
     let bodyText: ResetLocalizedText
     let appliesToText: ResetLocalizedText?
@@ -62,15 +69,20 @@ struct ResetAnnouncement: Codable, Equatable, Identifiable {
     }
     enum CodingKeys: String, CodingKey {
         case id, revision, type, status, scheduledAt, publishedAt, expiresAt, sourceURL, timestampBasis
+        case resetEffect, globalScopeID, campaignID, relatedEventID
         case titleText = "title", bodyText = "body", appliesToText = "appliesTo"
     }
     init(id: String, revision: Int, type: String, status: ResetAnnouncementStatus = .scheduled,
          scheduledAt: Date? = nil, publishedAt: Date, expiresAt: Date,
          titleText: ResetLocalizedText, bodyText: ResetLocalizedText,
-         appliesToText: ResetLocalizedText? = nil, sourceURL: URL? = nil, timestampBasis: ResetTimestampBasis = .source) {
+         appliesToText: ResetLocalizedText? = nil, sourceURL: URL? = nil, timestampBasis: ResetTimestampBasis = .source,
+         resetEffect: ResetAnnouncementEffect? = nil, globalScopeID: String? = nil,
+         campaignID: String? = nil, relatedEventID: String? = nil) {
         self.id = id;self.revision = revision;self.type = type;self.status = status
         self.scheduledAt = scheduledAt;self.publishedAt = publishedAt;self.expiresAt = expiresAt;self.timestampBasis = timestampBasis
         self.titleText = titleText;self.bodyText = bodyText;self.appliesToText = appliesToText;self.sourceURL = sourceURL
+        self.resetEffect = resetEffect;self.globalScopeID = globalScopeID
+        self.campaignID = campaignID;self.relatedEventID = relatedEventID
     }
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy:CodingKeys.self)
@@ -86,6 +98,10 @@ struct ResetAnnouncement: Codable, Equatable, Identifiable {
         bodyText = try values.decode(ResetLocalizedText.self,forKey:.bodyText)
         appliesToText = try values.decodeIfPresent(ResetLocalizedText.self,forKey:.appliesToText)
         sourceURL = try values.decodeIfPresent(URL.self,forKey:.sourceURL)
+        resetEffect = try values.decodeIfPresent(ResetAnnouncementEffect.self,forKey:.resetEffect)
+        globalScopeID = try values.decodeIfPresent(String.self,forKey:.globalScopeID)
+        campaignID = try values.decodeIfPresent(String.self,forKey:.campaignID)
+        relatedEventID = try values.decodeIfPresent(String.self,forKey:.relatedEventID)
     }
 }
 struct ResetAnnouncementDocument: Codable {
@@ -114,6 +130,7 @@ struct ResetAnnouncementDocument: Codable {
                   event.expiresAt > event.publishedAt,
                   event.expiresAt.timeIntervalSince(event.publishedAt) <= 366*86_400,
                   validText(event.titleText,maximum:160), validText(event.bodyText,maximum:1_000) else { throw ResetAnnouncementFailure.invalid }
+            guard validResearchMetadata(event) else { throw ResetAnnouncementFailure.invalid }
             if let source = event.sourceURL, !validSourceURL(source) { throw ResetAnnouncementFailure.invalid }
             if let audience = event.appliesToText, !validText(audience,maximum:300) { throw ResetAnnouncementFailure.invalid }
             if event.type == "globalReset", event.sourceURL == nil || event.appliesToText == nil { throw ResetAnnouncementFailure.invalid }
@@ -122,7 +139,29 @@ struct ResetAnnouncementDocument: Codable {
                       date <= event.publishedAt.addingTimeInterval(366*86_400), date <= event.expiresAt else { throw ResetAnnouncementFailure.invalid }
             } else if event.type == "globalReset", event.status == .scheduled { throw ResetAnnouncementFailure.invalid }
         }
+        // References may point outside this bounded history, but self-links and
+        // cycles in the supplied snapshot cannot establish a canonical event.
+        let parents = Dictionary(uniqueKeysWithValues: document.events.compactMap { event in
+            event.relatedEventID.map { (event.id, $0) }
+        })
+        for event in document.events {
+            var seen = Set<String>(), current: String? = event.id
+            while let id = current {
+                guard seen.insert(id).inserted else { throw ResetAnnouncementFailure.invalid }
+                current = parents[id]
+            }
+        }
         return document
+    }
+    private static func validResearchMetadata(_ event: ResetAnnouncement) -> Bool {
+        guard [event.globalScopeID,event.campaignID,event.relatedEventID].allSatisfy({ $0.map(validID) ?? true }),
+              event.relatedEventID != event.id else { return false }
+        if event.resetEffect == .immediateQuotaReset && !["message","globalReset"].contains(event.type) { return false }
+        if event.resetEffect == .credits && event.type != "message" { return false }
+        if event.globalScopeID != nil {
+            guard let scopeText = event.appliesToText, validText(scopeText,maximum:300) else { return false }
+        }
+        return true
     }
     static func validID(_ id: String) -> Bool {
         !id.isEmpty && id.utf8.count <= 80 && id.unicodeScalars.allSatisfy {

@@ -97,6 +97,7 @@ struct PetTheme: Identifiable, Equatable, Codable {
     var spriteURL:URL? = nil
     var inlineManifest:PetManifest? = nil
     var licenseURL:URL? = nil
+    var tagFingerprint:String? = nil
     var id: String { sourceID+":"+remoteID }
 }
 
@@ -166,7 +167,7 @@ enum PetCatalog {
         guard data.count <= source.maximumCatalogBytes else { throw PetStoreError.tooLarge }
         do {
             let decoder = JSONDecoder()
-            let themes: [PetTheme]
+            var themes: [PetTheme]
             var name = source.name;var site = source.websiteURL
             switch source.format {
             case .catalog:
@@ -214,6 +215,8 @@ enum PetCatalog {
                 if let url = theme.licenseURL { _ = try PetURL.validate(url) }
                 if let manifest=theme.inlineManifest { try manifest.validate() }
             }
+            let fingerprints=(try? PetTagBinding.fingerprints(data,source:source)) ?? [:]
+            for index in themes.indices { themes[index].tagFingerprint=fingerprints[themes[index].remoteID] }
             return (name,site,themes)
         } catch let error as PetStoreError { throw error }
         catch { throw PetStoreError.invalidCatalog }

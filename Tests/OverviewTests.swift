@@ -5,7 +5,7 @@ import Combine
 @main struct OverviewTests {
     @MainActor static func main() async throws {
         NSApplication.shared.setActivationPolicy(.regular)
-        precondition(SettingsView.preferredHeight(for:.overview) == 1040 && SettingsView.preferredHeight(for:.general) == 620)
+        precondition(SettingsView.preferredHeight(for:.overview) == 1040 && SettingsView.preferredHeight(for:.general) == 1040)
         precondition(SettingsView.fittedHeight(for:.overview,availableHeight:800) == 720,"Default must fit the available screen")
         precondition(SettingsView.fittedHeight(for:.overview,availableHeight:1440) == 1040,"Large screens retain tall preview space")
         let now = Date()

@@ -23,12 +23,14 @@ private final class PreviewPreferences: UserDefaults {
                 fatalError("Synthetic previews must not read credentials")
             }))
         }
-        return AppModel()
+        return AppModel(forecastCache:.shared,forecastEvaluationStore:.shared)
     }()
     var item: NSStatusItem!
     let popover = QuotaPanel()
     var usageHosting: NSHostingController<UsageView>?
     let pets = BuddyPetsController.shared
+    let login = LoginModel()
+    let windowPresentation = MainWindowPresentation()
     var settingsPage: BuddyPage = .overview
     var settingsWindow: NSWindow?
     var challengeWindow: NSWindow?
@@ -40,6 +42,10 @@ private final class PreviewPreferences: UserDefaults {
         if CommandLine.arguments.contains("--snapshot") { snapshot();return }
         let others = NSRunningApplication.runningApplications(withBundleIdentifier:Bundle.main.bundleIdentifier ?? "com.duoduocat.codexbuddy").filter { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }
         if let existing = others.first, !CommandLine.arguments.contains("--ui-check"), !CommandLine.arguments.contains("--performance-check") { existing.activate(options:[]);NSApp.terminate(nil);return }
+        if CommandLine.arguments.contains("--ui-check"), !others.isEmpty {
+            fputs("Native checks must use a separate validation bundle identity while Buddy is running.\n",stderr);exit(1)
+        }
+        windowPresentation.finishedLaunching(initialWindowPlanned:CommandLine.arguments.contains("--show-settings") || CommandLine.arguments.contains("--show-challenge"))
         item = NSStatusBar.system.statusItem(withLength:34)
         model.reminders.onOpenPanel = { [weak self] in
             guard let self else { return }
@@ -113,20 +119,22 @@ private final class PreviewPreferences: UserDefaults {
                     self.showSettings()
                     fputs("Settings visible: \(self.settingsWindow?.isVisible == true)\n",stderr)
                     precondition(self.settingsWindow?.isVisible == true,"Settings must open")
-                    precondition(NSRunningApplication.current.activationPolicy == .regular,"Settings must show a Dock icon")
+                    precondition(NSRunningApplication.current.activationPolicy == .regular,"Settings must use foreground presentation")
+                    precondition(NSApp.applicationIconImage != nil,"Foreground presentation must provide the shipped app icon")
                     let navigationTop = self.settingsWindow!.frame.maxY
-                    self.resizeMainWindow(for:.general)
+                    self.selectMainPage(.general)
                     let availableHeight = self.settingsWindow!.screen?.visibleFrame.height ?? SettingsView.height+80
                     let generalHeight = self.settingsWindow!.contentRect(forFrameRect:self.settingsWindow!.frame).height
-                    precondition(abs(generalHeight-SettingsView.fittedHeight(for:.general,availableHeight:availableHeight)) < 1,"General must use its compact height")
+                    precondition(abs(generalHeight-SettingsView.fittedHeight(for:.general,availableHeight:availableHeight)) < 1,"Tabs must retain the common window height")
                     precondition(abs(self.settingsWindow!.frame.maxY-navigationTop) < 1,"Page change must preserve the navigation top")
-                    self.resizeMainWindow(for:.overview)
+                    self.selectMainPage(.overview)
                     let overviewHeight = self.settingsWindow!.contentRect(forFrameRect:self.settingsWindow!.frame).height
-                    precondition(abs(overviewHeight-SettingsView.fittedHeight(for:.overview,availableHeight:availableHeight)) < 1,"Overview must restore its tall height")
-                    fputs("Page sizing passed: compact General, tall Overview, stationary navigation.\\n",stderr)
+                    precondition(abs(overviewHeight-SettingsView.fittedHeight(for:.overview,availableHeight:availableHeight)) < 1,"Tabs must retain the preview space")
+                    fputs("Page sizing passed: stable height and stationary navigation.\\n",stderr)
                     let originalWindow = self.settingsWindow
                     self.showSettings()
                     precondition(self.settingsWindow === originalWindow,"Repeated opens must reuse the settings window")
+                    precondition(self.settingsWindow?.acceptsMouseMovedEvents == true,"Charts require continuous mouse-move delivery")
                     DispatchQueue.main.asyncAfter(deadline:.now()+0.5) {
                         fputs("Popover closed: \(!self.popover.isShown)\n",stderr)
                         precondition(!self.popover.isShown,"Popover must close")
@@ -198,42 +206,37 @@ private final class PreviewPreferences: UserDefaults {
     }
     @objc func wake() { model.refresh(includeStatistics:false);model.reminders.check(force:true);model.challenge.check(force:true);UpdateManager.shared.networkRecovered();UpdateManager.shared.check(manual:false) }
     func showSettings() {
-        closePopover()
+        login.refresh();closePopover()
         if settingsWindow == nil {
             let visible = NSScreen.main?.visibleFrame
             let height = SettingsView.fittedHeight(for:.overview,availableHeight:visible?.height ?? SettingsView.height+80)
             let width = min(SettingsView.width,visible.map { max(SettingsView.minimumSize.width,$0.width-80) } ?? SettingsView.width)
             let w = NSWindow(contentRect:NSRect(x:0,y:0,width:width,height:height),styleMask:[.titled,.closable,.miniaturizable,.resizable],backing:.buffered,defer:false)
-            w.title = "Codex Buddy";w.isReleasedWhenClosed = false
+            w.title = "Codex Buddy";w.isReleasedWhenClosed = false;w.acceptsMouseMovedEvents=true
             w.delegate = self
             w.contentMinSize = SettingsView.minimumSize
             w.contentMaxSize = NSSize(width:CGFloat.greatestFiniteMagnitude,height:CGFloat.greatestFiniteMagnitude)
             w.collectionBehavior.insert(.fullScreenNone)
             w.titlebarAppearsTransparent = true;w.titlebarSeparatorStyle = .none
-            let hosting = NSHostingView(rootView:SettingsView(model:model,openChallenge:{ [weak self] in self?.showChallenge() },
-                pageChanged:{ [weak self] page in self?.resizeMainWindow(for:page) }))
+            let hosting = NSHostingView(rootView:SettingsView(model:model,openChallenge:{ [weak self] in self?.showChallenge() },login:self.login,
+                pageChanged:{ [weak self] page in self?.selectMainPage(page) }))
             hosting.sizingOptions = []
             hosting.autoresizingMask = [.width,.height]
             w.contentView = hosting;w.center();settingsWindow=w
         }
-        NSApp.setActivationPolicy(.regular)
+        model.setMainWindowVisible(true)
+        if let window=settingsWindow { windowPresentation.beginShowing(window) }
         if settingsWindow?.isMiniaturized == true { settingsWindow?.deminiaturize(nil) }
         NSApp.activate(ignoringOtherApps:true);settingsWindow?.makeKeyAndOrderFront(nil)
+        if let window=settingsWindow { windowPresentation.didShow(window) }
         pets.setVisible(settingsPage == .pets)
     }
-    private func resizeMainWindow(for page: BuddyPage) {
+    private func selectMainPage(_ page: BuddyPage) {
         settingsPage = page
-        guard let window = settingsWindow, !window.inLiveResize else { return }
-        let available = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame
-        let height = SettingsView.fittedHeight(for:page,availableHeight:available?.height ?? SettingsView.height+80)
-        let titlebar = window.frame.height-window.contentRect(forFrameRect:window.frame).height
-        var frame = window.frame
-        frame.origin.y = frame.maxY-(height+titlebar)
-        frame.size.height = height+titlebar
-        if let available, frame.minY < available.minY { frame.origin.y = available.minY }
-        // Keep the top-left navigation stationary while fitting each page's content.
-        window.setFrame(frame,display:true,animate:!CommandLine.arguments.contains("--ui-check") && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
+        // A tab is a change of content, not a synchronous AppKit window animation.
+        // Keep the user's window size and the navigation position across all pages.
     }
+
     func showChallenge() {
         guard model.reminders.messagesEnabled, model.challenge.enabled else { return }
         closePopover()
@@ -246,26 +249,30 @@ private final class PreviewPreferences: UserDefaults {
             hosting.sizingOptions = [];hosting.autoresizingMask = [.width,.height]
             w.contentView = hosting;w.center();challengeWindow = w
         }
-        NSApp.setActivationPolicy(.regular)
+        if let window=challengeWindow { windowPresentation.beginShowing(window) }
         if challengeWindow?.isMiniaturized == true { challengeWindow?.deminiaturize(nil) }
         model.challenge.setWindowVisible(true)
         NSApp.activate(ignoringOtherApps:true);challengeWindow?.makeKeyAndOrderFront(nil)
+        if let window=challengeWindow { windowPresentation.didShow(window) }
     }
     func windowWillClose(_ notification: Notification) {
         guard let window = notification.object as? NSWindow else { return }
-        if window === settingsWindow { pets.setVisible(false) }
+        if window === settingsWindow { pets.setVisible(false);model.setMainWindowVisible(false) }
         if window === challengeWindow { model.challenge.setWindowVisible(false) }
-        let otherOpen = [settingsWindow,challengeWindow].compactMap { $0 }.contains {
-            $0 !== window && ($0.isVisible || $0.isMiniaturized)
-        }
-        if !otherOpen { NSApp.setActivationPolicy(.accessory) }
+        windowPresentation.willClose(window)
+    }
+    func windowDidBecomeKey(_ notification: Notification) {
+        guard let window=notification.object as? NSWindow else { return }
+        windowPresentation.becameKey(window)
+        if window === settingsWindow { pets.store?.mainWindowBecameKey() }
     }
     func windowDidMiniaturize(_ notification: Notification) {
-        if let window = notification.object as? NSWindow, window === settingsWindow { pets.setVisible(false) }
+        if let window = notification.object as? NSWindow, window === settingsWindow { pets.setVisible(false);model.setMainWindowVisible(false) }
         if let window = notification.object as? NSWindow, window === challengeWindow { model.challenge.setWindowVisible(false) }
     }
     func windowDidDeminiaturize(_ notification: Notification) {
-        if let window = notification.object as? NSWindow, window === settingsWindow { pets.setVisible(settingsPage == .pets) }
+        if let window=notification.object as? NSWindow { windowPresentation.becameKey(window) }
+        if let window = notification.object as? NSWindow, window === settingsWindow { model.setMainWindowVisible(true);pets.setVisible(settingsPage == .pets) }
         if let window = notification.object as? NSWindow, window === challengeWindow { model.challenge.setWindowVisible(true) }
     }
     func windowWillUseStandardFrame(_ window:NSWindow,defaultFrame:NSRect) -> NSRect {
@@ -346,7 +353,9 @@ private final class PreviewPreferences: UserDefaults {
 }
 MainActor.assumeIsolated {
     let application = NSApplication.shared
-    application.setActivationPolicy(.accessory)
+    application.setActivationPolicy(.regular)
+    application.mainMenu=MainWindowPresentation.mainMenu()
+    application.windowsMenu=application.mainMenu?.items.last?.submenu
     let delegate = AppDelegate()
     application.delegate = delegate
     withExtendedLifetime(delegate) { application.run() }

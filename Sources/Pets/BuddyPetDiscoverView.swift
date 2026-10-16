@@ -21,40 +21,59 @@ struct BuddyPetDiscoverView:View {
     @Binding var sourceFilter:String
     @Binding var sortByInstalls:Bool
     var favoritesOnly=false
-    private var filtered:[PetTheme] { store.matchingThemes(query:search,sourceID:sourceFilter,byInstalls:sortByInstalls,favoritesOnly:favoritesOnly) }
+    @StateObject private var results = PetQueryModel()
+    @State private var visibleCount = 60
+    private var request: PetSearchRequest { .init(revision:store.searchRevision,query:search,sourceID:sourceFilter,byInstalls:sortByInstalls,favoritesOnly:favoritesOnly,tagRevision:store.tagStore?.revision ?? "",selectedTagIDs:store.selectedTagIDs.sorted()) }
     var body:some View {
-        VStack(alignment:.leading,spacing:12) {
+        LazyVStack(alignment:.leading,spacing:12) {
             controls
-            if filtered.isEmpty {
+            if results.themes.isEmpty {
                 VStack(spacing:12) {
                     PetStoreMark(size:52)
-                    Text(favoritesOnly ? L("把喜欢的小伙伴留在这里", "Keep your favorites here") : (store.loading ? L("正在寻找小伙伴…", "Finding companions…") : L("暂无匹配主题", "No matching themes")))
+                    Text(favoritesOnly ? L("把喜欢的小伙伴留在这里", "Keep your favorites here") : (store.tagStore?.syncing == true && !store.selectedTagIDs.isEmpty ? L("正在读取标签…","Updating tags…") : store.loading ? L("正在寻找小伙伴…", "Finding companions…") : L("暂无匹配主题", "No matching themes")))
                         .font(.system(size:17,weight:.semibold))
                     Text(favoritesOnly ? L("点击主题上的书签即可收藏，收藏只保存在这台 Mac。", "Bookmark a theme to save it on this Mac.") : L("换个关键词或来源试试。", "Try another keyword or source."))
                         .font(.system(size:12)).foregroundStyle(.secondary)
                 }.frame(maxWidth:.infinity).padding(.vertical,72)
             } else {
                 LazyVGrid(columns:[GridItem(.adaptive(minimum:260),spacing:16)],alignment:.leading,spacing:16) {
-                    ForEach(filtered) { theme in PetStoreCard(theme:theme,store:store) }
+                    ForEach(Array(results.themes.prefix(visibleCount))) { theme in PetStoreCard(theme:theme,store:store) }
+                }
+                if visibleCount < results.themes.count {
+                    Color.clear.frame(height:1).onAppear { visibleCount += 60 }.accessibilityHidden(true)
                 }
             }
-        }.onChange(of:store.sources) { sources in
+        }.onChange(of:request) { _ in visibleCount=60 }
+            .task(id:request) { await results.load(request,store:store) }
+            .onChange(of:store.sources) { sources in
             if !sources.contains(where:{$0.id == sourceFilter && $0.enabled}) { sourceFilter="" }
         }
     }
     private var controls:some View {
         VStack(alignment:.leading,spacing:8) {
+            ViewThatFits(in:.horizontal) {
             HStack(spacing:12) {
                 PetSourcePicker(sources:store.sources,selection:$sourceFilter)
                     .padding(.horizontal,10).frame(width:220,height:36)
                     .background(Color.primary.opacity(0.03),in:RoundedRectangle(cornerRadius:9))
                     .overlay(RoundedRectangle(cornerRadius:9).stroke(Color.primary.opacity(0.12),lineWidth:0.7))
+                if let tags=store.tagStore,!tags.facets.isEmpty { PetTagFilters(facets:tags.facets,selected:$store.selectedTagIDs,onOpen:tags.activateFilters) }
                 Spacer(minLength:8)
                 SettingsSegments(labels:[L("名称", "Name"),L("热度", "Popular")],selection:Binding(
                     get:{sortByInstalls ? 1 : 0},set:{sortByInstalls = $0 == 1}),accessibilityLabel:L("排序", "Sort"))
                     .frame(width:190,height:36)
 
             }.frame(minHeight:30)
+            VStack(alignment:.leading,spacing:10) {
+                HStack { PetSourcePicker(sources:store.sources,selection:$sourceFilter).frame(width:220,height:36);Spacer();SettingsSegments(labels:[L("名称","Name"),L("热度","Popular")],selection:Binding(get:{sortByInstalls ? 1:0},set:{sortByInstalls=$0==1}),accessibilityLabel:L("排序","Sort")).frame(width:190,height:36) }
+                if let tags=store.tagStore,!tags.facets.isEmpty { PetTagFilters(facets:tags.facets,selected:$store.selectedTagIDs,onOpen:tags.activateFilters) }
+            }
+            }
+            if let tags=store.tagStore,!store.selectedTagIDs.isEmpty {
+                HStack(spacing:8) { ForEach(tags.facets.flatMap(\.tags).filter { store.selectedTagIDs.contains($0.id) }) { tag in
+                    Button { store.selectedTagIDs.remove(tag.id) } label: { HStack(spacing:6) { Text(tag.label.text);Image(systemName:"xmark").font(.system(size:9)) }.font(.system(size:12)).padding(.horizontal,9).padding(.vertical,5).background(Color.blue.opacity(0.14),in:Capsule()).contentShape(Capsule()) }.buttonStyle(.plain).foregroundStyle(.blue)
+                } }
+            }
             if !store.sourceErrors.isEmpty || (!store.loading && !store.cachedSources.isEmpty) {
                 Label(L("部分来源未更新，可在来源页重试。", "Some sources could not update. Retry in Sources."),systemImage:"wifi.exclamationmark")
                     .font(.system(size:11)).foregroundStyle(.secondary)
@@ -136,6 +155,9 @@ private struct PetStoreCard:View {
                         }
                         Text(store.sourceName(theme.sourceID)).font(.system(size:12)).foregroundStyle(.secondary).lineLimit(1)
                             .help(theme.author+" · "+store.sourceName(theme.sourceID))
+                    }
+                    if let tags=store.tagStore {
+                        HStack(spacing:7) { ForEach(Array(tags.tags(for:theme).prefix(3))) { tag in Text(tag.label.text).font(.system(size:10)).padding(.horizontal,7).padding(.vertical,3).background(Color.primary.opacity(0.06),in:Capsule()) } }.frame(height:18,alignment:.leading)
                     }
                     if store.statistics(for:theme) != nil { PetPopularityLine(stats:store.statistics(for:theme)) }
                 }.padding(16).frame(maxWidth:.infinity,alignment:.leading).contentShape(RoundedRectangle(cornerRadius:12))
