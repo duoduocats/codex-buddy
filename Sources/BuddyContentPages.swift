@@ -21,7 +21,7 @@ struct RecentMessagesView: View {
     var body: some View {
         VStack(alignment:.leading,spacing:0) {
             HStack(alignment:.center,spacing:24) {
-                BuddyPageHeading(title:L("消息", "Messages"))
+                BuddyPageHeading(title:BuddyPage.messages.title)
                     .frame(maxWidth:.infinity,alignment:.leading)
                 if manager.acceptsActivityMessages && challenge.enabled { activityButton }
             }.padding(.horizontal,32).padding(.top,28).padding(.bottom,24)

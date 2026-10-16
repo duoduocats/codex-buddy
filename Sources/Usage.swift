@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 struct LimitWindow: Codable, Equatable {
     let usedPercent: Double
@@ -155,8 +156,43 @@ enum UsageFailure: LocalizedError {
     }
 }
 
+struct UsageReadSnapshot {
+    let response: UsageResponse
+    // Local salted partition only; never an account identifier or credential.
+    let accountKey: String?
+}
+struct UsageStatisticsReadSnapshot {
+    let response: UsageStatistics
+    let accountKey: String?
+}
+struct ResetCreditsReadSnapshot {
+    let response: ResetCreditDetails
+    let accountKey: String?
+}
+
 // No helper process, credential persistence, redirects, cookies or response cache.
 private final class NoRedirect: NSObject, URLSessionTaskDelegate {
+    var petTransfer: ((Int64,Bool)->Void)?
+    private var recordedPets=Set<Int>()
+    private func report(_ task:URLSessionTask,bytes:Int64,complete:Bool) {
+        guard task.originalRequest?.url?.path == "/backend-api/pets",!recordedPets.contains(task.taskIdentifier) else { return }
+        recordedPets.insert(task.taskIdentifier)
+        if recordedPets.count > 128 { recordedPets=Set(recordedPets.sorted().suffix(64)) }
+        petTransfer?(bytes,complete)
+    }
+    func urlSession(_ session:URLSession,task:URLSessionTask,didFinishCollecting metrics:URLSessionTaskMetrics) {
+        var bytes:Int64=0,complete=true
+        for item in metrics.transactionMetrics where item.resourceFetchType == .networkLoad {
+            for count in [item.countOfRequestHeaderBytesSent,item.countOfRequestBodyBytesSent,item.countOfResponseHeaderBytesReceived,item.countOfResponseBodyBytesReceived] {
+                if count < 0 { complete=false } else { let sum=bytes.addingReportingOverflow(count);bytes=sum.overflow ? Int64.max : sum.partialValue }
+            }
+        }
+        report(task,bytes:bytes,complete:complete)
+    }
+    func urlSession(_ session:URLSession,task:URLSessionTask,didCompleteWithError error:Error?) {
+        let sum=max(0,task.countOfBytesReceived).addingReportingOverflow(max(0,task.countOfBytesSent))
+        report(task,bytes:sum.overflow ? Int64.max : sum.partialValue,complete:false)
+    }
     func urlSession(_ session: URLSession, task: URLSessionTask,
         willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest,
         completionHandler: @escaping (URLRequest?) -> Void) { completionHandler(nil) }
@@ -165,7 +201,8 @@ private final class NoRedirect: NSObject, URLSessionTaskDelegate {
     private let delegate = NoRedirect()
     private let credentialProvider: () -> Data?
     private let configuration: URLSessionConfiguration
-    init(configuration: URLSessionConfiguration = .ephemeral, credentialProvider: (() -> Data?)? = nil) {
+    init(configuration: URLSessionConfiguration = .ephemeral, credentialProvider: (() -> Data?)? = nil, petTransfer: ((Int64,Bool)->Void)? = nil) {
+        delegate.petTransfer=petTransfer
         self.configuration = configuration
         self.credentialProvider = credentialProvider ?? {
             let home = ProcessInfo.processInfo.environment["CODEX_HOME"].map { URL(fileURLWithPath:$0) }
@@ -177,20 +214,50 @@ private final class NoRedirect: NSObject, URLSessionTaskDelegate {
         let config = configuration
         config.timeoutIntervalForRequest = 20
         config.timeoutIntervalForResource = 25
-        config.urlCache = nil; config.httpCookieStorage = nil
+        config.urlCache = nil; config.httpCookieStorage = nil;config.httpShouldSetCookies=false;config.urlCredentialStorage=nil
         config.requestCachePolicy = .reloadIgnoringLocalCacheData
         return URLSession(configuration:config,delegate:delegate,delegateQueue:nil)
     }()
     func read() async throws -> UsageResponse {
-        try Self.decode(await request(path:"/backend-api/wham/usage"))
+        try Self.decode(await request(path:"/backend-api/wham/usage").data)
+    }
+    func readForForecast(identitySalt: Data) async throws -> UsageReadSnapshot {
+        let result = try await request(path:"/backend-api/wham/usage", identitySalt:identitySalt)
+        return UsageReadSnapshot(response:try Self.decode(result.data),accountKey:result.accountKey)
     }
     func readStatistics() async throws -> UsageStatistics {
-        try UsageStatistics.decode(await request(path:"/backend-api/wham/profiles/me"))
+        try UsageStatistics.decode(await request(path:"/backend-api/wham/profiles/me").data)
     }
     func readResetCredits() async throws -> ResetCreditDetails {
-        try ResetCreditDetails.decode(await request(path:"/backend-api/wham/rate-limit-reset-credits"))
+        try ResetCreditDetails.decode(await request(path:"/backend-api/wham/rate-limit-reset-credits").data)
     }
-    private func request(path: String) async throws -> Data {
+    func readStatisticsWithContext(identitySalt: Data) async throws -> UsageStatisticsReadSnapshot {
+        let result=try await request(path:"/backend-api/wham/profiles/me",identitySalt:identitySalt)
+        return UsageStatisticsReadSnapshot(response:try UsageStatistics.decode(result.data),accountKey:result.accountKey)
+    }
+    func readResetCreditsWithContext(identitySalt: Data) async throws -> ResetCreditsReadSnapshot {
+        let result=try await request(path:"/backend-api/wham/rate-limit-reset-credits",identitySalt:identitySalt)
+        return ResetCreditsReadSnapshot(response:try ResetCreditDetails.decode(result.data),accountKey:result.accountKey)
+    }
+    // Reuse normal authorization. Pet models and caches receive only an opaque in-memory identity.
+    func petAccountKey(identitySalt:Data) -> String? {
+        guard identitySalt.count == 32,let data=credentialProvider(),
+              let auth=try? JSONSerialization.jsonObject(with:data) as? [String:Any],let tokens=auth["tokens"] as? [String:Any],
+              let token=tokens["access_token"] as? String,!token.isEmpty,
+              let id=tokens["account_id"] as? String,!id.isEmpty,id.utf8.count <= 512 else { return nil }
+        return HMAC<SHA256>.authenticationCode(for:Data(id.utf8)+Data([0])+Data(token.utf8),using:SymmetricKey(data:identitySalt)).map { String(format:"%02x",$0) }.joined()
+    }
+    func readPetPage(cursor:String?,identitySalt:Data) async throws -> (data:Data,accountKey:String?) {
+        var parts=URLComponents();parts.path="/backend-api/pets";parts.queryItems=[URLQueryItem(name:"limit",value:"20")]
+        if let cursor {
+            guard !cursor.isEmpty,cursor.utf8.count <= 2048,!cursor.unicodeScalars.contains(where:{CharacterSet.controlCharacters.contains($0)}) else { throw UsageFailure.malformed }
+            parts.queryItems?.append(URLQueryItem(name:"cursor",value:cursor))
+        }
+        guard let path=parts.string else { throw UsageFailure.malformed }
+        let result=try await request(path:path,identitySalt:identitySalt,maximumBytes:1_000_000,petIdentity:true)
+        guard result.accountKey != nil else { throw UsageFailure.authentication };return result
+    }
+    private func request(path: String, identitySalt: Data? = nil, maximumBytes:Int? = nil,petIdentity:Bool = false) async throws -> (data: Data, accountKey: String?) {
         guard let data = credentialProvider(),
               let auth = try? JSONSerialization.jsonObject(with:data) as? [String:Any],
               let tokens = auth["tokens"] as? [String:Any],
@@ -199,13 +266,36 @@ private final class NoRedirect: NSObject, URLSessionTaskDelegate {
         request.setValue("Bearer \(token)",forHTTPHeaderField:"Authorization")
         request.setValue("codex-cli",forHTTPHeaderField:"User-Agent")
         request.setValue("application/json",forHTTPHeaderField:"Accept")
-        if let id = tokens["account_id"] as? String { request.setValue(id,forHTTPHeaderField:"ChatGPT-Account-Id") }
+        var accountKey: String?
+        if let id = tokens["account_id"] as? String {
+            request.setValue(id,forHTTPHeaderField:"ChatGPT-Account-Id")
+            if let identitySalt, identitySalt.count == 32, !id.isEmpty, id.utf8.count <= 512 {
+                let identity=petIdentity ? Data(id.utf8)+Data([0])+Data(token.utf8) : Data(id.utf8)
+                let digest = HMAC<SHA256>.authenticationCode(for:identity,using:SymmetricKey(data:identitySalt))
+                accountKey = digest.map { String(format:"%02x",$0) }.joined()
+            }
+        }
         do {
-            let (body,response) = try await session.data(for:request)
+            let body:Data,response:URLResponse
+            if let maximumBytes {
+                let (stream,reply)=try await session.bytes(for:request);response=reply
+                guard let http=reply as? HTTPURLResponse else { throw UsageFailure.unavailable }
+                if http.statusCode == 401 || http.statusCode == 403 { throw UsageFailure.authentication }
+                guard http.statusCode == 200 else { throw UsageFailure.unavailable }
+                guard reply.expectedContentLength <= Int64(maximumBytes) else { throw UsageFailure.malformed }
+                let consuming=Task.detached(priority:.utility) {
+                    var data=Data()
+                    for try await byte in stream {
+                        try Task.checkCancellation();guard data.count < maximumBytes else { throw UsageFailure.malformed };data.append(byte)
+                    };return data
+                }
+                body=try await withTaskCancellationHandler(operation:{try await consuming.value},onCancel:{consuming.cancel()})
+                try Task.checkCancellation()
+            } else { (body,response)=try await session.data(for:request) }
             guard let http = response as? HTTPURLResponse else { throw UsageFailure.unavailable }
             if http.statusCode == 401 || http.statusCode == 403 { throw UsageFailure.authentication }
             guard http.statusCode == 200 else { throw UsageFailure.unavailable }
-            return body
+            return (body,accountKey)
         } catch let error as UsageFailure { throw error }
           catch let error as URLError where error.code == .timedOut { throw UsageFailure.timeout }
           catch { throw UsageFailure.unavailable }

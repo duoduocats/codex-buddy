@@ -57,18 +57,20 @@ struct BuddyPetStoreView: View {
                 PetUninstallConsent(name:request.pet.name,cancel:{store.cancelUninstall()},confirm:{store.confirmUninstall()})
             }
             .onChange(of:store.selected?.id) { _ in showingOptions=false }
-            .onChange(of:store.visible) { if !$0 { addingSource=false;showingGuide=false;showingOptions=false } }
+            .onChange(of:store.visible) { if !$0 { addingSource=false;showingGuide=false;showingOptions=false } else { store.setInstalledPageVisible(page == .installed) } }
+            .onChange(of:page) { store.setInstalledPageVisible($0 == .installed) }
             .onChange(of:search) { _ in if store.selected != nil { store.select(nil) } }
             .onAppear {
                 if let index=CommandLine.arguments.firstIndex(of:"--pets-page"),CommandLine.arguments.count > index+1 {
                     page=PetStorePage(rawValue:CommandLine.arguments[index+1]) ?? .discover
                 }
+                store.setInstalledPageVisible(page == .installed)
             }
     }
 
     private var header: some View {
         HStack(spacing:14) {
-            BuddyPageHeading(title:L("宠物", "Pets"))
+            BuddyPageHeading(title:BuddyPage.pets.title)
             Spacer(minLength:16)
             if page == .sources {
                 Button { addingSource=true } label: {
@@ -76,15 +78,15 @@ struct BuddyPetStoreView: View {
                         .contentShape(RoundedRectangle(cornerRadius:9))
                 }.buttonStyle(PetPrimaryButtonStyle()).disabled(store.sources.filter({!$0.builtIn}).count >= 8)
             } else {
-                searchField(page == .installed ? L("搜索本机宠物", "Search installed pets") : L("搜索宠物、作者", "Search pets, authors"),text:page == .installed ? $installedSearch : $search)
+                searchField(page == .installed ? L("搜索已添加宠物", "Search added pets") : L("搜索宠物、作者", "Search pets, authors"),text:page == .installed ? $installedSearch : $search)
                     .frame(width:265)
             }
-            Button { if page == .installed { store.refreshInstalled() } else { store.refresh() } } label: {
+            Button { if page == .installed { store.refreshLibrary() } else { store.refresh() } } label: {
                 Image(systemName:"arrow.clockwise").font(.system(size:18)).frame(width:38,height:38)
                     .contentShape(RoundedRectangle(cornerRadius:9))
             }.buttonStyle(.plain).background(Color.primary.opacity(0.035),in:RoundedRectangle(cornerRadius:9))
                 .overlay(RoundedRectangle(cornerRadius:9).stroke(Color.primary.opacity(0.10),lineWidth:0.7))
-                .disabled(store.loading).accessibilityLabel(L("刷新宠物", "Refresh pets"))
+                .disabled(page != .installed && store.loading).accessibilityLabel(L("刷新宠物", "Refresh pets"))
         }
     }
     private var tabs: some View {
@@ -201,7 +203,8 @@ struct BuddyPetStoreView: View {
                 Button { store.chooseInstalled() } label:{Label(L("打开 Codex 设置", "Open Codex settings"),systemImage:"arrow.up.right")}.buttonStyle(.link)
             }.padding(.bottom,18)
             let filtered=store.installed.filter { installedSearch.isEmpty || ($0.name+" "+($0.sourceID.map(store.sourceName) ?? "")).localizedCaseInsensitiveContains(installedSearch) }
-            if filtered.isEmpty { emptyState(L("暂无本机宠物", "No installed pets")) }
+            if !filtered.isEmpty && store.cloudLibrary != nil { Text(L("本地", "Local")).font(.system(size:13,weight:.semibold)).foregroundStyle(.secondary).padding(.bottom,8) }
+            if filtered.isEmpty && store.cloudLibrary == nil { emptyState(L("暂无本机宠物", "No installed pets")) }
             ForEach(filtered) { pet in
                 HStack(spacing:18) {
                     PetLocalImage(pet:pet).frame(width:60,height:64)
@@ -221,6 +224,7 @@ struct BuddyPetStoreView: View {
                 }.padding(.vertical,10)
                 Divider()
             }
+            if let cloud=store.cloudLibrary { CloudInstalledPetList(library:cloud,search:installedSearch,manage:{store.chooseInstalled()}).padding(.top,filtered.isEmpty ? 0 : 20) }
         }
     }
     private var sources: some View {

@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Combine
 import ImageIO
 import UniformTypeIdentifiers
 
@@ -57,8 +58,11 @@ struct Themes:View {
     var window:NSWindow?
     var model:AppModel?
     var petStore:ThemeStoreModel?
+    private var eventMonitor: Any?
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender:NSApplication) -> Bool { true }
     func applicationDidFinishLaunching(_ notification:Notification) {
-        let args=CommandLine.arguments
+        let configured=Bundle.main.object(forInfoDictionaryKey:"BuddyPreviewArguments") as? [String] ?? []
+        let args=CommandLine.arguments.count > 1 ? CommandLine.arguments : CommandLine.arguments+configured
         guard let outputIndex=args.firstIndex(of:"--output"),outputIndex+1<args.count else { fatalError("--output required") }
         let path=args[outputIndex+1],dark=args.contains("--dark")
         let preferences = UsagePreviewPreferences()
@@ -69,7 +73,7 @@ struct Themes:View {
         let model=AppModel(preferences:preferences,client:UsageClient(credentialProvider:{fatalError("Screenshots cannot access credentials")}))
         model.useDemo()
         var calendar=Calendar(identifier:.gregorian);calendar.timeZone = .autoupdatingCurrent
-        let now=calendar.date(from:DateComponents(year:2026,month:10,day:args.contains("--settings") ? 9 : 6,hour:args.contains("--settings") ? 21 : 12,minute:0))!
+        let now=calendar.date(from:DateComponents(year:2026,month:10,day:args.contains("--forecast") && !args.contains("--forecast-reference") ? 12 : args.contains("--trends") || args.contains("--forecast") || args.contains("--general") ? 11 : args.contains("--settings") ? 9 : 6,hour:args.contains("--forecast") || args.contains("--fidelity-reference") ? 12 : args.contains("--trends") || args.contains("--general") ? 0 : args.contains("--settings") ? 21 : 12,minute:args.contains("--forecast") ? 5 : args.contains("--fidelity-reference") ? 0 : args.contains("--trends") || args.contains("--general") ? 5 : 0))!
         model.now=now;model.updated=now;model.statisticsUpdated=now
         model.usage=UsageResponse(rateLimits:LimitBucket(limitId:"codex",limitName:nil,primary:LimitWindow(usedPercent:32,windowDurationMins:10080,resetsAt:now.addingTimeInterval(396000).timeIntervalSince1970),secondary:nil,planType:"test"),rateLimitsByLimitId:nil,rateLimitResetCredits:ResetCredits(availableCount:3))
         model.statistics = .demo(now:now);model.menuBarTheme = .duoDuoCat
@@ -92,6 +96,43 @@ struct Themes:View {
                 longestRunningTurnSec:statistics.longestRunningTurnSec,longestStreakDays:statistics.longestStreakDays,
                 currentStreakDays:statistics.currentStreakDays,daily:statistics.daily?.filter { $0.day != today })
         }
+        if args.contains("--trends") {
+            var civil=Calendar(identifier:.gregorian);civil.timeZone = .autoupdatingCurrent
+            let formatter=DateFormatter();formatter.calendar=civil;formatter.locale=Locale(identifier:"en_US_POSIX");formatter.timeZone=civil.timeZone;formatter.dateFormat="yyyy-MM-dd"
+            let end=civil.date(byAdding:.day,value:-1,to:now)!
+            let last: [Int64] = [65,82,54,76,98,125,162]
+            let shape: [Int64] = [16,18,22,24,26,20,31,29,37,41,47,54,65,74,69,84,81,98,91,100,114,110,110,123,117,126,142,149,162]
+            let rows=(0..<132).map { index -> DailyTokenUsage in
+                let date=civil.date(byAdding:.day,value:index-131,to:end)!
+                let value: Int64
+                if args.contains("--fidelity-reference") {
+                    value = index >= 103 ? shape[index-103]*1_000_000 : index%13 == 0 ? 0 : Int64((index*17)%240+15)*125_000
+                } else {
+                    value = index >= 125 ? last[index-125]*1_000_000 : index%13 == 0 ? 0 : Int64((index*17)%240+15)*250_000
+                }
+                return .init(day:formatter.string(from:date),tokens:value)
+            }
+            if args.contains("--fidelity-reference") { precondition(shape.reduce(Int64(0),+) == 2180) }
+            precondition(rows.reduce(Int64(0)) { $0+$1.tokens } <= 4_860_000_000,"Synthetic annual records must fit within lifetime tokens")
+            model.statistics = .init(lifetimeTokens:4_860_000_000,peakDailyTokens:320_000_000,longestRunningTurnSec:22500,longestStreakDays:24,currentStreakDays:9,daily:args.contains("--trends-empty") ? nil : rows)
+        }
+        if args.contains("--forecast") {
+            let reset=now.addingTimeInterval(18*3600)
+            func quota(_ used: Double) -> UsageResponse {
+                UsageResponse(rateLimits:LimitBucket(limitId:"codex",limitName:nil,
+                    primary:LimitWindow(usedPercent:used,windowDurationMins:10080,resetsAt:reset.timeIntervalSince1970),
+                    secondary:nil,planType:"test"),rateLimitsByLimitId:nil,rateLimitResetCredits:nil)
+            }
+            let account=String(repeating:"a",count:64)
+            model.usage=quota(70);model.forecastIdentity=account;model.forecastUpdated=now
+            model.forecastObservations=(0...72).flatMap { index in
+                UsageForecastObservation.sanitized(usage:quota(58+Double(index)/6),accountKey:account,
+                    at:now.addingTimeInterval(-6*3600+Double(index)*300))
+            }
+            if args.contains("--forecast-extra") { model.demoForecastExtraDate=now.addingTimeInterval(9*3600) }
+            if args.contains("--forecast-cold") { model.forecastObservations=[] }
+            if args.contains("--forecast-stale") { model.forecastUpdated=now.addingTimeInterval(-600) }
+        }
         self.model=model
         let root:AnyView
         if args.contains("--challenge") { root=AnyView(TiboChallengeView(manager:model.challenge).environment(\.colorScheme,dark ? .dark : .light).frame(width:args.contains("--minimum") ? 780 : 960,height:args.contains("--minimum") ? 600 : 760)) }
@@ -113,12 +154,20 @@ struct Themes:View {
             let petRoot=URL(fileURLWithPath:"/private/tmp",isDirectory:true).appendingPathComponent("buddy-pets-ui-"+UUID().uuidString,isDirectory:true)
             try! FileManager.default.createDirectory(at:petRoot,withIntermediateDirectories:false)
             let controller=BuddyPetsController(factory:{
-                let store=ThemeStoreModel(preferences:petPreferences,cacheDirectory:petRoot.appendingPathComponent("cache"),libraryRoot:petRoot,
+                var tagStore:PetTagStore?
+                if let i=args.firstIndex(of:"--tag-dir"),args.count > i+1 {
+                    let original=URL(fileURLWithPath:args[i+1],isDirectory:true),copy=petRoot.appendingPathComponent("tags",isDirectory:true)
+                    try! FileManager.default.copyItem(at:original,to:copy)
+                    let tp=UsagePreviewPreferences();tp.set(true,forKey:"tags.localPreview")
+                    tagStore=PetTagStore(preferences:tp,client:PetTagPreviewClient(),cache:PetCatalogCache(directory:copy))
+                }
+                let store=ThemeStoreModel(preferences:petPreferences,cacheDirectory:petRoot.appendingPathComponent("cache"),tags:tagStore,libraryRoot:petRoot,
                     openURL:{ _ in false },openCodexURL:{ _ in .failure(.failed) })
                 self.petStore=store;return store
             })
             root=AnyView(SettingsView(model:model,login:LoginModel(preview:true),updates:previewUpdates,pets:controller,
-                initialPage:page).environment(\.colorScheme,dark ? .dark : .light)
+                initialPage:page,initialUsageSubpage:args.contains("--forecast") ? .forecast : args.contains("--trends") ? .trends : .display,
+                trendInteraction:args.contains("--hover-fixture") ? syntheticHover() : nil).environment(\.colorScheme,dark ? .dark : .light)
                 .frame(width:args.contains("--minimum") ? SettingsView.minimumSize.width : SettingsView.width,
                        height:args.contains("--minimum") ? SettingsView.minimumSize.height : SettingsView.preferredHeight(for:page)))
         }
@@ -127,9 +176,18 @@ struct Themes:View {
         let hosting=NSHostingView(rootView:root)
         hosting.appearance=NSAppearance(named:dark ? .darkAqua : .aqua)
         let size=hosting.fittingSize
-        let window=NSWindow(contentRect:NSRect(origin:.zero,size:size),styleMask:[.borderless],backing:.buffered,defer:false)
+        let window=NSWindow(contentRect:NSRect(origin:.zero,size:size),styleMask:args.contains("--interactive") ? [.titled,.closable,.miniaturizable,.resizable] : [.borderless],backing:.buffered,defer:false)
         window.appearance=hosting.appearance;window.contentView=hosting;window.isReleasedWhenClosed=false;self.window=window
         window.title="Codex Buddy · UI Preview";window.center()
+        window.acceptsMouseMovedEvents=true
+        if args.contains("--debug-pointer") {
+            eventMonitor=NSEvent.addLocalMonitorForEvents(matching:[.mouseMoved,.mouseEntered,.mouseExited,.keyDown]) { [weak self] event in
+                if event.window?.windowNumber == self?.window?.windowNumber {
+                    print("Synthetic window event type: \(event.type.rawValue)")
+                }
+                return event
+            }
+        }
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps:true)
         Task { @MainActor in
@@ -170,8 +228,16 @@ struct Themes:View {
         }
     }
 }
+@MainActor private func syntheticHover() -> UsageTrendInteraction {
+    let value=UsageTrendInteraction();value.hover("2026-10-10",active:true);return value
+}
+
 MainActor.assumeIsolated {
-    let app=NSApplication.shared;app.setActivationPolicy(.accessory)
+    let app=NSApplication.shared;app.setActivationPolicy(.regular)
+    let menu=NSMenu();let application=NSMenuItem();menu.addItem(application)
+    let actions=NSMenu();application.submenu=actions
+    actions.addItem(withTitle:"Quit Preview",action:#selector(NSApplication.terminate(_:)),keyEquivalent:"q")
+    app.mainMenu=menu
     let delegate=ScreenshotDelegate();app.delegate=delegate
     withExtendedLifetime(delegate) { app.run() }
 }

@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Combine
 
 enum PetStorePage: String, CaseIterable, Identifiable {
     case discover, favorites, installed, sources
@@ -24,17 +25,28 @@ enum PetStorePage: String, CaseIterable, Identifiable {
 
 // Creating the main window must not start pet networking or scan a library.
 @MainActor final class BuddyPetsController: ObservableObject {
-    static let shared = BuddyPetsController()
+    static let shared = BuddyPetsController(factory:{
+        let checking=["--ui-check","--performance-check","--snapshot"].contains(where:CommandLine.arguments.contains)
+        return ThemeStoreModel(tags:.shared,cloud:checking || Bundle.main.bundleIdentifier != "com.duoduocat.codexbuddy" ? nil : PetCloudLibrary(client:CloudPetClient()))
+    })
     @Published private(set) var store: ThemeStoreModel?
+    @Published private(set) var modifyingLocalLibrary = false
+    private var transactionSubscription: AnyCancellable?
     private let factory: @MainActor () -> ThemeStoreModel
     init(factory: @escaping @MainActor () -> ThemeStoreModel = { ThemeStoreModel() }) { self.factory = factory }
     func setVisible(_ visible: Bool) {
         if visible {
-            if store == nil { store = factory() }
+            if store == nil {
+                let next=factory();store=next
+                transactionSubscription=next.$installingLocally.combineLatest(next.$uninstallingLocally)
+                    .map { $0 || $1 }.removeDuplicates().sink { [weak self] in self?.modifyingLocalLibrary=$0 }
+            }
             if store?.visible == false { store?.open() }
         } else { store?.close() }
     }
-    var modifyingLocalLibrary: Bool { store?.modifyingLocalLibrary == true }
+    func clearCache() async throws {
+        if let store { try await store.clearCache() } else { try await PetCatalogCache.shared.clear() }
+    }
     func finishCurrentInstallation() async { await store?.finishCurrentInstallation() }
 }
 
