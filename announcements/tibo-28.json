@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "tibo-28-2026-10-05",
-  "revision": 25,
+  "revision": 26,
   "startDate": "2026-10-05",
   "days": 28,
   "timeZone": "America/Los_Angeles",
@@ -356,6 +356,78 @@
       "sourceURL": "https://x.com/thsottiaux/status/2110750421367287996",
       "collectedAt": "2026-10-15T16:03:54.140Z",
       "sourcePublishedAt": "2026-10-15T15:11:00Z"
+    },
+    {
+      "id": "tibo-day-12-usage-efficiency",
+      "revision": 1,
+      "day": 12,
+      "kind": "improvement",
+      "status": "completed",
+      "title": {
+        "zh": "提升 Codex 与 Work 用量效率",
+        "en": "More effective usage in Codex and Work"
+      },
+      "body": {
+        "zh": "Tibo 宣布第 12 天改进：通过在子代理之间复用上下文、延长上下文缓存时间及优化请求路由以提高缓存命中率，增加 Codex 和 Work 的有效可用量。",
+        "en": "Tibo announced Day 12 improvements that increase effective usage in Codex and Work by reusing context across subagents, keeping context cached longer, and routing requests to improve cache hits."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2111244596131111253",
+      "collectedAt": "2026-10-17T00:49:01.974Z",
+      "sourcePublishedAt": "2026-10-16T23:55:00Z"
+    },
+    {
+      "id": "tibo-day-12-astra-pro-upgrade",
+      "revision": 1,
+      "day": 12,
+      "kind": "improvement",
+      "status": "completed",
+      "title": {
+        "zh": "GPT-6 Astra Pro 响应与工具升级",
+        "en": "GPT-6 Astra Pro response and tool upgrades"
+      },
+      "body": {
+        "zh": "Tibo 在第 12 天原帖下补充 GPT-6 Pro 改进，并引用 OpenAI 公告：ChatGPT 中的 GPT-6 Astra Pro 响应更快，插件和工具使用得到改善，支持多个代理并行处理任务。目前面向 Pro 用户在 Chat 页签开放，可查看各代理进度及完成结果。",
+        "en": "In his Day 12 thread, Tibo highlighted GPT-6 Pro improvements and quoted OpenAI: GPT-6 Astra Pro in ChatGPT has faster responses, better plugin and tool use, and multiple agents working in parallel. It is available to Pro users in the Chat tab, with agent progress and completed tasks available for review."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2111244957851984181",
+      "collectedAt": "2026-10-17T00:49:01.974Z",
+      "sourcePublishedAt": "2026-10-16T23:56:00Z"
+    },
+    {
+      "id": "tibo-day-12-dots-home-screen",
+      "revision": 1,
+      "day": 12,
+      "kind": "improvement",
+      "status": "completed",
+      "title": {
+        "zh": "在主屏幕使用 dot",
+        "en": "Dots on the Home Screen"
+      },
+      "body": {
+        "zh": "Tibo 在第 12 天原帖下引用 Gavin Nelson 的“Dots, now on your Home Screen”更新，提示更新应用后使用主屏幕上的 dot。",
+        "en": "In his Day 12 thread, Tibo shared Gavin Nelson’s “Dots, now on your Home Screen” update and asked users to update their app to use it."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2111245052513259606",
+      "collectedAt": "2026-10-17T00:49:01.974Z",
+      "sourcePublishedAt": "2026-10-16T23:57:00Z"
+    },
+    {
+      "id": "tibo-day-12-space-slides",
+      "revision": 1,
+      "day": 12,
+      "kind": "improvement",
+      "status": "completed",
+      "title": {
+        "zh": "ChatGPT Space 新增幻灯片支持",
+        "en": "Slides support in ChatGPT Space"
+      },
+      "body": {
+        "zh": "Tibo 在 ChatGPT Space 介绍帖下确认已新增幻灯片支持，目前面向 Pro、Business 和 Enterprise 用户开放，并在收集反馈。",
+        "en": "In his ChatGPT Space introduction thread, Tibo confirmed that slides support has been added and is currently available to Pro, Business, and Enterprise users while the team gathers feedback."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2111249810502353152",
+      "collectedAt": "2026-10-17T00:49:01.974Z",
+      "sourcePublishedAt": "2026-10-17T00:15:00Z"
     }
   ]
 }
