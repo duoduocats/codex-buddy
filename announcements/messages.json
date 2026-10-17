@@ -115,6 +115,24 @@
         "en": "Tibo quoted the Day 10 quota reset plan and confirmed that the reset is complete. Refresh to check your account’s current quota."
       },
       "sourceURL": "https://x.com/thsottiaux/status/2110618732666257557"
+    },
+    {
+      "id": "tibo-day-13-reset",
+      "revision": 1,
+      "status": "scheduled",
+      "title": {
+        "zh": "第 13 天额度重置计划",
+        "en": "Day 13 quota reset planned"
+      },
+      "body": {
+        "zh": "Tibo 宣布第 13 天将进行额度重置，并在回复中称会在“今天 EOD PST 前”的某个时间推出。尚未确认完成。",
+        "en": "Tibo announced a quota reset for Day 13 and said in a reply that it would land sometime today by EOD PST. Completion has not yet been confirmed."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2111492673890824348",
+      "type": "message",
+      "publishedAt": "2026-10-17T16:20:00Z",
+      "expiresAt": "2026-10-18T16:20:00Z",
+      "timestampBasis": "source"
     }
   ]
 }
