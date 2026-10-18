@@ -2,6 +2,11 @@ import AppKit
 import SwiftUI
 import Combine
 
+// Exercise both layouts even when the CI display is smaller than the test window.
+private final class OverviewLayoutTestWindow: NSWindow {
+    override func constrainFrameRect(_ frameRect: NSRect,to screen: NSScreen?) -> NSRect { frameRect }
+}
+
 @main struct OverviewTests {
     @MainActor static func main() async throws {
         func diagnostic(_ message:String) {
@@ -76,7 +81,7 @@ import Combine
         hosting.sizingOptions = [];hosting.autoresizingMask = [.width,.height]
         let wideSize = NSSize(width:1240,height:SettingsView.height)
         let narrowSize = NSSize(width:SettingsView.minimumSize.width,height:SettingsView.height)
-        let window = NSWindow(contentRect:NSRect(origin:NSPoint(x:100,y:100),size:wideSize),styleMask:[.titled,.resizable],backing:.buffered,defer:false)
+        let window = OverviewLayoutTestWindow(contentRect:NSRect(origin:NSPoint(x:100,y:100),size:wideSize),styleMask:[.titled,.resizable],backing:.buffered,defer:false)
         window.isReleasedWhenClosed = false;window.contentView = hosting;window.makeKeyAndOrderFront(nil);NSApp.activate(ignoringOtherApps:true)
         diagnostic("native window ordered")
         defer { window.close() }
