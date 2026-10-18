@@ -363,10 +363,20 @@ struct UsageForecastCurvePoint: Equatable, Identifiable {
     let remaining: Double
 }
 
+struct UsageForecastRenderPoint:Equatable {
+    let date:Date
+    let remaining:Double
+    let series:String
+}
 struct UsageForecastCurveSegment: Equatable, Identifiable {
     let id: String
     let kind: UsageForecastCurveKind
     let points: [UsageForecastCurvePoint]
+    let renderPoints:[UsageForecastRenderPoint]
+    init(id:String,kind:UsageForecastCurveKind,points:[UsageForecastCurvePoint]) {
+        self.id=id;self.kind=kind;self.points=points
+        renderPoints=points.map {.init(date:$0.date,remaining:$0.remaining,series:id)}
+    }
 }
 
 struct UsageForecastCurveSample: Equatable {
@@ -374,15 +384,18 @@ struct UsageForecastCurveSample: Equatable {
     let observedRemaining: Double?
     let baselineRemaining: Double?
     let scenarioRemaining: Double?
+    var carriedRemaining:Double?=nil
 }
 
-// This comparison has one frozen percentage-point pace. Neither tokens nor a
-// predicted extra reset can change that observed pace or the actual quota.
+// The blue baseline keeps its observed/reference pace. The orange budget uses
+// the current balance by the assumed reset, then resumes that reference pace.
+// A local plan never changes the actual quota or its recorded observations.
 enum UsageForecastProjectionBasis: String {case measured,provisional,budget,unavailable}
 
 struct UsageForecastComparison: Equatable {
     let projectionBasis:UsageForecastProjectionBasis
     let historySegments: [UsageForecastCurveSegment]
+    let historyHandoff:UsageForecastCurveSegment?
     let baselineSegments: [UsageForecastCurveSegment]
     let scenarioSegments: [UsageForecastCurveSegment]
     let domain: ClosedRange<Date>
@@ -441,8 +454,7 @@ struct UsageForecastComparison: Equatable {
             window.remainingPercent * 3_600 / $0.timeIntervalSince(current)
         } : nil
         remainingAtExtraReset = relevant ? acceptedExtra.flatMap { extra in
-            if window.remainingPercent == 0 { return 0 }
-            return rate.map { max(0, window.remainingPercent - $0 * extra.timeIntervalSince(current) / 3_600) }
+            return rate == nil ? nil : 0
         } : nil
 
         let historical = validNow ? UsageForecastObservation.segments(window.historicalObservations.isEmpty ? window.observations : window.historicalObservations, at: current).enumerated().map { ordinal,segment in
@@ -461,6 +473,19 @@ struct UsageForecastComparison: Equatable {
                 points: [.init(id: "history.current.0", date: current, remaining: window.remainingPercent)])]
         } else { historySegments = historical }
 
+        // Bridge only a still-fresh last-known balance, never a reset or stale gap.
+        // This visual handoff is not persisted or used for fitting/evaluation.
+        let lastReading=(window.historicalObservations.isEmpty ? window.observations : window.historicalObservations).last
+        if supportedCurrent,let reading=lastReading,let last=historySegments.last?.points.last,
+           reading.windowID == window.windowID,reading.windowDurationMins == window.windowDurationMins,
+           reading.resetDate == window.resetDate,reading.observedAt == last.date,
+           abs(last.remaining-window.remainingPercent) < 0.01,
+           last.date < current,current.timeIntervalSince(last.date) <= UsageForecastSnapshot.freshness {
+            historyHandoff = .init(id:"history.handoff",kind:.observed,points:[
+                .init(id:"history.handoff.start",date:last.date,remaining:last.remaining),
+                .init(id:"history.handoff.end",date:current,remaining:last.remaining)])
+        } else {historyHandoff=nil}
+
         var baseline = [UsageForecastCurveSegment](), scenario = [UsageForecastCurveSegment]()
         var baselineWaits = [DateInterval](), scenarioWaits = [DateInterval]()
         var baselineZero: Date?, scenarioZero: Date?
@@ -472,18 +497,21 @@ struct UsageForecastComparison: Equatable {
                 baseline = normal.segments; baselineWaits = normal.waiting
                 baselineZero = normal.exhaustion; baselineSeconds = normal.waiting.reduce(0) { $0 + $1.duration }
                 if relevant, let extra = acceptedExtra {
-                    let before = Self.path(id: "scenario.before", from: current, remaining: window.remainingPercent,
-                        rate: rate, to: extra, ticks: axisDates)
-                    let priorRemaining = max(0, window.remainingPercent - rate * extra.timeIntervalSince(current) / 3_600)
+                    let dates=Array(Set([current,extra]+axisDates.filter {$0 > current && $0 < extra})).sorted()
+                    let span=extra.timeIntervalSince(current)
+                    let before=Self.line(id:"scenario.before",kind:window.remainingPercent > 0 ? .consuming : .waiting,dates:dates) { date in
+                        window.remainingPercent*max(0,min(1,extra.timeIntervalSince(date)/span))
+                    }
+                    let priorRemaining=0.0
                     let jump = UsageForecastCurveSegment(id: "scenario.reset", kind: .resetJump, points: [
                         .init(id: "scenario.reset.before", date: extra, remaining: priorRemaining),
                         .init(id: "scenario.reset.after", date: extra, remaining: 100)
                     ])
                     let after = Self.path(id: "scenario.after", from: extra, remaining: 100,
                         rate: rate, to: end, ticks: axisDates)
-                    scenario = before.segments + [jump] + after.segments
-                    scenarioWaits = before.waiting + after.waiting
-                    scenarioZero = before.exhaustion ?? after.exhaustion
+                    scenario = [before,jump] + after.segments
+                    scenarioWaits = (window.remainingPercent == 0 ? [DateInterval(start:current,end:extra)] : []) + after.waiting
+                    scenarioZero = window.remainingPercent > 0 ? extra : current
                     scenarioSeconds = scenarioWaits.reduce(0) { $0 + $1.duration }
                     saved = max(0, (baselineSeconds ?? 0) - (scenarioSeconds ?? 0))
                 }
@@ -507,7 +535,8 @@ struct UsageForecastComparison: Equatable {
         let date = min(max(requested, domain.lowerBound), domain.upperBound)
         return .init(date: date, observedRemaining: Self.value(at: date, in: historySegments),
             baselineRemaining: Self.value(at: date, in: baselineSegments),
-            scenarioRemaining: Self.value(at: date, in: scenarioSegments))
+            scenarioRemaining: Self.value(at: date, in: scenarioSegments),
+            carriedRemaining:Self.value(at:date,in:historySegments) == nil ? historyHandoff.flatMap {Self.value(at:date,in:[$0])} : nil)
     }
 
     private static func value(at date: Date, in segments: [UsageForecastCurveSegment]) -> Double? {

@@ -53,6 +53,21 @@ struct UsageTrendChartSegment: Equatable, Identifiable {
     let points: [UsageTrendPoint]
 }
 
+// Cached stored coordinates let modern Charts draw a whole series at once.
+struct UsageTrendRenderPoint:Equatable {
+    let date:Date
+    let tokens:Double
+    let series:Int
+}
+struct UsageTrendRenderSegment:Equatable,Identifiable {
+    let id:Int
+    let points:[UsageTrendRenderPoint]
+    init(_ segment:UsageTrendChartSegment) {
+        id=segment.id
+        points=segment.points.map {.init(date:$0.date,tokens:Double($0.tokens ?? 0),series:segment.id)}
+    }
+}
+
 struct UsageTrendHeatmapCell: Equatable, Identifiable {
     let day: String
     let date: Date
@@ -177,14 +192,26 @@ struct UsageTrends: Equatable {
         return Self.calendarGrid(annualRows.filter { $0.date >= start }, today: rangeEndDate, calendar: calendar, civil: civil)
     }
 
-    func chartSegments(for grouping: UsageTrendGrouping) -> [UsageTrendChartSegment] {
-        if grouping == .cumulative {
-            let known=points(for:grouping).filter { $0.tokens != nil }
-            return known.isEmpty ? [] : [UsageTrendChartSegment(id:0,points:known)]
+    // Rendering fills missing buckets while the sanitized source remains optional.
+    func chartPoints(for grouping:UsageTrendGrouping) -> [UsageTrendPoint] {
+        let raw=points(for:grouping)
+        guard historyState != .unavailable else {return raw}
+        var running:Int64=0
+        return raw.map { point in
+            if let value=point.tokens {running=value;return point}
+            guard !point.overflowed else {return point}
+            let value=grouping == .cumulative ? running : 0
+            return UsageTrendPoint(day:point.day,date:point.date,startDate:point.startDate,endDate:point.endDate,
+                periodStartDate:point.periodStartDate,periodEndDate:point.periodEndDate,tokens:value,
+                knownDays:point.knownDays,expectedDays:point.expectedDays,overflowed:point.overflowed,
+                isCurrentWeek:point.isCurrentWeek,isPartialPeriod:point.isPartialPeriod)
         }
+    }
+
+    func chartSegments(for grouping: UsageTrendGrouping) -> [UsageTrendChartSegment] {
         var segments = [[UsageTrendPoint]]()
         var current = [UsageTrendPoint]()
-        for point in points(for: grouping) {
+        for point in chartPoints(for: grouping) {
             if point.tokens == nil {
                 if !current.isEmpty { segments.append(current); current = [] }
             } else { current.append(point) }

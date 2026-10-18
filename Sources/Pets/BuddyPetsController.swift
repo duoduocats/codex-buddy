@@ -38,8 +38,8 @@ enum PetStorePage: String, CaseIterable, Identifiable {
         if visible {
             if store == nil {
                 let next=factory();store=next
-                transactionSubscription=next.$installingLocally.combineLatest(next.$uninstallingLocally)
-                    .map { $0 || $1 }.removeDuplicates().sink { [weak self] in self?.modifyingLocalLibrary=$0 }
+                transactionSubscription=next.$installingLocally.combineLatest(next.$uninstallingLocally,next.$deletingCloudPet)
+                    .map { $0 || $1 || $2 }.removeDuplicates().sink { [weak self] in self?.modifyingLocalLibrary=$0 }
             }
             if store?.visible == false { store?.open() }
         } else { store?.close() }

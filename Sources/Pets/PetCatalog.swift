@@ -60,7 +60,6 @@ struct PetSource: Codable, Identifiable, Equatable {
          PetSource(id:"cutechen",name:"Codex Pet",catalogURL:URL(string:"https://raw.githubusercontent.com/Cute-chen/codex-pet/main/pets.json")!,websiteURL:URL(string:"https://github.com/Cute-chen/codex-pet")!,format:.cuteChen,builtIn:true),
          PetSource(id:"legeling",name:"Codex Pet Gallery",catalogURL:URL(string:"https://raw.githubusercontent.com/legeling/awesome-codex-pet/main/pets.json")!,websiteURL:URL(string:"https://github.com/legeling/awesome-codex-pet")!,format:.legeling,builtIn:true),
          PetSource(id:"senyo",name:"Senyo’s Codex Pets",catalogURL:URL(string:"https://raw.githubusercontent.com/senyo888/codex-pets/main/catalog.json")!,websiteURL:URL(string:"https://github.com/senyo888/codex-pets")!,format:.senyo,builtIn:true),
-         PetSource(id:"petdex",name:"Petdex",catalogURL:URL(string:"https://petdex.dev/api/manifest")!,websiteURL:URL(string:"https://petdex.dev")!,format:.petdex,builtIn:true),
          PetSource(id:"codexpet",name:"codex-pet.com",catalogURL:URL(string:"https://codex-pet.com/api/manifest")!,websiteURL:URL(string:"https://codex-pet.com")!,format:.codexPet,builtIn:true),
          PetSource(id:"pokepets",name:"Codex PokéPets",catalogURL:URL(string:"https://raw.githubusercontent.com/dnnyngyen/codex-pokepets/main/pets.json")!,websiteURL:URL(string:"https://github.com/dnnyngyen/codex-pokepets")!,format:.pokePets,builtIn:true),
          PetSource(id:"petscodex",name:"Pets Codex",catalogURL:URL(string:"https://raw.githubusercontent.com/mn8821236/petscodex/main/catalog.json")!,websiteURL:URL(string:"https://github.com/mn8821236/petscodex")!,format:.petsCodex,builtIn:true),
@@ -68,6 +67,11 @@ struct PetSource: Codable, Identifiable, Equatable {
          PetSource(id:"david",name:"David’s Pet Collection",catalogURL:URL(string:"https://raw.githubusercontent.com/David-Lzy/codex_anime_pets/main/catalog.json")!,websiteURL:URL(string:"https://github.com/David-Lzy/codex_anime_pets")!,format:.david,builtIn:true),
          PetSource(id:"rito",name:"Rito’s Pet Gallery",catalogURL:URL(string:"https://rito-w.github.io/codex-pet-gallery/pets.json")!,websiteURL:URL(string:"https://github.com/Rito-w/codex-pet-gallery")!,format:.rito,builtIn:true),
          PetSource(id:"arknights",name:L("明日方舟宠物", "Arknights Pets"),catalogURL:URL(string:"https://raw.githubusercontent.com/lockon-n/Arknights-Codex-Pets/main/registry/pets.json")!,websiteURL:URL(string:"https://github.com/lockon-n/Arknights-Codex-Pets")!,format:.arknights,builtIn:true)]
+    }
+    // Accepted only when decoding older source settings and tag indexes.
+    // Retired catalogs are never offered or fetched by the store.
+    static var retired: [PetSource] {
+        [PetSource(id:"petdex",name:"Petdex",catalogURL:URL(string:"https://petdex.dev/api/manifest")!,websiteURL:URL(string:"https://petdex.dev")!,format:.petdex,builtIn:true)]
     }
     var maximumCatalogBytes:Int { format == .catalog ? 2_000_000 : 6_000_000 }
     var maximumThemeCount:Int {

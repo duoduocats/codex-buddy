@@ -17,25 +17,26 @@ struct SettingsOverviewPage: View {
                 VStack(alignment:.leading,spacing:32) {
                     Group {
                         if geometry.size.width >= 1066 {
-                            HStack(alignment:.top,spacing:30) {
-                                menuControls.frame(width:270).padding(.top,8)
+                            UsageOverviewColumns {
+                                menuControls.frame(width:270)
                                 previewColumn
-                                panelControls.frame(width:300).padding(.top,8)
+                                panelControls.frame(width:300)
                             }
                         } else {
-                            HStack(alignment:.top,spacing:36) {
+                            HStack(alignment:UsagePreviewAlignment.menuTop,spacing:36) {
                                 VStack(spacing:22) { menuControls;panelControls }.frame(width:270)
+                                    .alignmentGuide(UsagePreviewAlignment.menuTop) { $0[.top] }
                                 previewColumn
                             }
                         }
-                    }.frame(maxWidth:.infinity,minHeight:max(0,geometry.size.height-160),alignment:.center)
+                    }.frame(maxWidth:.infinity,minHeight:max(0,geometry.size.height-40),alignment:.center)
                         .environment(\.usagePreviewEnabled,true)
                         .overlayPreferenceValue(UsagePreviewAnchors.self) { anchors in
                             GeometryReader { proxy in
                                 UsagePreviewLines(frames:anchors.mapValues { proxy[$0] },highlight:previewHighlight,framesChanged:previewFramesChanged)
                             }
                         }
-                }.padding(28).frame(maxWidth:.infinity,alignment:.leading)
+                }.padding(.horizontal,28).padding(.vertical,20).frame(maxWidth:.infinity,alignment:.leading)
             }
         }
     }
@@ -93,6 +94,7 @@ struct SettingsOverviewPage: View {
             }
         }.padding(16).background(Color.primary.opacity(0.02),in:RoundedRectangle(cornerRadius:18))
             .overlay(RoundedRectangle(cornerRadius:18).stroke(Color.primary.opacity(0.09),lineWidth:0.7))
+            .usagePreviewAnchor(.layout(.menuControls))
     }
     private var panelControls: some View {
         VStack(alignment:.leading,spacing:16) {
@@ -129,6 +131,7 @@ struct SettingsOverviewPage: View {
             control(.sharing) { overviewToggle(L("分享按钮", "Sharing button"),selection:$model.showUsageShareButton).disabled(!model.showDailyTokenUsage) }
         }.padding(16).background(Color.primary.opacity(0.02),in:RoundedRectangle(cornerRadius:18))
             .overlay(RoundedRectangle(cornerRadius:18).stroke(Color.primary.opacity(0.09),lineWidth:0.7))
+            .usagePreviewAnchor(.layout(.panelControls))
     }
     private func overviewToggle(_ title: String,selection: Binding<Bool>) -> some View {
         HStack(spacing:12) {
@@ -142,5 +145,47 @@ struct SettingsOverviewPage: View {
             .background(Color.primary.opacity(0.025),in:RoundedRectangle(cornerRadius:12))
             .overlay(RoundedRectangle(cornerRadius:12).stroke(Color.primary.opacity(0.085),lineWidth:0.6))
             .usagePreviewAnchor(.control(part)).onHover { previewHighlight.setHovered($0 ? part : nil) }
+    }
+}
+
+private struct UsageOverviewColumns: Layout {
+    private let menuWidth: CGFloat = 270
+    private let previewWidth: CGFloat = 380
+    private let panelWidth: CGFloat = 300
+    private let spacing: CGFloat = 30
+    private struct Placement {
+        let size: CGSize
+        let menuY: CGFloat
+        let panelY: CGFloat
+        let top: CGFloat
+    }
+    private func measure(_ proposal: ProposedViewSize,subviews: Subviews) -> Placement? {
+        guard subviews.count == 3 else { return nil }
+        let menu = subviews[0].sizeThatFits(.init(width:menuWidth,height:nil))
+        let preview = subviews[1].dimensions(in:.init(width:previewWidth,height:nil))
+        let panel = subviews[2].sizeThatFits(.init(width:panelWidth,height:nil))
+        let menuY = preview[UsagePreviewAlignment.menuTop]
+        let panelY = preview[UsagePreviewAlignment.panelCenter] - panel.height / 2
+        let top = min(0,min(menuY,panelY))
+        let bottom = max(preview.height,max(menuY + menu.height,panelY + panel.height))
+        let width = menuWidth + previewWidth + panelWidth + 2 * spacing
+        let offeredWidth = proposal.width.flatMap { $0.isFinite ? $0 : nil } ?? width
+        return .init(size:.init(width:max(width,offeredWidth),height:bottom - top),
+                     menuY:menuY,panelY:panelY,top:top)
+    }
+    func sizeThatFits(proposal: ProposedViewSize,subviews: Subviews,cache: inout ()) -> CGSize {
+        measure(proposal,subviews:subviews)?.size ?? .zero
+    }
+    func placeSubviews(in bounds: CGRect,proposal: ProposedViewSize,subviews: Subviews,cache: inout ()) {
+        guard let value = measure(proposal,subviews:subviews) else { return }
+        let width = menuWidth + previewWidth + panelWidth + 2 * spacing
+        let x = bounds.minX + (bounds.width - width) / 2
+        let y = bounds.minY - value.top
+        subviews[0].place(at:.init(x:x,y:y + value.menuY),anchor:.topLeading,
+                          proposal:.init(width:menuWidth,height:nil))
+        subviews[1].place(at:.init(x:x + menuWidth + spacing,y:y),anchor:.topLeading,
+                          proposal:.init(width:previewWidth,height:nil))
+        subviews[2].place(at:.init(x:x + menuWidth + previewWidth + 2 * spacing,y:y + value.panelY),anchor:.topLeading,
+                          proposal:.init(width:panelWidth,height:nil))
     }
 }

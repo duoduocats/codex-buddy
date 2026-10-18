@@ -41,6 +41,8 @@ import Combine
         precondition(state.simulated && state.snapshot.scenario != nil,"The single simulation switch must not depend on a second hidden mode")
         precondition(state.comparison?.baselineExhaustionDate == now.addingTimeInterval(15*3600))
         precondition(state.comparison?.savedWaitingSeconds == 3*3600)
+        precondition(state.comparison?.scenarioSegments.first?.points.last?.remaining == 0 && state.comparison?.scenarioSegments.first?.points.last?.date == state.extraResetDate)
+        precondition(state.extraHeadline == L("重置前用至 0%", "Use the balance before reset"))
         precondition(abs(state.comparison!.sample(at:reset)!.scenarioRemaining!-82) < 0.000_001)
         precondition(state.baselineHeadline == UsageForecastFormat.date(now.addingTimeInterval(15*3600)),
                      "The regular headline must remain tied to the blue baseline while the extra scenario is active")
@@ -103,7 +105,7 @@ import Combine
         precondition(multiple.tiboHistoryRows.isEmpty && !multiple.tiboEstimateAvailable,
                      "Turning reception off must hide activity inputs and disable historical estimates without fetching")
         model.client.stop()
-        print("Forecast presentation passed: fixed baseline with one-switch counterfactual, same-pace reset comparison and waiting savings, independent selection, cold/stale/error states, isolated redraws and synthetic privacy")
+        print("Forecast presentation passed: fixed baseline with one-switch counterfactual, target-date budget comparison and waiting savings, independent selection, cold/stale/error states, isolated redraws and synthetic privacy")
     }
     private static func usage(primary:Double,reset:Date,secondary:Double? = nil,secondaryReset:Date? = nil) -> UsageResponse {
         let bucket=LimitBucket(limitId:"codex",limitName:nil,

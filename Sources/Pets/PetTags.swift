@@ -12,6 +12,15 @@ struct PetTagIndex: Codable { let schemaVersion:Int;let revision:Int;let generat
 struct PetTagEntry: Codable, Equatable { let id:String;let fingerprint:String;let tags:[String] }
 struct PetTagShard: Codable { let schemaVersion:Int;let revision:Int;let sourceID:String;let records:[PetTagEntry] }
 
+// Coverage counts describe the current catalog scope, never all records in a
+// feed. A stale descriptor or unknown source is not a filterable association.
+struct PetTagCoverage: Equatable {
+    let themeCount:Int
+    let labeledThemeCount:Int
+    let tagCounts:[String:Int]
+    var availableTagIDs:Set<String> { Set(tagCounts.keys) }
+}
+
 @MainActor final class PetTagStore: ObservableObject {
     static let shared=PetTagStore()
     static let root=URL(string:"https://raw.githubusercontent.com/duoduocats/codex-buddy/main/pet-tags/v1/")!
@@ -63,10 +72,12 @@ struct PetTagShard: Codable { let schemaVersion:Int;let revision:Int;let sourceI
               x.sources.reduce(x.taxonomy.bytes,{$0+$1.file.bytes}) <= 4_000_000,
               let date=ISO8601DateFormatter().date(from:x.generatedAt),date <= Date().addingTimeInterval(60),x.generatedAt.hasSuffix("Z") else { throw PetStoreError.invalidCatalog }
         for item in x.sources {
-            guard let known=PetSource.defaults.first(where:{$0.id == item.sourceID}),known.catalogURL == item.catalogURL,known.format.rawValue == item.format,
+            guard let known=(PetSource.defaults + PetSource.retired).first(where:{$0.id == item.sourceID}),known.catalogURL == item.catalogURL,known.format.rawValue == item.format,
                   validFile(item.file),item.file.path.hasPrefix("source-"+item.sourceID+"-") else { throw PetStoreError.invalidCatalog }
         }
-        return x
+        let activeIDs=Set(PetSource.defaults.map(\.id))
+        return PetTagIndex(schemaVersion:x.schemaVersion,revision:x.revision,generatedAt:x.generatedAt,
+                           taxonomy:x.taxonomy,sources:x.sources.filter { activeIDs.contains($0.sourceID) })
     }
     static func verified(_ data:Data,file:PetTagFile)->Bool { data.count == file.bytes && hash(data) == file.sha256 }
     static func decodeTaxonomy(_ data:Data,file:PetTagFile) throws -> PetTagTaxonomy {
@@ -98,6 +109,19 @@ struct PetTagShard: Codable { let schemaVersion:Int;let revision:Int;let sourceI
     func tags(for theme:PetTheme)->[PetTag] {
         guard let row=records[theme.id],let fingerprint=theme.tagFingerprint,row.fingerprint == fingerprint else { return [] }
         let selected=Set(row.tags);return facets.flatMap(\.tags).filter { selected.contains($0.id) }
+    }
+    var hasMetadata:Bool { !revision.isEmpty }
+    func coverage(for themes:[PetTheme],sourceID:String = "") -> PetTagCoverage {
+        let allowed=Set(facets.flatMap(\.tags).map(\.id))
+        var seen=Set<String>(),counts=[String:Int](),total=0,labeled=0
+        for theme in themes where sourceID.isEmpty || theme.sourceID == sourceID {
+            guard seen.insert(theme.id).inserted else { continue };total += 1
+            guard let row=records[theme.id],let fingerprint=theme.tagFingerprint,row.fingerprint == fingerprint else { continue }
+            let ids=Set(row.tags).intersection(allowed)
+            if !ids.isEmpty { labeled += 1 }
+            for id in ids { counts[id,default:0] += 1 }
+        }
+        return .init(themeCount:total,labeledThemeCount:labeled,tagCounts:counts)
     }
     func setVisible(_ value:Bool,sources:Set<String> = []) {
         sourceIDs=sources
@@ -159,8 +183,12 @@ struct PetTagShard: Codable { let schemaVersion:Int;let revision:Int;let sourceI
                 // A missing index is normal before the metadata release. Keep
                 // a last-good local preview usable, never invent sync success.
                 lastChecked=Date();preferences.set(lastChecked,forKey:"tags.lastChecked")
-                interactionChecked=false
-                message=preview ? L("已载入本机标签预览", "Local tag preview loaded") : L("标签暂未更新，原商店仍可浏览。", "Tags could not update. Browsing remains available.")
+                // A failed first check is still a check for this visit. The
+                // retry action can force another one without one request per
+                // empty facet menu while the metadata feed is unavailable.
+                message=preview ? L("已载入本机标签预览", "Local tag preview loaded") : records.isEmpty
+                    ? L("标签尚未就绪，请稍后重试。", "Tags are not available yet. Try again later.")
+                    : L("标签暂未更新，继续使用已保存的标签。", "Tags could not update. Saved tags are still available.")
             }
         }
     }

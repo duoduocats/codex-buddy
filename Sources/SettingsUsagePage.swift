@@ -24,34 +24,17 @@ import Combine
     private var page: UsageSubpage { navigation.page }
     var body: some View {
         VStack(spacing:0) {
-            VStack(alignment:.leading,spacing:18) {
-                HStack(alignment:.top,spacing:16) {
-                    Text(BuddyPage.overview.title).font(.system(size:34,weight:.bold)).accessibilityAddTraits(.isHeader)
-                    if page != .display && trends.sample {
-                        Text(L("模拟数据", "Sample data")).font(.system(size:13,weight:.medium)).foregroundStyle(.secondary)
-                            .padding(.horizontal,12).padding(.vertical,6)
-                            .background(Color.primary.opacity(0.06),in:Capsule()).padding(.top,9)
-                    }
-                    Spacer(minLength:12)
-                    if page == .trends || page == .forecast {
-                        Text(clock.timestamp).font(.system(size:14)).foregroundStyle(.secondary).monospacedDigit()
-                            .padding(.top,7).accessibilityIdentifier("usage-current-time")
-                    }
-                }
-                HStack(spacing:14) {
-                    ForEach(UsageSubpage.allCases) { item in
-                        Button { navigation.page=item } label: {
-                            Text(item.title).font(.system(size:16,weight:.semibold))
-                                .frame(minWidth:112,minHeight:38)
-                                .foregroundStyle(page == item ? Color.blue : Color.secondary)
-                                .overlay(alignment:.bottom) { Rectangle().fill(page == item ? Color.blue : .clear).frame(height:3) }
-                                .contentShape(Rectangle()).offset(x:-5)
-                        }.buttonStyle(.plain).accessibilityAddTraits(page == item ? .isSelected : [])
-                            .accessibilityIdentifier("usage-tab-"+item.rawValue)
-                    }
+            if page == .trends || page == .forecast {
+                HStack(spacing:12) {
                     Spacer(minLength:0)
-                }.overlay(alignment:.bottom) { Rectangle().fill(Color.primary.opacity(0.08)).frame(height:0.5).allowsHitTesting(false) }
-            }.padding(.horizontal,28).padding(.top,28).padding(.bottom,14)
+                    if trends.sample {
+                        Text(L("模拟数据", "Sample data")).font(.system(size:12,weight:.medium)).foregroundStyle(.secondary)
+                            .padding(.horizontal,9).padding(.vertical,4).background(Color.primary.opacity(0.06),in:Capsule()).fixedSize()
+                    }
+                    Text(clock.timestamp).font(.system(size:13)).foregroundStyle(.secondary).monospacedDigit()
+                        .lineLimit(1).minimumScaleFactor(0.8).accessibilityIdentifier("usage-current-time")
+                }.padding(.horizontal,28).padding(.top,12).padding(.bottom,8)
+            }
             UsageSubpagesHost(page:page) { item in
                 switch item {
                 case .display:
@@ -61,6 +44,12 @@ import Combine
                 case .forecast: return AnyView(UsageForecastPage(state:forecast))
                 }
             }.frame(maxWidth:.infinity,maxHeight:.infinity)
+            BuddyBottomNavigation(items:UsageSubpage.allCases.map {
+                BuddyNavigationItem(id:$0.rawValue,title:$0.title,symbol:$0.symbol)
+            },selection:Binding(get:{page.rawValue},set:{if let next=UsageSubpage(rawValue:$0) {navigation.page=next}}),
+                accessibilityPrefix:"usage-tab-",accessibilityLabel:L("用量页面", "Usage pages"))
+                .frame(width:510,height:60).padding(.top,8).padding(.bottom,14)
+                .frame(maxWidth:.infinity)
         }
     }
 }

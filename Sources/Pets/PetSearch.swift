@@ -24,15 +24,16 @@ struct PetSearchSnapshot {
 actor PetSearchEngine {
     private var revision = -1
     private var locale = ""
+    private var tagRevision = ""
     private var named = [PetTheme](), popular = [PetTheme]()
     private var favoriteIDs = Set<String>()
     private var text = [String:String]()
     private var results = [PetSearchRequest:[PetTheme]]()
-    func clear() { revision = -1;named = [];popular = [];favoriteIDs = [];text = [:];results = [:] }
+    func clear() { revision = -1;tagRevision = "";named = [];popular = [];favoriteIDs = [];text = [:];results = [:] }
     func query(_ original: PetSearchRequest,snapshot: PetSearchSnapshot) throws -> [PetTheme] {
         var request=original;request.selectedTagIDs=Array(Set(request.selectedTagIDs)).sorted()
         try Task.checkCancellation()
-        if revision != request.revision || locale != request.locale {
+        if revision != request.revision || locale != request.locale || tagRevision != request.tagRevision {
             var all = snapshot.themes
             let ids = Set(all.map(\.id))
             all += snapshot.favorites.filter { !ids.contains($0.id) }
@@ -51,7 +52,7 @@ actor PetSearchEngine {
                 (theme.id,([theme.name,theme.author,theme.summary,theme.category,snapshot.names[theme.sourceID] ?? theme.sourceID]+(snapshot.tags[theme.id] ?? []).map { $0.label.text })
                     .joined(separator:"\n").folding(options:[.caseInsensitive,.diacriticInsensitive],locale:Locale(identifier:request.locale)))
             })
-            revision = request.revision;locale = request.locale;results = [:]
+            revision = request.revision;locale = request.locale;tagRevision = request.tagRevision;results = [:]
         }
         try Task.checkCancellation()
         if let result = results[request] { return result }

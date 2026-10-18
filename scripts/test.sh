@@ -4,6 +4,9 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TEST_BUILD="${TEST_BUILD_DIR:-$(mktemp -d /private/tmp/codex-buddy-tests.XXXXXX)}"
 mkdir -p "$TEST_BUILD"
 swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 \
+  "$ROOT/Sources/BuddyNavigationMotion.swift" "$ROOT/Tests/BuddyNavigationMotionTests.swift" -o "$TEST_BUILD/navigation-motion-tests"
+"$TEST_BUILD/navigation-motion-tests"
+swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 \
   "$ROOT/Sources/RefreshPolicy.swift" "$ROOT/Sources/Localization.swift" "$ROOT/Sources/Statistics.swift" "$ROOT/Sources/Usage.swift" "$ROOT/Sources/UpdatePolicy.swift" "$ROOT/Tests/main.swift" -o "$TEST_BUILD/tests"
 swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 \
   "$ROOT/Sources/RefreshPolicy.swift" "$ROOT/Sources/Localization.swift" "$ROOT/Sources/Statistics.swift" "$ROOT/Sources/Usage.swift" "$ROOT/Sources/UsageTrends.swift" "$ROOT/Tests/UsageTrendsTests.swift" -o "$TEST_BUILD/usage-trends-tests"

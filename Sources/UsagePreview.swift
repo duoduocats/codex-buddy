@@ -6,6 +6,20 @@ enum UsagePreviewPart: String, CaseIterable, Hashable {
 }
 enum UsagePreviewAnchor: Hashable {
     case control(UsagePreviewPart), target(UsagePreviewPart)
+    case layout(UsagePreviewLayoutRegion)
+}
+enum UsagePreviewLayoutRegion: Hashable {
+    case menuControls, menuPreview, panelControls, panelPreview
+}
+enum UsagePreviewAlignment {
+    private enum MenuTop: AlignmentID {
+        static func defaultValue(in dimensions: ViewDimensions) -> CGFloat { dimensions[.top] }
+    }
+    private enum PanelCenter: AlignmentID {
+        static func defaultValue(in dimensions: ViewDimensions) -> CGFloat { dimensions[VerticalAlignment.center] }
+    }
+    static let menuTop = VerticalAlignment(MenuTop.self)
+    static let panelCenter = VerticalAlignment(PanelCenter.self)
 }
 private struct UsagePreviewEnabled: EnvironmentKey { static let defaultValue = false }
 extension EnvironmentValues {
@@ -24,7 +38,7 @@ private struct UsagePreviewAnchorModifier: ViewModifier {
     let key: UsagePreviewAnchor
     @Environment(\.usagePreviewEnabled) private var enabled
     @ViewBuilder func body(content: Content) -> some View {
-        if enabled { content.anchorPreference(key:UsagePreviewAnchors.self,value:.bounds) { [key:$0] } }
+        if enabled { content.transformAnchorPreference(key:UsagePreviewAnchors.self,value:.bounds) { value,anchor in value[key] = anchor } }
         else { content }
     }
 }
@@ -190,10 +204,14 @@ struct UsagePreviewCanvas: View {
             }.padding(.horizontal,16).frame(width:380,height:40)
                 .background(Color.primary.opacity(0.035),in:RoundedRectangle(cornerRadius:10))
                 .accessibilityLabel(L("顶栏预览", "Menu bar preview"))
+                .usagePreviewAnchor(.layout(.menuPreview))
+                .alignmentGuide(UsagePreviewAlignment.menuTop) { $0[.top] }
             UsageView(model:model,settings:{},updates:updates)
                 .background(Color(nsColor:.windowBackgroundColor),in:RoundedRectangle(cornerRadius:24,style:.continuous))
                 .overlay(RoundedRectangle(cornerRadius:24).stroke(Color.primary.opacity(0.08),lineWidth:0.5))
                 .shadow(color:.black.opacity(scheme == .dark ? 0.22 : 0.09),radius:12,y:6)
+                .usagePreviewAnchor(.layout(.panelPreview))
+                .alignmentGuide(UsagePreviewAlignment.panelCenter) { $0[VerticalAlignment.center] }
         }.allowsHitTesting(false).accessibilityElement(children:.combine)
             .accessibilityLabel(L("使用示例数据的效果预览", "Appearance preview using sample data"))
     }

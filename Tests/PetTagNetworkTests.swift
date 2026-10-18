@@ -69,16 +69,36 @@ private final class TagHTTPProtocol:URLProtocol {
         let theme=PetTheme(remoteID:"fixture",sourceID:source.id,name:"Synthetic",summary:"",author:"Synthetic",license:"Synthetic",category:"",manifestURL:URL(string:"https://example.com/a/pet.json")!,previewURL:nil,websiteURL:URL(string:"https://example.com/a")!,tagFingerprint:fingerprint)
         check(store.tags(for:theme).map(\.id) == [cat.id,pixel.id])
         var stale=theme;stale.tagFingerprint=String(repeating:"b",count:64);check(store.tags(for:stale).isEmpty)
+        var unclassified=theme;unclassified.remoteID="unclassified"
+        var otherSource=theme;otherSource.sourceID=PetSource.defaults[1].id
+        var changedDescriptor=stale;changedDescriptor.remoteID="stale"
+        let coverage=store.coverage(for:[theme,theme,unclassified,otherSource,changedDescriptor])
+        check(store.hasMetadata && coverage.themeCount == 4 && coverage.labeledThemeCount == 1,"Coverage deduplicates exact identities and excludes unbound themes")
+        check(coverage.tagCounts == [cat.id:1,pixel.id:1] && !coverage.availableTagIDs.contains(dog.id),"Only labels with verified catalog matches are offered")
+        let otherCoverage=store.coverage(for:[theme,otherSource],sourceID:otherSource.sourceID)
+        check(otherCoverage.themeCount == 1 && otherCoverage.labeledThemeCount == 0 && otherCoverage.tagCounts.isEmpty,"Remote ID and matching hash cannot leak tags across sources")
         let engine=PetSearchEngine(),snapshot=PetSearchSnapshot(themes:[theme],favorites:[],popularity:[:],names:[:],tags:[theme.id:[cat,pixel]])
         let matches=try await engine.query(.init(revision:1,query:"",sourceID:"",byInstalls:false,favoritesOnly:false,selectedTagIDs:[cat.id,dog.id,pixel.id]),snapshot:snapshot)
         check(matches.count == 1,"Same facet OR / different facet AND")
         let misses=try await engine.query(.init(revision:1,query:"",sourceID:"",byInstalls:false,favoritesOnly:false,selectedTagIDs:[dog.id,pixel.id]),snapshot:snapshot)
         check(misses.isEmpty)
+        let oldText=try await engine.query(.init(revision:1,query:cat.label.text,sourceID:"",byInstalls:false,favoritesOnly:false,tagRevision:"tags-1"),snapshot:snapshot)
+        check(oldText.count == 1)
+        let revisedSnapshot=PetSearchSnapshot(themes:[theme],favorites:[],popularity:[:],names:[:],tags:[theme.id:[dog]])
+        let newText=try await engine.query(.init(revision:1,query:dog.label.text,sourceID:"",byInstalls:false,favoritesOnly:false,tagRevision:"tags-2"),snapshot:revisedSnapshot)
+        let removedText=try await engine.query(.init(revision:1,query:cat.label.text,sourceID:"",byInstalls:false,favoritesOnly:false,tagRevision:"tags-2"),snapshot:revisedSnapshot)
+        check(newText.count == 1 && removedText.isEmpty,"A metadata-only revision rebuilds tag label text before the asynchronous catalog revision callback")
         try await store.clear();let clearedBytes=try await cache.byteCount();check(store.records.isEmpty && clearedBytes == 0)
         let preferences2=TagTestPreferences()
         let manual=PetTagStore(preferences:preferences2,client:TagFixtureClient(files:[:]),cache:cache)
         manual.setVisible(true);await manual.finish();check(manual.lastChecked == nil && !manual.facets.isEmpty,"Opening pets reads local/default labels without network")
         manual.activateFilters();await manual.finish();check(manual.lastChecked != nil,"First filter interaction checks metadata")
+        check(!manual.hasMetadata && manual.coverage(for:[theme]).availableTagIDs.isEmpty && manual.message == L("标签尚未就绪，请稍后重试。", "Tags are not available yet. Try again later."),"A missing feed must not look like a successful zero-match filter")
+        let failedCounter=TagCountingClient([:]),failedStore=PetTagStore(preferences:TagTestPreferences(),client:failedCounter,cache:PetCatalogCache(directory:folder.appendingPathComponent("unavailable")))
+        failedStore.setVisible(true);await failedStore.finish();failedStore.activateFilters();await failedStore.finish();failedStore.activateFilters();await failedStore.finish()
+        let failedRequests=await failedCounter.requested();check(failedRequests == ["index.json"],"An unavailable feed is checked once per visit, not for every facet")
+        failedStore.sync(force:true);await failedStore.finish()
+        let retriedRequests=await failedCounter.requested();check(retriedRequests == ["index.json","index.json"],"An explicit retry still checks the index")
         let incrementalCache=PetCatalogCache(directory:folder.appendingPathComponent("incremental"))
         let counter=TagCountingClient(["index.json":id,tf.path:td,sf.path:sd])
         let onClick=PetTagStore(preferences:TagTestPreferences(),client:counter,cache:incrementalCache)
@@ -109,13 +129,23 @@ private final class TagHTTPProtocol:URLProtocol {
         let raceBytes=try await cache.byteCount();check(race.records.isEmpty && raceBytes == 0,"Clear generation rejects late network payloads")
         let conditional=try await PetHTTPClient(protocolClasses:[TagHTTPProtocol.self]).response(from:PetTagStore.root.appendingPathComponent("index.json"),limit:65_536,etag:"fixture-etag",kind:.tags)
         check(conditional.notModified && TagHTTPProtocol.conditional,"Anonymous conditional tag fetch and304")
+        let retired=PetSource.retired[0]
+        let retiredFile=file("source-petdex",Data("unused retired shard".utf8))
+        let retiredEntry=PetTagSourceFile(sourceID:retired.id,catalogURL:retired.catalogURL,format:retired.format.rawValue,file:retiredFile)
+        let legacyIndex=try encoder.encode(PetTagIndex(schemaVersion:1,revision:1,generatedAt:index.generatedAt,taxonomy:tf,sources:[entry,retiredEntry]))
+        check(try PetTagStore.decodeIndex(legacyIndex).sources.map(\.sourceID) == [source.id],"Legacy indexes retain active tags while excluding retired shards")
+        let legacyCounter=TagCountingClient(["index.json":legacyIndex,tf.path:td,entry.file.path:sd])
+        let legacyStore=PetTagStore(preferences:TagTestPreferences(),client:legacyCounter,cache:PetCatalogCache(directory:folder.appendingPathComponent("retired-tags")))
+        legacyStore.sync(force:true);await legacyStore.finish()
+        let legacyRequests=await legacyCounter.requested()
+        check(legacyStore.hasMetadata && !legacyRequests.contains(retiredFile.path),"Retired tag shards are never downloaded")
         var bad=try JSONSerialization.jsonObject(with:id) as! [String:Any];bad["sprite"]="not allowed"
         do { _=try PetTagStore.decodeIndex(JSONSerialization.data(withJSONObject:bad));fatalError("Non-metadata field accepted") } catch PetStoreError.invalidCatalog {}
         struct Vector:Decodable { let sourceID:String;let json:String;let expected:String }
         if CommandLine.arguments.count > 1 {
             let vectors=try JSONDecoder().decode([Vector].self,from:Data(contentsOf:URL(fileURLWithPath:CommandLine.arguments[1])))
-            for v in vectors { let known=PetSource.defaults.first{$0.id == v.sourceID}!;let binding=try PetTagBinding.fingerprints(Data(v.json.utf8),source:known);check(binding["fixture"] == v.expected,"Cross-language raw descriptor binding \(v.sourceID)") }
+            for v in vectors { let known=(PetSource.defaults + PetSource.retired).first{$0.id == v.sourceID}!;let binding=try PetTagBinding.fingerprints(Data(v.json.utf8),source:known);check(binding["fixture"] == v.expected,"Cross-language raw descriptor binding \(v.sourceID)") }
         }
-        print("Tag/network tests passed: sparse source binding, taxonomy/digest limits, OR/AND and canonical queries, last-good sync/cache clear, first-click-only and unchanged/delta downloads, persistent typed traffic and unknown lower bounds")
+        print("Tag/network tests passed: verified scoped coverage, metadata-only text-index invalidation, unavailable feed state, sparse source binding, taxonomy/digest limits, OR/AND and canonical queries, last-good sync/cache clear, first-click-only and unchanged/delta downloads, persistent typed traffic and unknown lower bounds")
     }
 }

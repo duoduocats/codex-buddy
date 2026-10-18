@@ -5,8 +5,6 @@ import Charts
 @MainActor struct UsageForecastPage: View {
     @ObservedObject var state:UsageForecastPresentation
     @State private var hover=UsageForecastPlotHover()
-    @State private var showingTiboHistory=false
-    @State private var showingEvaluations=false
     @State private var showingQuotaHistory=false
     @Environment(\.colorScheme) private var scheme
     var body:some View {
@@ -14,10 +12,9 @@ import Charts
             ScrollView {
                 VStack(alignment:.leading,spacing:0) {
                     summary(width:max(1,geometry.size.width-58)).padding(.horizontal,-5)
-                    comparisonSection.padding(.top,30)
+                    comparisonSection(plotHeight:max(280,geometry.size.height-462-(geometry.size.width-58 < (AppLanguage.chinese ? 960 : 1000) ? 40 : 0))).padding(.top,30)
                     scenarioControls(width:max(1,geometry.size.width-58)).padding(.top,20)
                     guidance.padding(.top,22)
-                    records.padding(.top,20)
                 }.padding(.horizontal,29).padding(.top,4).padding(.bottom,28)
                     .frame(maxWidth:.infinity,alignment:.leading)
             }.overlayPreferenceValue(UsageForecastPlotAnchors.self) { anchors in
@@ -60,7 +57,7 @@ import Charts
                 .padding(.leading,26)
         }.padding(.leading,leading).padding(.trailing,16).accessibilityElement(children:.combine)
     }
-    private var comparisonSection:some View {
+    private func comparisonSection(plotHeight:CGFloat)->some View {
         VStack(alignment:.leading,spacing:22) {
             HStack(spacing:16) {
                 Text(L("历史与预测", "History and forecast")).font(.system(size:24,weight:.semibold)).accessibilityAddTraits(.isHeader)
@@ -70,7 +67,7 @@ import Charts
                 UsageForecastWindowMenu(state:state).frame(width:AppLanguage.chinese ? 118 : 164,height:34)
             }.frame(height:34)
             if let comparison=state.comparison {
-                UsageForecastComparisonChart(state:state,comparison:comparison,hover:hover).frame(height:316).padding(.top,12)
+                UsageForecastComparisonChart(state:state,comparison:comparison,hover:hover).frame(height:plotHeight).padding(.top,12)
                     .overlay(alignment:.topTrailing) {
                         if state.waitingForUpdate || state.comparison?.projectionBasis == .unavailable {
                             HStack(spacing:12) {
@@ -90,7 +87,7 @@ import Charts
                 Spacer()
                 legend(L("真实记录", "Recorded"),color:.secondary)
                 legend(state.curveTitle,color:.blue)
-                if state.extraResetEnabled && state.comparison?.scenarioSegments.isEmpty == false { legend(L("额外重置（模拟）", "Extra reset (scenario)"),color:.orange) }
+                if state.extraResetEnabled && state.comparison?.scenarioSegments.isEmpty == false { legend(L("重置规划（模拟）", "Reset plan (scenario)"),color:.orange) }
                 Spacer()
             }.frame(height:24).padding(.top,-10)
         }
@@ -152,7 +149,7 @@ import Charts
         HStack(spacing:0) {
             pace(L("常规建议约", "Regular budget ≈"),value:state.baselineSafePercentPerHour,color:.blue)
             Divider().frame(height:38)
-            pace(L("重置前建议约", "Before-reset budget ≈"),value:state.extraResetEnabled ? state.scenarioSafePercentPerHour : nil,color:.orange)
+            pace(L("重置前规划约", "Before-reset plan ≈"),value:state.extraResetEnabled ? state.scenarioSafePercentPerHour : nil,color:.orange)
                 .padding(.leading,40)
         }.padding(.horizontal,20).frame(height:48)
     }
@@ -165,36 +162,7 @@ import Charts
             }.foregroundStyle(color).lineLimit(1).minimumScaleFactor(0.8)
         }.frame(maxWidth:.infinity,alignment:.leading).accessibilityElement(children:.combine)
     }
-    private var records:some View {
-        VStack(spacing:0) {
-            Divider()
-            recordRow(symbol:"chart.bar.fill",title:L("Tibo 重置节奏", "Tibo reset timing"),summary:state.tiboSummary,
-                actionTitle:L("历史记录", "History"),identifier:"usage-forecast-tibo-history") { showingTiboHistory=true }
-                .popover(isPresented:$showingTiboHistory,arrowEdge:.bottom) {
-                    UsageForecastHistoryPopover(title:L("重置历史", "Reset history"),rows:state.tiboHistoryRows)
-                }
-            Divider()
-            recordRow(symbol:"clock",title:L("预测回看", "Prediction review"),summary:state.evaluationSummary,
-                actionTitle:L("查看记录", "View records"),identifier:"usage-forecast-evaluation-records") { showingEvaluations=true }
-                .popover(isPresented:$showingEvaluations,arrowEdge:.bottom) {
-                    UsageForecastHistoryPopover(title:L("预测记录", "Prediction records"),rows:state.evaluationRows)
-                }
-        }
-    }
-    private func recordRow(symbol:String,title:String,summary:String,actionTitle:String,identifier:String,action:@escaping ()->Void)->some View {
-        HStack(spacing:18) {
-            Image(systemName:symbol).font(.system(size:21)).frame(width:24).accessibilityHidden(true)
-            Text(title).font(.system(size:16,weight:.semibold)).frame(width:AppLanguage.chinese ? 230 : 235,alignment:.leading)
-            Text(summary).font(.system(size:14)).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
-                .frame(maxWidth:.infinity,alignment:.leading)
-            Button(action:action) {
-                HStack(spacing:10) {
-                    Text(actionTitle)
-                    Image(systemName:"chevron.right").font(.system(size:11,weight:.medium)).accessibilityHidden(true)
-                }.font(.system(size:14,weight:.medium)).foregroundStyle(.secondary).padding(.vertical,10).contentShape(Rectangle())
-            }.buttonStyle(.plain).accessibilityIdentifier(identifier)
-        }.padding(.horizontal,12).frame(minHeight:62)
-    }
+
 }
 
 @MainActor private struct UsageForecastHistoryPopover:View {
@@ -260,6 +228,13 @@ private struct UsageForecastPlotAnchors:PreferenceKey {
                     }.accessibilityHidden(true)
             }
             paths(comparison.historySegments,color:.secondary,dashed:false)
+            if let handoff=comparison.historyHandoff {
+                ForEach(handoff.points) {point in
+                    LineMark(x:.value("Time",point.date),y:.value("Last known",point.remaining),series:.value("Segment",handoff.id))
+                        .foregroundStyle(Color.secondary).lineStyle(StrokeStyle(lineWidth:2,dash:[3,3])).interpolationMethod(.linear)
+                        .accessibilityHidden(true)
+                }
+            }
             paths(comparison.baselineSegments,color:.blue,dashed:true)
             if state.extraResetEnabled { paths(visibleScenarioSegments,color:.orange,dashed:true) }
             if !state.waitingForUpdate,[UsageForecastState.ready,.learning,.quiet,.exhausted].contains(comparison.state),
@@ -271,7 +246,7 @@ private struct UsageForecastPlotAnchors:PreferenceKey {
                         Text(UsageForecastFormat.percent(remaining,digits:0)).font(.system(size:15,weight:.semibold)).monospacedDigit()
                     }.accessibilityLabel(L("当前真实剩余", "Current actual remaining"))
             }
-            if let first=comparison.historySegments.first?.points.first,first.date < state.now.addingTimeInterval(-60) {
+            if let first=comparison.historySegments.first?.points.first,state.now.timeIntervalSince(first.date) > max(60,comparison.domain.upperBound.timeIntervalSince(comparison.domain.lowerBound)*0.07) {
                 PointMark(x:.value("Observed at",first.date),y:.value("Observed remaining",first.remaining))
                     .symbol { Circle().fill(Color.secondary).overlay(Circle().stroke(Color.white,lineWidth:1)).frame(width:8,height:8) }
                     .annotation(position:.top,alignment:.leading,spacing:8) {
@@ -340,14 +315,12 @@ private struct UsageForecastPlotAnchors:PreferenceKey {
     }
     @ChartContentBuilder private func paths(_ segments:[UsageForecastCurveSegment],color:Color,dashed:Bool)->some ChartContent {
         ForEach(segments,id:\.id) { segment in
-            ForEach(segment.points) { point in
-                LineMark(x:.value("Time",point.date),y:.value("Remaining",point.remaining),series:.value("Segment",segment.id))
-                    .foregroundStyle(color).lineStyle(StrokeStyle(lineWidth:2,dash:dashed ? [7,5] : []))
-                    .interpolationMethod(.linear)
-                if !dashed && point.id == segment.points.last?.id {
-                    PointMark(x:.value("Time",point.date),y:.value("Observed remaining",point.remaining))
-                        .foregroundStyle(color).symbolSize(12)
-                }
+            renderedLine(segment,color:color,dashed:dashed)
+            if !dashed,let point=segment.points.last {
+                PointMark(x:.value("Time",point.date),y:.value("Observed remaining",point.remaining))
+                    .foregroundStyle(color).symbolSize(12)
+            }
+            ForEach(dashed && segment.kind != .waiting ? segment.points : []) { point in
                 if dashed && segment.kind != .waiting {
                     let keyPoint=segment.kind == .resetJump || (color == .orange && point.date == comparison.regularResetDate)
                     PointMark(x:.value("Time",point.date),y:.value("Remaining",point.remaining))
@@ -358,7 +331,8 @@ private struct UsageForecastPlotAnchors:PreferenceKey {
                         .annotation(position:.top,spacing:7) {
                             if segment.kind != .resetJump && abs(point.date.timeIntervalSince(state.now)) > 60
                                 && !(color == .blue && comparison.scenarioRelevant && point.date == comparison.extraResetDate)
-                                && !(color == .orange && segment.kind != .resetJump && point.date == comparison.extraResetDate) {
+                                && !(color == .orange && (segment.kind == .resetJump || segment.id == "scenario.before" || point.date == comparison.extraResetDate))
+                                && (point.date == comparison.domain.upperBound || comparison.domain.upperBound.timeIntervalSince(point.date) >= comparison.domain.upperBound.timeIntervalSince(comparison.domain.lowerBound)*0.07) {
                                 Text(UsageForecastFormat.percent(point.remaining,digits:0)).font(.system(size:12)).monospacedDigit()
                                     .foregroundStyle(segment.kind == .resetJump ? Color.orange : Color.secondary)
                             }
@@ -367,17 +341,25 @@ private struct UsageForecastPlotAnchors:PreferenceKey {
             }
         }
     }
+    private func renderedLine(_ segment:UsageForecastCurveSegment,color:Color,dashed:Bool)->AnyChartContent {
+        if #available(macOS 15.0,*) {return AnyChartContent(UsageForecastBatchedLine(segment:segment,color:color,dashed:dashed))}
+        return AnyChartContent(UsageForecastLegacyLine(segment:segment,color:color,dashed:dashed))
+    }
     private var visibleScenarioSegments:[UsageForecastCurveSegment] {
-        guard let date=comparison.extraResetDate else { return [] }
-        return comparison.scenarioSegments.filter { $0.kind == .resetJump || ($0.points.first?.date ?? .distantPast) >= date }
+        comparison.scenarioSegments
     }
     private var visibleAxisDates:[Date] {
         let dates=comparison.axisDates
-        guard dates.count > 5 else {return dates}
+        guard let first=dates.first,let last=dates.last,first < last else {return dates}
         let step=max(1,Int(ceil(Double(dates.count-1)/4)))
-        var indexes=Array(stride(from:0,to:dates.count,by:step))
-        if indexes.last != dates.count-1 {indexes.append(dates.count-1)}
-        return indexes.map {dates[$0]}
+        let spacing=last.timeIntervalSince(first)*0.10
+        var result=[first]
+        for index in stride(from:step,to:dates.count-1,by:step) {
+            let date=dates[index]
+            if date.timeIntervalSince(result.last!) >= spacing && last.timeIntervalSince(date) >= spacing {result.append(date)}
+        }
+        result.append(last)
+        return result
     }
     private func axisLabel(_ date:Date)->String {
         if comparison.domain.upperBound.timeIntervalSince(comparison.domain.lowerBound) >= 2*86400 {return UsageForecastFormat.day(date)}
@@ -404,14 +386,15 @@ private struct UsageForecastPlotAnchors:PreferenceKey {
                 let plot=geometry[anchor]
                 let fraction=sample.date.timeIntervalSince(comparison.domain.lowerBound)/max(1,comparison.domain.upperBound.timeIntervalSince(comparison.domain.lowerBound))
                 let origin=CGPoint(x:plot.minX+plot.width*fraction,y:plot.minY+plot.height*hover.verticalFraction)
-                let count=[sample.observedRemaining,sample.baselineRemaining,sample.scenarioRemaining].compactMap { $0 }.count
+                let count=[sample.observedRemaining,sample.carriedRemaining,sample.baselineRemaining,sample.scenarioRemaining].compactMap { $0 }.count
                 let frame=UsageTrendTooltipPlacement.frame(anchor:CGRect(x:origin.x,y:origin.y,width:1,height:1),
                     size:CGSize(width:226,height:CGFloat(32+count*22)),bounds:CGRect(origin:.zero,size:geometry.size))
                 VStack(alignment:.leading,spacing:5) {
                     Text(UsageForecastFormat.date(sample.date)).font(.system(size:12,weight:.medium))
                     if let value=sample.observedRemaining { row(L("实际观察", "Observed"),value:value,color:.primary) }
+                    if let value=sample.carriedRemaining {row(L("最近观测", "Last observed"),value:value,color:.secondary)}
                     if let value=sample.baselineRemaining { row(L("常规", "Regular"),value:value,color:.blue) }
-                    if let value=sample.scenarioRemaining { row(L("额外重置（模拟）", "Extra reset (scenario)"),value:value,color:.orange) }
+                    if let value=sample.scenarioRemaining { row(L("重置规划（模拟）", "Reset plan (scenario)"),value:value,color:.orange) }
                 }.padding(12).frame(width:frame.width,height:frame.height,alignment:.leading)
                     .background(.regularMaterial,in:RoundedRectangle(cornerRadius:8))
                     .overlay(RoundedRectangle(cornerRadius:8).stroke(Color.primary.opacity(0.14),lineWidth:0.6))
@@ -595,4 +578,28 @@ private struct UsageForecastPlotAnchors:PreferenceKey {
 @MainActor private final class UsageForecastDatePicker:NSDatePicker {
     override var alignmentRectInsets:NSEdgeInsets { NSEdgeInsets(top:0,left:0,bottom:0,right:0) }
     override var intrinsicContentSize:NSSize { NSSize(width:NSView.noIntrinsicMetric,height:34) }
+}
+
+@available(macOS 15.0,*)
+@MainActor private struct UsageForecastBatchedLine:ChartContent {
+    let segment:UsageForecastCurveSegment
+    let color:Color
+    let dashed:Bool
+    @ChartContentBuilder var body:some ChartContent {
+        LinePlot(segment.renderPoints,x:.value("Time",\.date),y:.value("Remaining",\.remaining),series:.value("Segment",\.series))
+            .foregroundStyle(color).lineStyle(StrokeStyle(lineWidth:2,dash:dashed ? [7,5] : []))
+            .interpolationMethod(.linear)
+    }
+}
+@MainActor private struct UsageForecastLegacyLine:ChartContent {
+    let segment:UsageForecastCurveSegment
+    let color:Color
+    let dashed:Bool
+    @ChartContentBuilder var body:some ChartContent {
+        ForEach(segment.points) {point in
+            LineMark(x:.value("Time",point.date),y:.value("Remaining",point.remaining),series:.value("Segment",segment.id))
+                .foregroundStyle(color).lineStyle(StrokeStyle(lineWidth:2,dash:dashed ? [7,5] : []))
+                .interpolationMethod(.linear)
+        }
+    }
 }

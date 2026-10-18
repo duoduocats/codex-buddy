@@ -24,7 +24,7 @@ enum BuddyPage: String, CaseIterable, Identifiable {
 
 struct SettingsView: View {
     static let width: CGFloat = 1240
-    static let height: CGFloat = 1040
+    static let height: CGFloat = 1000
     static let minimumSize = NSSize(width:960,height:540)
     static func preferredHeight(for page: BuddyPage) -> CGFloat {
         switch page {
