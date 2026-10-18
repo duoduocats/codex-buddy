@@ -20,21 +20,20 @@ struct RecentMessagesView: View {
     @State private var activityPresented = false
     var body: some View {
         VStack(alignment:.leading,spacing:0) {
-            HStack(alignment:.center,spacing:24) {
-                BuddyPageHeading(title:BuddyPage.messages.title)
-                    .frame(maxWidth:.infinity,alignment:.leading)
-                if manager.acceptsActivityMessages && challenge.enabled { activityButton }
-            }.padding(.horizontal,32).padding(.top,28).padding(.bottom,24)
+            if manager.acceptsActivityMessages && challenge.enabled {
+                HStack {Spacer(minLength:0);activityButton}
+                    .padding(.horizontal,28).padding(.top,18).padding(.bottom,16)
+            }
             if !manager.acceptsAnyMessages {
                 BuddyEmptyState(symbol:"bubble.left",title:L("接收消息已关闭", "Messages are turned off"),
-                    detail:L("在用量概览中开启消息通知并选择消息类型。", "Enable messages and select a type in Usage overview."))
+                    detail:L("在用量助手中开启消息通知并选择消息类型。", "Enable messages and select a type in Usage assistant."))
             } else if manager.recentMessages().isEmpty {
                 BuddyEmptyState(symbol:"tray",title:L("暂无消息", "No messages yet"),
                     detail:manager.checking ? L("正在获取最近公告…", "Checking recent announcements…") : L("收到的最近公告会显示在这里。", "Recent announcements will appear here when received."))
             } else {
                 ScrollView {
                     LazyVStack(alignment:.leading,spacing:16) { ForEach(manager.recentMessages()) { message in messageCard(message) } }
-                        .padding(.horizontal,32).padding(.bottom,32).frame(maxWidth:.infinity,alignment:.leading)
+                        .padding(.horizontal,28).padding(.top,manager.acceptsActivityMessages && challenge.enabled ? 0 : 18).padding(.bottom,28).frame(maxWidth:.infinity,alignment:.leading)
                 }
             }
         }.sheet(isPresented:$activityPresented) {
@@ -58,23 +57,23 @@ struct RecentMessagesView: View {
             activityPresented = true
             challenge.check(force:true)
         } label: {
-            HStack(spacing:16) {
+            HStack(spacing:12) {
                 ZStack {
                     if let image = BuddyBrand.activityCalendar {
-                        Image(nsImage:image).resizable().interpolation(.high).scaledToFit().frame(width:88,height:88)
+                        Image(nsImage:image).resizable().interpolation(.high).scaledToFit().frame(width:64,height:64)
                         Text(historical ? "28" : String(format:"%02d",day))
-                            .font(.system(size:27,weight:.bold,design:.rounded)).foregroundStyle(Color(red:0.36,green:0.23,blue:0.90))
-                            .rotationEffect(.degrees(-9)).offset(x:8,y:13)
+                            .font(.system(size:20,weight:.bold,design:.rounded)).foregroundStyle(Color(red:0.36,green:0.23,blue:0.90))
+                            .rotationEffect(.degrees(-9)).offset(x:6,y:9)
                     }
-                }.frame(width:88,height:88).accessibilityHidden(true)
-                VStack(alignment:.leading,spacing:8) {
-                    Text(historical ? L("历史活动", "Past activity") : L("特别活动", "Special activity")).font(.system(size:16,weight:.semibold))
+                }.frame(width:64,height:64).accessibilityHidden(true)
+                VStack(alignment:.leading,spacing:3) {
+                    Text(historical ? L("历史活动", "Past activity") : L("特别活动", "Special activity")).font(.system(size:14,weight:.semibold))
                     Text(L("Tibo 的 28 天挑战", "Tibo’s 28-day challenge")).font(.system(size:12)).foregroundStyle(.white.opacity(0.85))
                     Label(historical ? L("回看记录", "View history") : L("查看本期", "View current"),systemImage:"arrow.right")
                         .font(.system(size:12,weight:.medium)).foregroundStyle(Color(red:0.43,green:0.66,blue:1))
                 }
                 Spacer(minLength:0)
-            }.foregroundStyle(.white).padding(.horizontal,18).frame(width:336,height:112)
+            }.foregroundStyle(.white).padding(.horizontal,14).frame(width:300,height:80)
                 .background(LinearGradient(colors:[Color(red:0.27,green:0.19,blue:0.43),Color(red:0.12,green:0.13,blue:0.24)],
                     startPoint:.topLeading,endPoint:.bottomTrailing),in:RoundedRectangle(cornerRadius:18))
                 .overlay(RoundedRectangle(cornerRadius:18).stroke(Color(red:0.58,green:0.46,blue:0.84).opacity(0.7),lineWidth:0.7))
@@ -100,7 +99,7 @@ struct RecentMessagesView: View {
                 HStack {
                     let published = message.timestampBasis == .collected ? L("收录于 \(message.publishedDateText())", "Collected \(message.publishedDateText())")
                         : L("发布于 \(message.publishedDateText())", "Published \(message.publishedDateText())")
-                    Text(published + (message.expiresAt <= now ? L(" · 已结束展示", " · No longer displayed") : ""))
+                    Text(published + (message.expiresAt <= now ? L(" · 历史消息", " · Past message") : ""))
                         .font(.system(size:11)).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
                     Spacer(minLength:8)
                     if message.sourceURL != nil {

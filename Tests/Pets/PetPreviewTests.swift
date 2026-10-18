@@ -34,7 +34,7 @@ enum PetPreviewTests {
     }
     private static func pixel(_ image:CGImage) -> [UInt8] { Array(pixels(image).prefix(4)) }
 
-    @MainActor static func run() {
+    @MainActor static func run() async {
         let red=color(1,0,0)
         let blue=color(0,0,1)
         for height in [1872,2288] {
@@ -83,6 +83,7 @@ enum PetPreviewTests {
         let image=atlas(filled:[0:red,1:blue])
         CATransaction.begin();CATransaction.setAnimationDuration(1)
         view.configure(image:image,playing:true)
+        await view.finishPreparation()
         view.advanceFrame()
         CATransaction.commit()
         precondition(action.count == 0 && view.layer?.animationKeys()?.isEmpty != false,"Frame swaps must disable implicit Core Animation actions")
@@ -95,17 +96,31 @@ enum PetPreviewTests {
         view.configure(image:image,playing:false);view.stop()
         precondition(!view.hasPlaybackTimer)
         view.configure(image:atlas(filled:[0:blue]),playing:true)
+        await view.finishPreparation()
         precondition(pixel(view.layer!.contents as! CGImage) == [0,0,255,255],"Changing theme must replace the previous frame")
         view.configure(image:atlas(filled:[:]),playing:true)
+        await view.finishPreparation()
         precondition(view.layer?.contents == nil && !view.hasPlaybackTimer,"An empty theme must not retain a previous pet")
         let actionsAtlas=atlas(filled:[0:red])
         view.configure(image:actionsAtlas,playing:true,action:.all)
+        await view.finishPreparation()
         view.advanceFrame()
         precondition(pixel(view.layer!.contents as! CGImage) == [0,255,0,255],"All playback must reach the second action row")
         view.configure(image:actionsAtlas,playing:true,action:.walkRight)
         precondition(pixel(view.layer!.contents as! CGImage) == [0,255,0,255],"Manual action choice must show the selected row")
         view.configure(image:actionsAtlas,playing:false,action:.idle)
         precondition(pixel(view.layer!.contents as! CGImage) == [255,0,0,255] && !view.hasPlaybackTimer)
+        // Cancellation must not allow a previous pet's background preparation to
+        // replace the newly selected theme, or resurrect a dismantled preview.
+        view.configure(image:actionsAtlas,playing:true,action:.all)
+        let newest=atlas(filled:[0:blue])
+        view.configure(image:newest,playing:false,action:.idle)
+        await view.finishPreparation()
+        precondition(pixel(view.layer!.contents as! CGImage) == [0,0,255,255])
+        view.configure(image:actionsAtlas,playing:true,action:.all)
+        view.tearDown();await view.finishPreparation()
+        try? await Task.sleep(nanoseconds:30_000_000)
+        precondition(view.layer?.contents == nil && !view.preparingFrames && !view.hasPlaybackTimer)
         print("Pet preview passed: every v1/v2 action row, manual selection, 16-direction look rows, sparse padding, original pixels, atomic frame swaps, stable reconfiguration and detached playback")
     }
 }

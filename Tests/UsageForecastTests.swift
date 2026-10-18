@@ -8,6 +8,7 @@ import Darwin
         var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         let now = calendar.date(from: DateComponents(year: 2026, month: 10, day: 11, hour: 12))!
         planningAndHistory(now:now)
+        historyHandoff(now:now)
         math(now: now)
         comparison(now: now)
         segmentation(now: now)
@@ -15,7 +16,7 @@ import Darwin
         binningAndRecentPace(now: now)
         sanitizer(now: now)
         try await cache(now: now)
-        print("Usage forecast tests passed: frozen-rate comparison, explicit reset discontinuity, saturation/wait/resume/saved hours, honest missing-rate states, isolated latest-segment fit, retained bounded closed segments, independent quota windows, recent horizons, account isolation, corrupt/oversize/link refusal, serial clear epoch")
+        print("Usage forecast tests passed: baseline/target-date budget comparison, explicit reset discontinuity, saturation/wait/resume/saved hours, honest missing-rate states, isolated latest-segment fit, retained bounded closed segments, independent quota windows, recent horizons, account isolation, corrupt/oversize/link refusal, serial clear epoch")
     }
 
     static func planningAndHistory(now:Date) {
@@ -32,6 +33,24 @@ import Darwin
         precondition(plot.historySegments.flatMap(\.points).contains {$0.remaining == 100})
         let stale=UsageForecastComparison(window:cold,now:now.addingTimeInterval(400),quotaError:true,allowBudgetReference:true)
         precondition(stale.baselineSegments.isEmpty && stale.projectionBasis == .unavailable)
+    }
+    static func historyHandoff(now:Date) {
+        let reset=now.addingTimeInterval(18*3600),observed=now.addingTimeInterval(-180)
+        let raw=readings(used:70,start:70,span:6*3600,now:observed,reset:reset)
+        let usage=response(used:70,reset:reset)
+        let window=UsageForecastSnapshot(usage:usage,observations:raw,updated:observed,now:now).windows[0]
+        let plot=UsageForecastComparison(window:window,now:now,allowBudgetReference:true)
+        precondition(plot.historySegments.last?.points.last?.date == observed && plot.historyHandoff?.points.last?.date == now)
+        precondition(plot.historyHandoff?.points.first?.remaining == 30 && plot.baselineSegments.first?.points.first?.remaining == 30)
+        let sample=plot.sample(at:now.addingTimeInterval(-90))!
+        precondition(sample.observedRemaining == nil && sample.carriedRemaining == 30,
+                     "The handoff is explicitly last-known, not an invented observation")
+        precondition(window.historicalObservations.last?.observedAt == observed && raw.last?.observedAt == observed)
+        let stale=UsageForecastComparison(window:UsageForecastSnapshot(usage:usage,observations:raw,updated:observed,now:now.addingTimeInterval(200)).windows[0],now:now.addingTimeInterval(200),allowBudgetReference:true)
+        precondition(stale.historyHandoff == nil && stale.baselineSegments.isEmpty)
+        let resetChanged=UsageForecastSnapshot(usage:response(used:70,reset:reset.addingTimeInterval(3600)),observations:raw,updated:now,now:now).windows[0]
+        precondition(UsageForecastComparison(window:resetChanged,now:now,allowBudgetReference:true).historyHandoff == nil)
+        precondition(UsageForecastComparison(window:window,now:now,quotaError:true,allowBudgetReference:true).historyHandoff == nil)
     }
     static func response(used: Double = 70, duration: Int? = 10_080, reset: Date?, plan: String? = "plus",
                          secondary: LimitWindow? = nil, bucket: String = "codex") -> UsageResponse {
@@ -156,20 +175,32 @@ import Darwin
         near(compared.observedPercentPerHour, 2)
         near(compared.normalSafePercentPerHour, 30.0 / 18)
         near(compared.preExtraSafePercentPerHour, 30.0 / 9)
-        near(compared.remainingAtExtraReset, 12)
+        near(compared.remainingAtExtraReset, 0)
         near(compared.baselineWaitingSeconds, 3 * 3_600)
         near(compared.scenarioWaitingSeconds, 0); near(compared.savedHours, 3)
         precondition(compared.baselineWaitInterval == DateInterval(start: now.addingTimeInterval(15 * 3_600), end: reset))
-        precondition(compared.normalResetDate == reset && compared.scenarioRelevant && compared.scenarioExhaustionDate == nil)
+        precondition(compared.normalResetDate == reset && compared.scenarioRelevant && compared.scenarioExhaustionDate == extra)
         for hour in [0.0, 3, 6, 8.5] {
             let sample = compared.sample(at: now.addingTimeInterval(hour * 3_600))!
-            near(sample.baselineRemaining, 30 - hour * 2); near(sample.scenarioRemaining, 30 - hour * 2)
+            near(sample.baselineRemaining, 30 - hour * 2); near(sample.scenarioRemaining, 30 - hour * (30.0/9))
+        }
+        let planned=compared.scenarioSegments.first!
+        precondition(planned.points.first?.date == now && planned.points.first?.remaining == window.remainingPercent)
+        precondition(planned.points.last?.date == extra && planned.points.last?.remaining == 0,"The plan uses the current balance exactly at the selected reset")
+        near(compared.sample(at:now.addingTimeInterval(4.5*3600))?.scenarioRemaining,15)
+        precondition(window.remainingPercent == 30 && window.observedPercentPerHour == 2,"A spending plan never changes measured history or its pace")
+        for segment in compared.historySegments+compared.baselineSegments+compared.scenarioSegments {
+            precondition(segment.renderPoints.count == segment.points.count)
+            for (a,b) in zip(segment.renderPoints,segment.points) {
+                precondition(a.date == b.date && a.remaining == b.remaining && a.series == segment.id,
+                             "Batch rendering preserves actual/history/scenario coordinates and reset discontinuities")
+            }
         }
         let event = compared.sample(at: extra)!
         near(event.baselineRemaining, 12); near(event.scenarioRemaining, 100)
         let jump = compared.scenarioSegments.first { $0.kind == .resetJump }!
-        precondition(jump.points.map(\.date) == [extra, extra] && jump.points.map(\.remaining) == [12, 100])
-        precondition(compared.scenarioSegments.filter { $0.kind == .consuming }.allSatisfy { segment in
+        precondition(jump.points.map(\.date) == [extra, extra] && jump.points.map(\.remaining) == [0, 100])
+        precondition(compared.scenarioSegments.filter { $0.kind == .consuming && $0.id.hasPrefix("scenario.after") }.allSatisfy { segment in
             zip(segment.points, segment.points.dropFirst()).allSatisfy { pair in
                 let hours = pair.1.date.timeIntervalSince(pair.0.date) / 3_600
                 return hours > 0 && abs((pair.0.remaining - pair.1.remaining) / hours - 2) < 0.000_001
@@ -199,22 +230,22 @@ import Darwin
             precondition(irrelevant.baselineSegments == baseline.baselineSegments && irrelevant.preExtraSafePercentPerHour == nil)
         }
 
-        // A late extra reset saves only the already-depleted wait after it.
+        // A later target can slow the planned pace; it must still use the balance at that exact target.
         let late = UsageForecastComparison(window: window, now: now, scenarioEnabled: true,
             extraResetDate: now.addingTimeInterval(16 * 3_600), assumesFullReset: true)
-        near(late.scenarioWaitingSeconds, 3_600); near(late.savedHours, 2)
-        near(late.sample(at: now.addingTimeInterval(15.5 * 3_600))?.scenarioRemaining, 0)
+        near(late.scenarioWaitingSeconds, 0); near(late.savedHours, 3)
+        near(late.sample(at: now.addingTimeInterval(15.5 * 3_600))?.scenarioRemaining, 0.9375)
         near(late.sample(at: reset)?.scenarioRemaining, 96)
 
-        // Both cycles can deplete: wait, reset, resume, deplete, wait again.
+        // The plan avoids pre-reset waiting; the post-reset forecast can still deplete.
         let farReset = now.addingTimeInterval(80 * 3_600)
         let far = UsageForecastSnapshot(usage: response(reset: farReset), observations:
             readings(used: 70, start: 58, span: 6 * 3_600, now: now, reset: farReset), updated: now, now: now).windows[0]
         let twoWaits = UsageForecastComparison(window: far, now: now, scenarioEnabled: true,
             extraResetDate: now.addingTimeInterval(20 * 3_600), assumesFullReset: true)
-        precondition(twoWaits.scenarioWaitingIntervals.count == 2)
+        precondition(twoWaits.scenarioWaitingIntervals.count == 1)
         near(twoWaits.baselineWaitingSeconds, 65 * 3_600)
-        near(twoWaits.scenarioWaitingSeconds, 15 * 3_600); near(twoWaits.savedHours, 50)
+        near(twoWaits.scenarioWaitingSeconds, 10 * 3_600); near(twoWaits.savedHours, 55)
         near(twoWaits.sample(at: now.addingTimeInterval(75 * 3_600))?.scenarioRemaining, 0)
 
         // No expected exhaustion means no waiting to save, although the

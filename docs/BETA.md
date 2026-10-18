@@ -4,24 +4,24 @@
 
 ## 中文
 
-本页介绍已公开的 **2.5.0-beta.2**。新主面板、即时预览和集成宠物功能目前在 Beta 中提供，正式版 **2.4.5** 的操作说明见 [README](../README.md)。
+本页介绍**2.5.0-beta.3**。新主面板、即时预览和集成宠物功能目前在 Beta 中提供，正式版 **2.4.5** 的操作说明见 [README](../README.md)。
 
 ### 安装与更新
 
-- 从 [2.5.0-beta.2 Release](https://github.com/duoduocats/codex-buddy/releases/tag/v2.5.0-beta.2) 下载 arm64 DMG，支持 Apple Silicon、macOS 13+。
+- 从 [2.5.0-beta.3 Release](https://github.com/duoduocats/codex-buddy/releases/tag/v2.5.0-beta.3) 下载 arm64 DMG，支持 Apple Silicon、macOS 13+。
 - 已安装正式版时，可在设置的 **通用与更新** 中开启 **接收 Beta 更新**，再点击 **检查更新**。安装 Beta 后，该选项位于 **通用** 页。
 - Beta 接收默认关闭；开启后会检查正式版和 Beta。关闭后不再接收新的 Beta，也不会自动降级已安装的测试版。
 - 首次安装步骤和 macOS 开发者验证说明见 [正式版安装指南](../README.md#下载与首次安装)。
 
 ### 新主面板与预览
 
-主窗口分为 **用量、宠物、消息、通用**。在 **用量 → 顶栏助手** 中，围绕中央的顶栏和展开面板样例调整主题、显示内容、消息、重置明细和每日 Token 用量等选项。
+主窗口分为 **用量、宠物、消息、通用**。在 **用量 → 用量助手** 中，围绕中央的顶栏和展开面板样例调整主题、显示内容、消息、重置明细和每日 Token 用量等选项。
 
 中央区域标有 **模拟数据预览**。调整设置会同步改变预览，顶栏和实际展开面板继续显示当前账号的真实用量。
 
 ### 用量趋势与预测
 
-在 **用量趋势** 查看日历及日／周／累计曲线。累计曲线连接前后已知总量，缺失日期不补零，部分合计显示“≥”。下方曲线可定位日期并查看精确 Token 数。
+在 **用量趋势** 查看日历及日／周／累计曲线。年度日历与下方曲线的时间范围独立。日／周曲线中的空白日期以零值呈现，累计模式延续已知累计量；原始缺失记录保持未提供，部分合计显示“≥”。悬停日历或曲线可联动定位日期并查看精确 Token 数。
 
 **用量预测** 展示已记录的额度历史及常规曲线；开启“额外重置（模拟）”并选择日期后，可同图比较假设情景。样本不足时的曲线标为预算参考。只有实际观察到的历史才会保存；无法补回过去未记录的数据。
 
@@ -39,30 +39,30 @@
 
 选择 **安装到本机**，核对作者、授权和目标目录后确认。安装后在 Codex 设置中手动进入 **虚拟宠物**，刷新并选择使用。已安装主题可移到废纸篓；覆盖安装会保留恢复副本。
 
-已安装列表也会展示当前账号可读取的 Codex 云端宠物，点击缩略图才读取预览，管理入口打开 Codex。标签索引公开后可按需同步；索引不可用时仍可使用原有浏览与搜索。
+已安装列表也会展示当前账号可读取的 Codex 云端宠物，可见缩略图会自动加载；删除云端宠物需确认。内置来源现为 11 个，Petdex 已移除，已有宠物保留。标签索引公开后可按需同步；索引不可用时仍可使用原有浏览与搜索。
 
 Buddy 与独立 Codex Pets 的收藏、来源设置和缓存各自保存，两边可识别同一个 Codex 宠物目录。社区素材按需加载，不包含在应用包中。
 
 ## English
 
-This guide covers the published **2.5.0-beta.2** release. The redesigned main window, live preview and integrated pets are available in Beta. For the stable **2.4.5** interface, see [README.en.md](../README.en.md).
+This guide covers **2.5.0-beta.3**. The redesigned main window, live preview and integrated pets are available in Beta. For the stable **2.4.5** interface, see [README.en.md](../README.en.md).
 
 ### Install and update
 
-- Download the arm64 DMG from the [2.5.0-beta.2 release](https://github.com/duoduocats/codex-buddy/releases/tag/v2.5.0-beta.2). For Apple Silicon and macOS 13+.
+- Download the arm64 DMG from the [2.5.0-beta.3 release](https://github.com/duoduocats/codex-buddy/releases/tag/v2.5.0-beta.3). For Apple Silicon and macOS 13+.
 - From the stable app, enable **Receive Beta updates** under **General & updates**, then choose **Check for updates**. After installing Beta, this option is in **General**.
 - Beta reception is off by default. Enabling it checks stable and Beta releases. Disabling it stops new Beta updates and does not automatically downgrade an installed Beta.
 - See the [stable installation guide](../README.en.md#download-and-install) for first installation and macOS developer-verification steps.
 
 ### Main window and preview
 
-The main window has **Usage, Pets, Messages, and General**. In **Usage → Menu bar assistant**, adjust the theme, display, messages, reset details and daily token chart around a combined menu-bar and panel sample.
+The main window has **Usage, Pets, Messages, and General**. In **Usage → Usage assistant**, adjust the theme, display, messages, reset details and daily token chart around a combined menu-bar and panel sample.
 
 The central area is labelled **Sample data preview**. Settings update that preview immediately; the actual menu bar and panel continue to show your account usage.
 
 ### Trends and forecast
 
-In **Usage trends**, explore the calendar and daily, weekly or cumulative curves. Cumulative curves connect known totals across gaps without filling missing dates with zero. Partial totals show “≥”. Select chart dates to inspect exact token counts.
+In **Usage trends**, explore the calendar and daily, weekly or cumulative curves. The annual calendar and chart ranges are independent. Daily and weekly curves render missing buckets at zero; cumulative curves carry known totals forward. Raw missing readings remain unavailable, and partial totals show “≥”. Hover the calendar or chart to link dates and inspect exact token values.
 
 **Usage forecast** shows recorded quota history and a regular curve. Enable **Extra reset (simulation)** and choose a date to compare a hypothetical scenario on the same chart. Limited observations use a labelled budget reference. Only observed history can be saved; past unrecorded readings cannot be recovered.
 
@@ -80,6 +80,6 @@ Use **Discover, Favorites, Installed, Sources** within **Pets** to browse and se
 
 Choose **Install locally**, review the author, license and destination, then confirm. In Codex settings, manually open **Pets**, refresh, and choose the companion. Installed themes can be moved to Trash; replacing a package keeps a recovery copy.
 
-Installed also lists readable Codex cloud pets for the current account. Click a thumbnail to load it; Manage opens Codex. Tag metadata can sync on demand when a public index is available; normal browsing and search remain usable without one.
+Installed also lists readable Codex cloud pets for the current account. Visible thumbnails load automatically; deleting a cloud pet requires confirmation. There are eleven built-in sources after removing Petdex, and existing pets are preserved. Tag metadata can sync on demand when a public index is available; normal browsing and search remain usable without one.
 
 Buddy and the standalone Codex Pets app keep separate favorites, source preferences and caches while recognizing the same Codex pet directory. Artwork loads on demand and is not bundled.

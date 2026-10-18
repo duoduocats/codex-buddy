@@ -42,7 +42,7 @@ enum PetPreviewFrames {
     static func idleFrames(in image:CGImage) -> [CGImage] {
         frames(in:image,action:.idle).map(\.image)
     }
-    static func frames(in image:CGImage,action:PetPreviewAction) -> [Frame] {
+    static func frames(in image:CGImage,action:PetPreviewAction,firstOnly:Bool = false) -> [Frame] {
         let colorSpace=image.colorSpace?.model == .rgb ? image.colorSpace! : CGColorSpace(name:CGColorSpace.sRGB)!
         guard image.width == width*8,[1872,2288].contains(image.height),
               let context=CGContext(data:nil,width:width,height:height,bitsPerComponent:8,bytesPerRow:width*4,
@@ -58,13 +58,17 @@ enum PetPreviewFrames {
         }
         for row in rows {
         for column in 0..<8 {
+            if Task.isCancelled { return [] }
             guard let crop=image.cropping(to:CGRect(x:column*width,y:row*height,width:width,height:height)) else { continue }
             context.clear(rect);context.draw(crop,in:rect)
             guard let pixels=context.data?.assumingMemoryBound(to:UInt8.self) else { continue }
             // Short action loops leave unused transparent cells in the eight-column atlas.
             // They are padding, so playing them would make the pet disappear on every loop.
             let hasArtwork=stride(from:3,to:width*height*4,by:4).contains { pixels[$0] != 0 }
-            if hasArtwork,let frame=context.makeImage() { frames.append(.init(image:frame,action:row >= 9 ? .look : PetPreviewAction(rawValue:row)!)) }
+            if hasArtwork,let frame=context.makeImage() {
+                frames.append(.init(image:frame,action:row >= 9 ? .look : PetPreviewAction(rawValue:row)!))
+                if firstOnly { return frames }
+            }
         }
         }
         // Copies keep playback textures small rather than retaining/uploading the atlas.
@@ -72,21 +76,50 @@ enum PetPreviewFrames {
     }
 }
 
+struct PetPreviewPlaybackState:Equatable {
+    let playing:Bool
+    let reduceMotion:Bool
+    var effectivePlaying:Bool {playing && !reduceMotion}
+    var title:String {reduceMotion ? L("静态预览", "Static preview") : effectivePlaying ? L("暂停", "Pause") : L("播放", "Play")}
+    var symbol:String {reduceMotion ? "photo" : effectivePlaying ? "pause.circle" : "play.circle"}
+    var help:String {
+        reduceMotion ? L("已按系统的减少动态效果设置暂停动画。", "Animation is paused by the system's Reduce Motion setting.")
+            : effectivePlaying ? L("暂停宠物动画", "Pause pet animation") : L("播放宠物动画", "Play pet animation")
+    }
+}
+
+struct PetPreviewPlaybackControl:View {
+    let state:PetPreviewPlaybackState
+    let toggle:()->Void
+    var body:some View {
+        Button(action:toggle) {
+            Label(state.title,systemImage:state.symbol).padding(.vertical,6).contentShape(Rectangle())
+        }.buttonStyle(.plain).disabled(state.reduceMotion).help(state.help)
+            .accessibilityLabel(state.title).accessibilityHint(state.help)
+    }
+}
+
 struct PetAnimatedPreview:View {
     var image:CGImage?
     var loading:Bool
     var error:String?
+    var thumbnail:NSImage? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var playing=true
     @State private var action=PetPreviewAction.all
     @State private var displayedAction:PetPreviewAction?
+    @State private var preparingFrames=true
+    private var playback:PetPreviewPlaybackState {.init(playing:playing,reduceMotion:reduceMotion)}
     var body:some View {
         VStack(spacing:0) {
             Group {
                 if let image {
-                    PetSpriteView(image:image,playing:playing && !reduceMotion,action:action,onActionChange:{displayedAction=$0})
+                    PetSpriteView(image:image,playing:playback.effectivePlaying,action:action,onActionChange:{displayedAction=$0},onPreparationChange:{preparingFrames=$0})
                         .padding(42).accessibilityLabel(L("Pet 动作预览", "Pet animation preview"))
-                        .overlay { if displayedAction == nil { Text(L("该动作暂无画面", "No frames for this animation")).font(.system(size:12)).foregroundStyle(.secondary) } }
+                        .overlay { if displayedAction == nil && !preparingFrames { Text(L("该动作暂无画面", "No frames for this animation")).font(.system(size:12)).foregroundStyle(.secondary) } }
+                } else if loading, let thumbnail {
+                    Image(nsImage:thumbnail).resizable().interpolation(.high).scaledToFit().padding(42)
+                        .overlay(alignment:.bottom) { ProgressView().controlSize(.small).padding(20) }
                 } else if loading {
                     VStack(spacing:14) { ProgressView();Text(L("载入宠物预览…", "Loading pet preview…")).foregroundStyle(.secondary) }
                 } else {
@@ -116,17 +149,14 @@ struct PetAnimatedPreview:View {
                 HStack {
                     Text(L("当前动作：", "Animation: ")+(displayedAction?.title ?? "—")).lineLimit(1)
                     Spacer(minLength:6)
-                    Button { playing.toggle() } label:{
-                        Label(playing ? L("暂停", "Pause") : L("播放", "Play"),systemImage:playing ? "pause.circle" : "play.circle")
-                            .padding(.vertical,6).contentShape(Rectangle())
-                    }.buttonStyle(.plain).disabled(reduceMotion)
+                    PetPreviewPlaybackControl(state:playback,toggle:{playing.toggle()})
                 }.font(.system(size:13)).foregroundStyle(.secondary).padding(.horizontal,20).padding(.vertical,10)
             }
             Spacer(minLength:0)
         }.frame(maxWidth:.infinity,maxHeight:.infinity)
             .background(Color.primary.opacity(0.025),in:RoundedRectangle(cornerRadius:14))
             .overlay(RoundedRectangle(cornerRadius:14).stroke(Color.primary.opacity(0.10),lineWidth:0.7))
-            .onChange(of:image.map{ObjectIdentifier($0)}) { _ in action = .all;displayedAction=nil;playing=true }
+            .onChange(of:image.map{ObjectIdentifier($0)}) { _ in action = .all;displayedAction=nil;preparingFrames=true;playing=true }
     }
 }
 
@@ -135,12 +165,13 @@ private struct PetSpriteView:NSViewRepresentable {
     let playing:Bool
     let action:PetPreviewAction
     let onActionChange:(PetPreviewAction?) -> Void
+    let onPreparationChange:(Bool) -> Void
     func makeNSView(context:Context) -> PetSpriteNSView { PetSpriteNSView() }
     func updateNSView(_ view:PetSpriteNSView,context:Context) {
-        view.onActionChange=onActionChange
+        view.onActionChange=onActionChange;view.onPreparationChange=onPreparationChange
         view.configure(image:image,playing:playing,action:action)
     }
-    static func dismantleNSView(_ view:PetSpriteNSView,coordinator:()) { view.stop() }
+    static func dismantleNSView(_ view:PetSpriteNSView,coordinator:()) { view.tearDown() }
 }
 
 final class PetSpriteNSView:NSView {
@@ -150,6 +181,10 @@ final class PetSpriteNSView:NSView {
     private var action=PetPreviewAction.idle
     private var reportedAction:PetPreviewAction?
     var onActionChange:((PetPreviewAction?) -> Void)?
+    var onPreparationChange:((Bool) -> Void)?
+    private var preparation:Task<Void,Never>?
+    private var preparationGeneration=0
+    private(set) var preparingFrames=false
     private var index=0
     private var playing=false
     private var timer:Timer?
@@ -170,13 +205,13 @@ final class PetSpriteNSView:NSView {
         }
         observe(NSWindow.willCloseNotification,center:.default) { [weak self] notification in
             guard let self, let window=notification.object as? NSWindow, self.window === window else { return }
-            self.stop()
+            self.tearDown()
         }
         observe(NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,center:NSWorkspace.shared.notificationCenter) { [weak self] _ in self?.updateTimer() }
     }
     required init?(coder:NSCoder) { fatalError("init(coder:) is not supported") }
     deinit {
-        timer?.invalidate()
+        timer?.invalidate();preparation?.cancel()
         for (center,observer) in observers { center.removeObserver(observer) }
     }
     private func observe(_ name:Notification.Name,center:NotificationCenter,handler:@escaping(Notification) -> Void) {
@@ -184,15 +219,52 @@ final class PetSpriteNSView:NSView {
     }
     func configure(image:CGImage,playing:Bool,action:PetPreviewAction = .idle) {
         let changedImage=self.image !== image
-        if changedImage || self.action != action {
-            stop();self.image=image;index=0
-            if changedImage { allFrames=PetPreviewFrames.frames(in:image,action:.all) }
-            self.action=action
+        self.playing=playing
+        if changedImage {
+            stop();preparation?.cancel();preparationGeneration += 1
+            self.image=image;self.action=action;allFrames=[];frames=[];index=0
+            displayFrame();reportAction(deferred:true)
+            preparingFrames=true;reportPreparation(true)
+            let generation=preparationGeneration
+            // ImageIO has decoded the atlas off the UI actor; frame copying and
+            // alpha scans also belong off the actor. Show the first drawn cell
+            // before preparing every animation, including sparse leading rows.
+            preparation=Task { [weak self] in
+                let firstWorker=Task.detached(priority:.userInitiated) {
+                    PetPreviewFrames.frames(in:image,action:.all,firstOnly:true)
+                }
+                let first=await withTaskCancellationHandler(operation:{ await firstWorker.value },onCancel:{ firstWorker.cancel() })
+                guard !Task.isCancelled,let self,self.preparationGeneration == generation else { return }
+                self.applyFrames(first,complete:false)
+                let worker=Task.detached(priority:.userInitiated) { PetPreviewFrames.frames(in:image,action:.all) }
+                let complete=await withTaskCancellationHandler(operation:{ await worker.value },onCancel:{ worker.cancel() })
+                guard !Task.isCancelled,self.preparationGeneration == generation else { return }
+                self.applyFrames(complete,complete:true);self.preparation=nil
+            }
+        } else if self.action != action {
+            stop();self.action=action;index=0
             frames=action == .all ? allFrames : allFrames.filter{$0.action == action}
-            displayFrame()
-            reportAction(deferred:true)
+            displayFrame();reportAction(deferred:true)
         }
-        self.playing=playing;updateTimer()
+        updateTimer()
+    }
+    private func applyFrames(_ value:[PetPreviewFrames.Frame],complete:Bool) {
+        allFrames=value;frames=action == .all ? value : value.filter{$0.action == action};index=0
+        displayFrame();reportAction(deferred:true)
+        if complete { preparingFrames=false;reportPreparation(false) }
+        updateTimer()
+    }
+    private func reportPreparation(_ value:Bool) {
+        let generation=preparationGeneration
+        DispatchQueue.main.async { [weak self] in
+            guard let self,self.preparationGeneration == generation,self.preparingFrames == value else { return }
+            self.onPreparationChange?(value)
+        }
+    }
+    func finishPreparation() async { await preparation?.value }
+    func tearDown() {
+        stop();preparationGeneration += 1;preparation?.cancel();preparation=nil;preparingFrames=false
+        allFrames=[];frames=[];image=nil;layer?.contents=nil
     }
     override func viewDidMoveToWindow() { super.viewDidMoveToWindow();updateTimer() }
     override func viewDidHide() { super.viewDidHide();updateTimer() }

@@ -14,7 +14,7 @@ import Combine
         let state=UsageTrendsPresentation(model:model)
         precondition(state.sample && state.selectedID == "2026-10-10")
         precondition(state.calendarRange == .year && state.range == .days30 && state.calendarData == state.data.heatmap)
-        precondition(state.chartPoints.count == 30 && state.chartPoints.last?.tokens == nil,"The curve keeps the entire range, including an unreported current day")
+        precondition(state.chartPoints.count == 30 && state.chartPoints.last?.tokens == 0,"The curve keeps the entire range, including an unreported current day")
         precondition(state.periodTotal == 162_000_000 && state.periodTotalPartial && state.periodTotalText.hasPrefix("≥ "))
         precondition(state.chartYMaximum == 200_000_000 && state.chartYTicks == [0,50_000_000,100_000_000,150_000_000,200_000_000])
         precondition(state.points.last?.tokens == nil && state.maximum == 162_000_000)
@@ -26,21 +26,27 @@ import Combine
         for index in 1...20 { model.now=now.addingTimeInterval(Double(index)*30);model.menuShowsPercentage.toggle() }
         precondition(changes == 0 && state.data == original,"Quota ticks and same-day clock changes must not redraw trends")
         let annual=state.calendarData,annualRevision=state.calendarRevision
-        state.calendarRange = .days30
-        precondition(state.range == .days30 && state.calendarData.coverage.expectedDays == 30 && state.calendarRevision == annualRevision+1)
-        let shortCalendar=state.calendarData,shortRevision=state.calendarRevision
         state.range = .days90
-        precondition(state.chartPoints.count == 90 && state.calendarData == shortCalendar && state.calendarRevision == shortRevision,
-                     "Curve controls must not rebuild or change the independent calendar")
-        state.calendarRange = .days90
-        precondition(state.calendarData.coverage.expectedDays == 90 && state.range == .days90)
-        state.calendarRange = .year;state.range = .days30
+        precondition(state.chartPoints.count == 90 && state.calendarData == annual && state.calendarRevision == annualRevision,
+                     "The annual calendar is fixed while the curve range changes independently")
+        state.range = .days30
         precondition(state.calendarData == annual && state.data == original)
+        precondition(state.chartPoint(forDay:"2026-10-10")?.tokens == 162_000_000)
+        precondition(state.chartPoint(forDay:"2026-10-11")?.tokens == 0)
+        precondition(state.chartPoint(forDay:"2026-09-01") == nil && state.chartPoint(forDay:"invalid") == nil,
+                     "Hover outside the curve range never clamps to a different date or changes range")
+        state.grouping = .weekly
+        let linked=state.chartPoint(forDay:"2026-10-09")!
+        let sourceDate=state.calendarData.columns.flatMap(\.cells).first {$0.day == "2026-10-09"}!.date
+        precondition(linked.startDate <= sourceDate && sourceDate <= linked.endDate && linked.tokens == 162_000_000)
+        state.grouping = .cumulative
+        precondition(state.chartPoint(forDay:"2026-10-11")?.tokens == 162_000_000)
+        state.grouping = .daily
         let fixedScale=state.chartYMaximum,selectionRevision=state.calendarRevision
-        precondition(state.selectNearestChartDate(.distantPast) && state.selectedDaily?.day == "2026-10-09" && state.selectedDaily?.tokens == 0)
-        precondition(state.selectNearestChartDate(.distantFuture) && state.selectedDaily?.day == "2026-10-10")
-        precondition(state.selectNearestChartDate(calendar.startOfDay(for:now)) && state.selectedDaily?.day == "2026-10-10",
-                     "A curve gesture near missing today selects a real reported point")
+        precondition(state.selectNearestChartDate(.distantPast) && state.selectedID == state.chartPoints.first?.id && state.selected?.tokens == 0)
+        precondition(state.selectNearestChartDate(.distantFuture) && state.selectedDaily?.day == "2026-10-11")
+        precondition(state.selectNearestChartDate(calendar.startOfDay(for:now)) && state.selectedDaily?.day == "2026-10-11",
+                     "A curve gesture can select the zero-filled current day without changing the raw daily record")
         precondition(!state.selectNearestChartDate(Date(timeIntervalSinceReferenceDate:.infinity)))
         let beforeSameSelection=changes
         _=state.selectNearestChartDate(.distantFuture)
@@ -52,7 +58,10 @@ import Combine
         precondition(state.chartPoints.count == 30 && state.calendarRevision == selectionRevision)
         let oldCell=state.data.heatmap.columns.flatMap(\.cells).first(where: { $0.day == "2026-09-01" })!
         state.selectDate(oldCell.date)
-        precondition(state.range == .year && state.selectedID == "2026-09-01" && state.selected?.tokens == 12)
+        precondition(state.range == .days30 && state.selectedID == nil && state.selectedDaily?.day == "2026-09-01",
+                     "Calendar selection outside the curve range never changes either range")
+        state.range = .year
+        precondition(state.selectedID == "2026-09-01" && state.selected?.tokens == 12)
         let scrollRevision=state.scrollSelectionRevision
         state.grouping = .weekly
         precondition(state.selected!.startDate <= oldCell.date && oldCell.date <= state.selected!.endDate,"Grouping must retain the selected civil date")
@@ -62,7 +71,7 @@ import Combine
         precondition(state.selectedID == "2026-09-01" && state.scrollSelectionRevision > scrollRevision,"Group changes request linked list scrolling")
         precondition(state.selected?.tokens == 12 && state.maximum == 162_000_000)
         state.range = .days30
-        precondition(state.selectedID == "2026-10-10","Changing range selects a valid reported day")
+        precondition(state.selectedID == nil && state.selectedDay == "2026-09-01","Curve range changes preserve independent calendar selection")
         let updated=now.addingTimeInterval(60)
         model.statisticsUpdated=updated
         precondition(state.updated == updated && state.data == original,"Freshness metadata must not rebuild records")
@@ -119,6 +128,36 @@ import Combine
         let started=ProcessInfo.processInfo.systemUptime
         for _ in 0..<1000 { _=state.points;_=state.maximum;_=UsageTrendFormat.date(now);_=UsageTrendFormat.exactTokens(162_000_000) }
         print(String(format:"1000 cached trend reads/formats: %.1fms",(ProcessInfo.processInfo.systemUptime-started)*1000))
+        for mode in UsageTrendGrouping.allCases {
+            state.grouping=mode
+            precondition(state.renderSegments.map(\.id) == state.chartSegments.map(\.id))
+            for (rendered,source) in zip(state.renderSegments,state.chartSegments) {
+                precondition(rendered.points.count == source.points.count)
+                for (a,b) in zip(rendered.points,source.points) {
+                    precondition(a.date == b.date && a.tokens == Double(b.tokens ?? 0) && a.series == source.id,
+                                 "Batch-rendered lines must use every original coordinate without resampling or joining gaps")
+                }
+            }
+        }
+        let gridGeometry=UsageTrendGridGeometry(columns:state.calendarData.columns.count,cell:12,gap:4.5)
+        let dayFrames=gridGeometry.frames(in:state.calendarData)
+        precondition(dayFrames.count == state.calendarData.columns.flatMap(\.cells).filter(\.insideRange).count)
+        let nativeGrid=UsageTrendCalendarNativeView(frame:CGRect(origin:.zero,size:gridGeometry.size))
+        var pressed:Date?
+        nativeGrid.configure(map:state.calendarData,geometry:gridGeometry,selectedDay:"2026-10-10",interaction:interaction,dark:true,select:{pressed=$0})
+        for (day,rect) in dayFrames {
+            precondition(nativeGrid.day(at:CGPoint(x:rect.midX,y:rect.midY)) == day)
+        }
+        precondition(gridGeometry.location(at:CGPoint(x:12.5,y:6)) == nil && nativeGrid.day(at:CGPoint(x:-1,y:0)) == nil,"Gaps and outside padding never select an adjacent date")
+        let hoverRect=dayFrames["2026-10-10"]!
+        nativeGrid.updateHover(at:CGPoint(x:hoverRect.midX,y:hoverRect.midY))
+        precondition(interaction.hoveredDay == "2026-10-10" && state.chartPoint(forDay:interaction.activeDay!)?.date == state.chartPoint(forDay:"2026-10-10")?.date)
+        nativeGrid.updateHover(at:CGPoint(x:12.5,y:6));precondition(interaction.hoveredDay == nil)
+        precondition(nativeGrid.press("2026-10-10") && pressed == state.chartPoint(forDay:"2026-10-10")?.date)
+        nativeGrid.moveFocus(days:1);precondition(interaction.focusedDay == "2026-10-11")
+        let children=nativeGrid.accessibilityChildren() as? [NSAccessibilityElement] ?? []
+        precondition(children.count == dayFrames.count && children.contains {$0.accessibilityIdentifier() == "usage-calendar-day-2026-10-10"})
+        interaction.clear()
         let navigation=UsageNavigationState();navigation.configure(.trends);navigation.page = .display;navigation.configure(.trends)
         precondition(navigation.page == .display && UsageSubpage.allCases.contains(.forecast),"Window reopen preserves the selected subpage and forecast remains independently reachable")
         model.statistics=stats(complete);state.grouping = .daily

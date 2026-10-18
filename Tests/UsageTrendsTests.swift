@@ -12,7 +12,7 @@ import Foundation
         let trend = UsageTrends(statistics: source, now: now, calendar: calendar)
         precondition(trend.dailyRows.count == 30 && trend.dailyRows.first?.day == "2026-09-12")
         precondition(trend.dailyRows.last?.day == "2026-10-11" && trend.dailyRows.last?.tokens == nil,
-                     "Unreported today is displayed as missing, never shifted away or filled with zero")
+                     "The source preserves an unreported current day independently from its zero-filled display")
         precondition(day("2026-10-05", in: trend).tokens == 0 && day("2026-10-06", in: trend).tokens == nil)
         precondition(trend.knownTotal == 150 && !trend.totalOverflowed && trend.knownTotal != source.lifetimeTokens)
         precondition(trend.coverage.knownDays == 3 && trend.coverage.missingDays == 27 && trend.coverage.isPartial)
@@ -34,16 +34,17 @@ import Foundation
         precondition(extended.heatmap == trend.heatmap && extended.selectingRange(.days30) == trend,"Curve range never narrows the independent annual grid")
         precondition(trend.heatmap(for:.year) == trend.heatmap)
         let segments=trend.chartSegments(for:.daily)
-        precondition(segments.count == 2 && segments[0].points.map(\.day) == ["2026-10-05"])
-        precondition(segments[0].points[0].tokens == 0 && segments[1].points.map(\.day) == ["2026-10-07","2026-10-08"],
-                     "Reported zero stays on the curve and missing dates split line/area series")
+        precondition(segments.count == 1 && segments[0].points.count == 30)
+        precondition(point("2026-10-06",in:segments[0].points).tokens == 0 && day("2026-10-06",in:trend).tokens == nil,
+                     "Zero filling is a display projection, not a new observed daily bucket")
+        precondition(point("2026-10-07",in:segments[0].points).tokens == 100 && segments[0].points.last?.tokens == 0)
         let cumulativeSegments=trend.chartSegments(for:.cumulative)
-        precondition(cumulativeSegments.count == 1 && cumulativeSegments[0].points.map(\.day) == ["2026-10-05","2026-10-07","2026-10-08"],
-                     "Cumulative totals connect known dates across gaps without inserting unknown points")
-        precondition(cumulativeSegments[0].points.compactMap(\.tokens) == [0,100,150],
-                     "Cumulative links preserve reported zero and add only known usage")
+        precondition(cumulativeSegments.count == 1 && cumulativeSegments[0].points.count == 30)
+        precondition(point("2026-10-09",in:cumulativeSegments[0].points).tokens == 150 && cumulativeSegments[0].points.last?.tokens == 150,
+                     "A missing cumulative day carries the known running total instead of dropping to zero")
+        precondition(trend.chartPoints(for:.weekly).allSatisfy {$0.tokens != nil} && trend.chartPoints(for:.weekly).last?.tokens == 150)
         for grouping in UsageTrendGrouping.allCases {
-            precondition(trend.chartSegments(for:grouping).flatMap(\.points) == trend.points(for:grouping).filter { $0.tokens != nil })
+            precondition(trend.chartSegments(for:grouping).flatMap(\.points) == trend.chartPoints(for:grouping))
         }
         let currentWeek = trend.weeklyRows.last!
         precondition(currentWeek.isCurrentWeek && currentWeek.startDate == date(2026, 10, 5, hour: 0, calendar: calendar))
@@ -60,6 +61,11 @@ import Foundation
             precondition(model.knownTotal == nil && model.coverage.knownDays == 0 && !model.totalOverflowed)
             precondition(model.dailyRows.allSatisfy { $0.tokens == nil })
             precondition(model.heatmap.columns.flatMap(\.cells).allSatisfy { $0.tokens == nil && $0.intensity == nil })
+        }
+        for model in [unavailable,missing] {precondition(model.chartSegments(for:.daily).isEmpty)}
+        for model in [empty,outside] {
+            precondition(model.chartPoints(for:.daily).allSatisfy {$0.tokens == 0})
+            precondition(model.chartSegments(for:.weekly).count == 1)
         }
         let older = UsageTrends(statistics: statistics([DailyTokenUsage(day: "2026-08-01", tokens: 5)]), now: now, calendar: calendar)
         precondition(older.historyState == .outsideRange && older.heatmap.coverage.knownDays == 1,
@@ -240,7 +246,7 @@ import Foundation
             precondition(row.tokens == nil && row.overflowed)
         }
         precondition(trend.heatmap.maximumTokens == Int64.max)
-        precondition(trend.chartSegments(for:.cumulative).flatMap(\.points).count == 1,"Overflow breaks cumulative line and area data")
+        precondition(trend.chartSegments(for:.cumulative).flatMap(\.points).last?.day == "2026-10-05","Overflow is never zero-filled or connected into later cumulative data")
         let fullLimit = UsageTrends(statistics: statistics([
             DailyTokenUsage(day: "2026-10-10", tokens: Int64.max), DailyTokenUsage(day: "2026-10-11", tokens: 0)
         ]), now: now, calendar: calendar)

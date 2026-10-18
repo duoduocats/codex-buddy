@@ -2,8 +2,8 @@ import AppKit
 import SwiftUI
 import Charts
 
-// Only the floating overlay observes pointer/focus changes. Moving over cells
-// cannot invalidate statistics, the date list or the rest of the page.
+// Only the cursor and floating overlays observe pointer/focus changes;
+// statistics and calendar projections stay unchanged.
 @MainActor final class UsageTrendInteraction: ObservableObject {
     @Published private(set) var hoveredDay: String?
     @Published private(set) var focusedDay: String?
@@ -63,12 +63,11 @@ private struct UsageTrendCellAnchors: PreferenceKey {
                             Button(L("重试", "Retry")) { state.refresh() }.buttonStyle(.link).disabled(state.refreshing)
                         }.font(.system(size:12)).foregroundStyle(.secondary).padding(.top,16)
                     }
-                    if state.statistics?.daily?.isEmpty == false {
+                    if state.statistics?.daily != nil {
                         UsageTrendCalendar(state:state,interaction:interaction,width:max(1,geometry.size.width-58))
                             .padding(.top,46)
                         Divider().padding(.top,40)
-                        UsageTrendFullChart(state:state).padding(.top,38)
-                        UsageTrendRecordedList(state:state).padding(.top,24)
+                        UsageTrendFullChart(state:state,interaction:interaction,plotHeight:chartHeight(in:geometry.size)).padding(.top,38)
                     } else {
                         emptyState.frame(maxWidth:.infinity,minHeight:320).padding(.top,46)
                     }
@@ -77,10 +76,18 @@ private struct UsageTrendCellAnchors: PreferenceKey {
             }.overlayPreferenceValue(UsageTrendCellAnchors.self) { anchors in
                 UsageTrendTooltipOverlay(interaction:interaction,map:state.calendarData,anchors:anchors,framesChanged:framesChanged)
             }.onDisappear { interaction.clear() }
-                .onChange(of:state.calendarRange) { _ in
+                .onChange(of:state.calendarRevision) { _ in
                     if let day=interaction.activeDay,!state.calendarData.columns.flatMap(\.cells).contains(where:{ $0.day == day && $0.insideRange }) { interaction.clear() }
                 }
         }.background(scheme == .dark ? Color(red:23/255,green:24/255,blue:25/255) : Color(nsColor:.windowBackgroundColor))
+    }
+    private func chartHeight(in size:CGSize) -> CGFloat {
+        let columns=CGFloat(max(1,state.calendarData.columns.count))
+        let cell=max(5,(size.width-58-max(0,columns-1)*4.5)/columns)
+        let gridHeight=cell*7+4.5*6
+        // Existing summary, calendar headings/months, section spacing and insets.
+        let fixedHeight:CGFloat=100+46+34+28+18+14+41+38+34+32+8+46
+        return max(220,size.height-fixedHeight-gridHeight)
     }
     private var summary: some View {
         HStack(spacing:0) {
@@ -231,7 +238,9 @@ private struct UsageTrendCellAnchors: PreferenceKey {
     @ObservedObject var state: UsageTrendsPresentation
     let interaction: UsageTrendInteraction
     let width: CGFloat
+    @Environment(\.colorScheme) private var scheme
     private var map: UsageTrendHeatmap { state.calendarData }
+    private var grid:UsageTrendGridGeometry { .init(columns:map.columns.count,cell:cellSize,gap:gap) }
     private let gap: CGFloat=4.5
     private var cellSize: CGFloat {
         let count=CGFloat(max(1,map.columns.count))
@@ -243,20 +252,13 @@ private struct UsageTrendCellAnchors: PreferenceKey {
             HStack(spacing:22) {
                 Text(L("Token 活动", "Token activity")).font(.system(size:22,weight:.semibold)).accessibilityAddTraits(.isHeader)
                 Spacer(minLength:12)
-                UsageTrendRangeMenu(selection:$state.calendarRange,calendar:true,width:99,
-                    label:L("日历范围", "Calendar range"),identifier:"usage-calendar-range")
+                Text(L("年度", "Year")).font(.system(size:13)).foregroundStyle(.secondary)
             }.frame(height:34)
             VStack(alignment:.leading,spacing:18) {
-                HStack(spacing:gap) {
-                    ForEach(map.columns) { column in
-                        VStack(spacing:gap) {
-                            ForEach(column.cells) { cell in
-                                UsageTrendCalendarCell(cell:cell,size:cellSize,selected:state.selectedDay == cell.day,
-                                    interaction:interaction,action:{ state.selectDate(cell.date) })
-                            }
-                        }
-                    }
-                }
+                UsageTrendCalendarSurface(map:map,geometry:grid,selectedDay:state.selectedDay,interaction:interaction,
+                    dark:scheme == .dark,select:state.selectDate)
+                    .frame(width:grid.size.width,height:grid.size.height)
+                    .anchorPreference(key:UsageTrendCellAnchors.self,value:.bounds) {["grid":$0]}
                 ZStack(alignment:.topLeading) {
                     ForEach(ticks) { tick in
                         Text(UsageTrendFormat.month(tick.date,year:false)).font(.system(size:12)).foregroundStyle(.secondary)
@@ -265,14 +267,6 @@ private struct UsageTrendCellAnchors: PreferenceKey {
                 }.frame(height:14)
             }.frame(maxWidth:.infinity,alignment:.leading)
         }
-    }
-    private func groupingButton(_ grouping: UsageTrendGrouping,_ title: String,width: CGFloat) -> some View {
-        Button { state.grouping=grouping } label: {
-            Text(title).font(.system(size:16,weight:state.grouping == grouping ? .semibold : .regular))
-                .foregroundStyle(state.grouping == grouping ? Color.primary : Color.secondary)
-                .frame(width:width,height:32).contentShape(Rectangle())
-        }.buttonStyle(.plain).accessibilityAddTraits(state.grouping == grouping ? .isSelected : [])
-            .accessibilityIdentifier("usage-trends-group-"+grouping.rawValue)
     }
     private func monthWidth(_ tick: UsageTrendMonthTick) -> CGFloat {
         (UsageTrendFormat.month(tick.date,year:false) as NSString).size(withAttributes:[.font:NSFont.systemFont(ofSize:12)]).width+2
@@ -296,11 +290,22 @@ private struct UsageTrendCellAnchors: PreferenceKey {
 
 @MainActor private struct UsageTrendFullChart: View {
     @ObservedObject var state: UsageTrendsPresentation
+    @ObservedObject var interaction:UsageTrendInteraction
+    let plotHeight:CGFloat
     @State private var hoveredPointID:String?
-    private var activePoint:UsageTrendPoint? {hoveredPointID.flatMap {id in state.chartPoints.first {$0.id == id}} ?? state.selected}
+    private var activePoint:UsageTrendPoint? {
+        if let id=hoveredPointID {return state.chartPoints.first {$0.id == id}}
+        if let day=interaction.activeDay {return state.chartPoint(forDay:day)}
+        return state.selected
+    }
+    private var showingTooltip:Bool {hoveredPointID != nil || interaction.activeDay != nil}
     private var pointLabel:String {
         guard let point=activePoint else {return ""}
-        return state.grouping == .weekly ? UsageTrendFormat.date(point.periodStartDate)+" – "+UsageTrendFormat.date(point.periodEndDate) : UsageTrendFormat.date(point.date)
+        if state.grouping == .weekly {
+            let crossYear=UsageTrendsPresentation.calendar.component(.year,from:point.startDate) != UsageTrendsPresentation.calendar.component(.year,from:point.endDate)
+            return UsageTrendFormat.date(point.startDate,year:true)+" – "+UsageTrendFormat.date(point.endDate,year:crossYear)
+        }
+        return UsageTrendFormat.date(point.date,year:true)
     }
     var body: some View {
         VStack(alignment:.leading,spacing:32) {
@@ -331,25 +336,18 @@ private struct UsageTrendCellAnchors: PreferenceKey {
                 Text(L("这段时间暂无记录", "No records in this range")).font(.system(size:13)).foregroundStyle(.secondary)
                     .frame(maxWidth:.infinity,minHeight:228)
             } else {
-                plot.frame(height:220).padding(.top,8)
+                plot.frame(height:plotHeight).padding(.top,8)
             }
         }
     }
     private var plot: some View {
         Chart {
-            ForEach(state.chartSegments,id:\.id) { segment in
-                ForEach(segment.points) { point in
-                    AreaMark(x:.value("Date",point.date),y:.value("Tokens",Double(point.tokens ?? 0)),series:.value("Segment",segment.id))
-                        .foregroundStyle(LinearGradient(colors:[Color.blue.opacity(0.22),Color.blue.opacity(0.015)],startPoint:.top,endPoint:.bottom))
-                        .interpolationMethod(.monotone)
-                    LineMark(x:.value("Date",point.date),y:.value("Tokens",Double(point.tokens ?? 0)),series:.value("Segment",segment.id))
-                        .foregroundStyle(Color.blue).lineStyle(StrokeStyle(lineWidth:2)).interpolationMethod(.monotone)
-                    PointMark(x:.value("Date",point.date),y:.value("Tokens",Double(point.tokens ?? 0)))
-                        .foregroundStyle(Color.blue).symbolSize(28)
-                        .accessibilityLabel(UsageTrendFormat.title(point,grouping:state.grouping))
-                        .accessibilityValue(point.tokens.map { (point.isPartialPeriod ? "≥ " : "")+UsageTrendFormat.exactTokens($0)+" Token" } ?? "— Token")
-                }
+            if state.grouping == .weekly,let point=activePoint {
+                RectangleMark(xStart:.value("Week begins",point.startDate),xEnd:.value("Week ends",min(xDomain.upperBound,UsageTrendsPresentation.calendar.date(byAdding:.day,value:1,to:point.endDate) ?? point.endDate)),
+                    yStart:.value("Floor",0),yEnd:.value("Ceiling",state.chartYMaximum))
+                    .foregroundStyle(Color.blue.opacity(0.045)).accessibilityHidden(true)
             }
+            renderedSeries
             if let selected=activePoint {
                 RuleMark(x:.value("Selected",selected.date)).foregroundStyle(Color.blue.opacity(0.8))
                     .lineStyle(StrokeStyle(lineWidth:1,dash:[4,3])).accessibilityHidden(true)
@@ -359,7 +357,7 @@ private struct UsageTrendCellAnchors: PreferenceKey {
                         Circle().fill(Color.blue).overlay(Circle().stroke(Color.white,lineWidth:1.3)).frame(width:16,height:16)
                     }
                     .annotation(position:.top,alignment:annotationAlignment,spacing:8) {
-                        if hoveredPointID == nil {Text(UsageTrendFormat.value(selected)).font(.system(size:13,weight:.medium)).monospacedDigit().fixedSize()}
+                        if !showingTooltip {Text(UsageTrendFormat.value(selected)).font(.system(size:13,weight:.medium)).monospacedDigit().fixedSize()}
                     }.accessibilityHidden(true)
                 }
             }
@@ -402,11 +400,11 @@ private struct UsageTrendCellAnchors: PreferenceKey {
                             guard bounds.contains(value.location),let date: Date=proxy.value(atX:value.location.x-bounds.minX) else { return }
                             state.selectNearestChartDate(date)
                         })
-                    if hoveredPointID != nil,let point=activePoint,let x=proxy.position(forX:point.date) {
+                    if showingTooltip,let point=activePoint,let x=proxy.position(forX:point.date) {
                         let bounds=geometry[proxy.plotAreaFrame]
                         let width:CGFloat=min(220,bounds.width)
                         VStack(alignment:.leading,spacing:3) {
-                            Text(pointLabel).font(.system(size:11)).foregroundStyle(.secondary)
+                            Text(pointLabel).font(.system(size:11)).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.75)
                             Text(point.tokens.map {(point.isPartialPeriod ? "≥ " : "")+UsageTrendFormat.exactTokens($0)+" Token"} ?? L("暂无记录", "No record")).font(.system(size:13,weight:.medium)).monospacedDigit()
                         }.padding(9).frame(width:width,alignment:.leading).background(.regularMaterial,in:RoundedRectangle(cornerRadius:8))
                             .overlay(RoundedRectangle(cornerRadius:8).stroke(Color.primary.opacity(0.12),lineWidth:0.7))
@@ -423,9 +421,28 @@ private struct UsageTrendCellAnchors: PreferenceKey {
             .accessibilityAction(named:L("上一条记录", "Previous record")) { selectAdjacent(-1) }
             .accessibilityAction(named:L("下一条记录", "Next record")) { selectAdjacent(1) }
     }
+    private var renderedSeries:AnyChartContent {
+        if #available(macOS 15.0,*) {return AnyChartContent(UsageTrendBatchedSeries(segments:state.renderSegments))}
+        return AnyChartContent(legacySeries)
+    }
+    @ChartContentBuilder private var legacySeries:some ChartContent {
+                ForEach(state.chartSegments,id:\.id) { segment in
+                    ForEach(segment.points) { point in
+                        AreaMark(x:.value("Date",point.date),y:.value("Tokens",Double(point.tokens ?? 0)),series:.value("Segment",segment.id))
+                            .foregroundStyle(LinearGradient(colors:[Color.blue.opacity(0.22),Color.blue.opacity(0.015)],startPoint:.top,endPoint:.bottom))
+                            .interpolationMethod(.monotone)
+                        LineMark(x:.value("Date",point.date),y:.value("Tokens",Double(point.tokens ?? 0)),series:.value("Segment",segment.id))
+                            .foregroundStyle(Color.blue).lineStyle(StrokeStyle(lineWidth:2)).interpolationMethod(.monotone)
+                        PointMark(x:.value("Date",point.date),y:.value("Tokens",Double(point.tokens ?? 0)))
+                            .foregroundStyle(Color.blue).symbolSize(28)
+                            .accessibilityLabel(UsageTrendFormat.title(point,grouping:state.grouping))
+                            .accessibilityValue(point.tokens.map { (point.isPartialPeriod ? "≥ " : "")+UsageTrendFormat.exactTokens($0)+" Token" } ?? "— Token")
+                    }
+                }
+    }
     private var xDomain: ClosedRange<Date> {
-        let start=state.chartPoints.first?.date ?? state.data.rangeStartDate
-        let end=state.chartPoints.last?.date ?? state.data.rangeEndDate
+        let start=state.data.rangeStartDate
+        let end=state.data.rangeEndDate
         return start...(end > start ? end : UsageTrendsPresentation.calendar.date(byAdding:.day,value:1,to:start) ?? start.addingTimeInterval(86_400))
     }
     private var axisDates: [Date] {
@@ -456,123 +473,6 @@ private struct UsageTrendCellAnchors: PreferenceKey {
     }
 }
 
-@MainActor private struct UsageTrendRecordedList: View {
-    @ObservedObject var state: UsageTrendsPresentation
-    @State private var expanded = false
-    private var records: [UsageTrendPoint] { Array(state.listPoints.reversed()) }
-    var body: some View {
-        VStack(alignment:.leading,spacing:16) {
-            HStack {
-                Spacer()
-                Button { expanded.toggle() } label: {
-                    HStack(spacing:10) {
-                        Text(expanded ? L("收起明细", "Hide details") : L("查看明细", "View details"))
-                        Image(systemName:expanded ? "chevron.up" : "chevron.down").font(.system(size:12,weight:.medium)).accessibilityHidden(true)
-                    }.font(.system(size:16,weight:.medium)).foregroundStyle(Color.blue)
-                        .frame(minWidth:100,minHeight:30).contentShape(Rectangle())
-                }.buttonStyle(.plain).accessibilityIdentifier("usage-trends-details")
-            }
-            if expanded {
-                if records.isEmpty {
-                    Text(L("这段时间暂无记录", "No records in this range")).font(.system(size:13)).foregroundStyle(.secondary)
-                        .frame(maxWidth:.infinity,minHeight:100)
-                } else {
-                    ScrollViewReader { proxy in
-                        ScrollView {
-                            LazyVStack(spacing:0) {
-                                ForEach(records) { point in
-                                    UsageTrendListRow(point:point,grouping:state.grouping,maximum:state.maximum,
-                                        selected:state.selectedID == point.id,action:{ state.select(point) }).id(point.id)
-                                    Divider()
-                                }
-                            }
-                        }.frame(height:CGFloat(min(records.count,8))*45)
-                            .onAppear { scrollToSelection(proxy) }
-                            .onChange(of:state.scrollSelectionRevision) { _ in scrollToSelection(proxy) }
-                    }
-                }
-            }
-        }
-    }
-    private func scrollToSelection(_ proxy: ScrollViewProxy) {
-        guard let id=state.selectedID else { return }
-        DispatchQueue.main.async { proxy.scrollTo(id,anchor:.center) }
-    }
-}
-
-@MainActor private struct UsageTrendListRow: View {
-    let point: UsageTrendPoint
-    let grouping: UsageTrendGrouping
-    let maximum: Int64
-    let selected: Bool
-    let action: () -> Void
-    @State private var hovered = false
-    var body: some View {
-        Button(action:action) {
-            HStack(spacing:18) {
-                Text(UsageTrendFormat.title(point,grouping:grouping)).font(.system(size:14)).lineLimit(1).minimumScaleFactor(0.8)
-                    .frame(width:180,alignment:.leading)
-                GeometryReader { proxy in
-                    ZStack(alignment:.leading) {
-                        Capsule().fill(Color.primary.opacity(0.07))
-                        if let tokens=point.tokens,maximum > 0 {
-                            Capsule().fill(Color.blue).frame(width:proxy.size.width*min(1,Double(tokens)/Double(maximum)))
-                        }
-                    }.frame(height:12).frame(maxHeight:.infinity)
-                }.frame(maxWidth:.infinity).frame(height:20).accessibilityHidden(true)
-                Text(UsageTrendFormat.value(point)).font(.system(size:14)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
-                    .frame(width:110,alignment:.trailing)
-            }.padding(.horizontal,14).frame(height:44)
-                .background(selected ? Color.blue.opacity(0.14) : hovered ? Color.primary.opacity(0.04) : .clear,in:RoundedRectangle(cornerRadius:6))
-                .contentShape(Rectangle())
-        }.buttonStyle(.plain).onHover { hovered=$0 }
-            .accessibilityLabel(UsageTrendFormat.title(point,grouping:grouping)+", "+accessibilityValue)
-            .accessibilityAddTraits(selected ? .isSelected : [])
-            .accessibilityIdentifier("usage-trend-day-"+point.id)
-    }
-    private var accessibilityValue: String {
-        guard let tokens=point.tokens else { return "— Token" }
-        let value=UsageTrendFormat.exactTokens(tokens)+" Token"
-        return point.isPartial ? value+L("，仅合计已有记录", ", total of available records") : value
-    }
-}
-
-@MainActor private struct UsageTrendCalendarCell: View {
-    let cell: UsageTrendHeatmapCell
-    let size: CGFloat
-    let selected: Bool
-    let interaction: UsageTrendInteraction
-    let action: () -> Void
-    @Environment(\.colorScheme) private var scheme
-    @State private var hovered = false
-    @FocusState private var focused: Bool
-    var body: some View {
-        Button(action:action) {
-            RoundedRectangle(cornerRadius:3).fill(color)
-                .overlay(RoundedRectangle(cornerRadius:3).stroke(selected || hovered || focused ? Color.blue : .clear,lineWidth:1.2))
-                .frame(width:size,height:size).contentShape(Rectangle())
-        }.buttonStyle(.plain).disabled(!cell.insideRange).focused($focused)
-            .accessibilityHidden(!cell.insideRange).accessibilityLabel(accessibilityLabel)
-            .accessibilityIdentifier("usage-calendar-day-"+cell.day)
-            .accessibilityAddTraits(selected ? .isSelected : [])
-            .anchorPreference(key:UsageTrendCellAnchors.self,value:.bounds) { cell.insideRange ? [cell.day:$0] : [:] }
-            .onHover { active in
-                guard cell.insideRange else { return }
-                if hovered != active { hovered=active }
-                interaction.hover(cell.day,active:active)
-            }
-            .onChange(of:focused) { interaction.focus(cell.day,active:$0) }
-    }
-    private var color: Color {
-        guard cell.insideRange else { return .clear }
-        guard let intensity=cell.intensity else { return Color.primary.opacity(scheme == .dark ? 0.11 : 0.045) }
-        return intensity == 0 ? Color.primary.opacity(scheme == .dark ? 0.22 : 0.13) : Color.blue.opacity([0,0.38,0.58,0.78,1][min(4,intensity)])
-    }
-    private var accessibilityLabel: String {
-        UsageTrendFormat.date(cell.date,year:true)+", "+(cell.tokens.map { UsageTrendFormat.exactTokens($0)+" Token" } ?? L("暂无记录", "No recorded usage"))
-    }
-}
-
 @MainActor private struct UsageTrendTooltipOverlay: View {
     @ObservedObject var interaction: UsageTrendInteraction
     let map: UsageTrendHeatmap
@@ -580,19 +480,22 @@ private struct UsageTrendCellAnchors: PreferenceKey {
     let framesChanged: (([String:CGRect]) -> Void)?
     var body: some View {
         GeometryReader { proxy in
+            let gridFrame=anchors["grid"].map {proxy[$0]} ?? .zero
+            let columns=CGFloat(max(1,map.columns.count))
+            let grid=UsageTrendGridGeometry(columns:map.columns.count,cell:max(0,(gridFrame.width-max(0,columns-1)*4.5)/columns),gap:4.5)
+            let frames=grid.frames(in:map,origin:gridFrame.origin)
             if let framesChanged {
-                let frames=anchors.mapValues { proxy[$0] }
                 Color.clear.onAppear { framesChanged(frames) }.onChange(of:frames) { framesChanged($0) }
             }
-            if let day=interaction.activeDay,let anchor=anchors[day],
+            if let day=interaction.activeDay,let anchor=frames[day],
                let cell=map.columns.lazy.flatMap(\.cells).first(where:{ $0.day == day && $0.insideRange }),
-               proxy[anchor].intersects(CGRect(origin:.zero,size:proxy.size)) {
-                let tokenText=cell.tokens.map { UsageTrendFormat.exactTokens($0)+" Token" } ?? "— Token"
+               anchor.intersects(CGRect(origin:.zero,size:proxy.size)) {
+                let tokenText=UsageTrendFormat.exactTokens(cell.tokens ?? 0)+" Token"
                 let dateText=UsageTrendFormat.date(cell.date,year:true)
                 let textWidth=(tokenText as NSString).size(withAttributes:[.font:NSFont.monospacedDigitSystemFont(ofSize:13,weight:.regular)]).width
                 let dateWidth=(dateText as NSString).size(withAttributes:[.font:NSFont.systemFont(ofSize:13)]).width
                 let bounds=CGRect(origin:.zero,size:proxy.size)
-                let frame=UsageTrendTooltipPlacement.frame(anchor:proxy[anchor],size:CGSize(width:max(140,min(300,max(textWidth,dateWidth)+24)),height:54),bounds:bounds)
+                let frame=UsageTrendTooltipPlacement.frame(anchor:anchor,size:CGSize(width:max(140,min(300,max(textWidth,dateWidth)+24)),height:54),bounds:bounds)
                 VStack(alignment:.leading,spacing:4) {
                     Text(dateText)
                     Text(tokenText).monospacedDigit()
@@ -602,12 +505,28 @@ private struct UsageTrendCellAnchors: PreferenceKey {
                     .overlay(RoundedRectangle(cornerRadius:8).stroke(Color.primary.opacity(0.12),lineWidth:0.6))
                     .shadow(color:.black.opacity(0.18),radius:6,y:3)
                     .position(x:frame.midX,y:frame.midY)
-                let above=frame.maxY <= proxy[anchor].minY
+                let above=frame.maxY <= anchor.minY
                 Image(systemName:above ? "arrowtriangle.down.fill" : "arrowtriangle.up.fill")
                     .font(.system(size:9)).foregroundStyle(Color(nsColor:.windowBackgroundColor))
-                    .position(x:min(max(proxy[anchor].midX,frame.minX+12),frame.maxX-12),y:above ? frame.maxY+2 : frame.minY-2)
+                    .position(x:min(max(anchor.midX,frame.minX+12),frame.maxX-12),y:above ? frame.maxY+2 : frame.minY-2)
                     .accessibilityHidden(true)
             }
         }.allowsHitTesting(false)
+    }
+}
+
+@available(macOS 15.0,*)
+@MainActor private struct UsageTrendBatchedSeries:ChartContent {
+    let segments:[UsageTrendRenderSegment]
+    @ChartContentBuilder var body:some ChartContent {
+                ForEach(segments) { segment in
+                    AreaPlot(segment.points,x:.value("Date",\.date),y:.value("Tokens",\.tokens),series:.value("Segment",\.series))
+                        .foregroundStyle(LinearGradient(colors:[Color.blue.opacity(0.22),Color.blue.opacity(0.015)],startPoint:.top,endPoint:.bottom))
+                        .interpolationMethod(.monotone)
+                    LinePlot(segment.points,x:.value("Date",\.date),y:.value("Tokens",\.tokens),series:.value("Segment",\.series))
+                        .foregroundStyle(Color.blue).lineStyle(StrokeStyle(lineWidth:2)).interpolationMethod(.monotone)
+                    PointPlot(segment.points,x:.value("Date",\.date),y:.value("Tokens",\.tokens))
+                        .foregroundStyle(Color.blue).symbolSize(28)
+                }
     }
 }

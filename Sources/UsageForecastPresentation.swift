@@ -231,10 +231,8 @@ struct UsageForecastHistoryRow: Identifiable, Equatable {
         if waitingForUpdate || window?.resetDate == nil { return L("等待更新", "Awaiting update") }
         if window?.state == .waiting { return L("等待额度更新", "Waiting for quota") }
         guard comparison?.scenarioRelevant == true else { return L("当前周期不变", "Current cycle unchanged") }
-        if comparison?.projectionBasis == .budget {return L("比较额外重置预算", "Compare extra-reset budget")}
-        guard let seconds=comparison?.savedWaitingSeconds else { return L("继续观察", "Keep observing") }
-        if seconds < 60 { return L("当前无需等待", "No waiting at this pace") }
-        return L("可减少 \(UsageForecastFormat.number(seconds/3600)) 小时空档", "May avoid \(UsageForecastFormat.number(seconds/3600)) hours of waiting")
+        guard comparison?.scenarioSegments.isEmpty == false else {return L("继续观察", "Keep observing")}
+        return L("重置前用至 0%", "Use the balance before reset")
     }
     var extraDetail: String {
         guard simulated else { return L("开启后对比两条曲线", "Enable to compare both curves") }

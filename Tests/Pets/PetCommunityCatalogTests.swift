@@ -2,7 +2,7 @@ import Foundation
 
 enum PetCommunityCatalogTests {
     @MainActor static func run(root:URL,sprite:Data) async throws {
-        func source(_ id:String) -> PetSource { PetSource.defaults.first(where:{$0.id == id})! }
+        func source(_ id:String) -> PetSource { (PetSource.defaults + PetSource.retired).first(where:{$0.id == id})! }
         func pets(_ text:String,_ id:String) throws -> [PetTheme] { try PetCatalog.decode(Data(text.utf8),source:source(id)).pets }
         let fixtures:[String:String]=[
             "petdex":#"{"pets":[{"slug":"fixture","displayName":"Fixture","kind":"animal","submittedBy":"Synthetic submitter","spritesheetUrl":"https://example.com/cdn/sprite.png","petJsonUrl":"https://example.com/cdn/metadata.json","spriteVersionNumber":2}]}"#,
@@ -49,11 +49,28 @@ enum PetCommunityCatalogTests {
         let legacy=PetTestPreferences()
         legacy.set(try JSONEncoder().encode(PetSource.defaults.prefix(4).map { var s=$0;s.enabled=false;return s }),forKey:"pets.sources")
         let migrated=ThemeStoreModel(preferences:legacy,cacheDirectory:root.appendingPathComponent("migration-cache"),libraryRoot:root)
-        precondition(migrated.sources.count == 12 && migrated.sources.prefix(4).allSatisfy{!$0.enabled} && migrated.sources.dropFirst(4).allSatisfy(\.enabled))
+        precondition(migrated.sources.count == 11 && migrated.sources.prefix(4).allSatisfy{!$0.enabled} && migrated.sources.dropFirst(4).allSatisfy(\.enabled))
+
+        let retiredPreferences=PetTestPreferences()
+        var custom=try PetSource.custom(url:URL(string:"https://example.com/retained-catalog.json")!);custom.enabled=false
+        let priorSources=PetSource.defaults.map { var value=$0;value.enabled=false;return value } + PetSource.retired + [custom]
+        retiredPreferences.set(try JSONEncoder().encode(priorSources),forKey:"pets.sources")
+        precondition(PetFavoritesRepository(preferences:retiredPreferences).save([PetFavorite(theme:dex,savedAt:Date())]))
+        let retiredCacheURL=root.appendingPathComponent("retired-source-cache")
+        let retiredCache=PetCatalogCache(directory:retiredCacheURL)
+        try await retiredCache.write(Data(fixtures["petdex"]!.utf8),name:PetURL.key(source("petdex").catalogURL.absoluteString)+".json")
+        PetFixture.reset([source("petdex").catalogURL.absoluteString:Data(fixtures["petdex"]!.utf8)])
+        let retiredModel=ThemeStoreModel(preferences:retiredPreferences,client:PetHTTPClient(protocolClasses:[PetFixture.self]),cacheDirectory:retiredCacheURL,libraryRoot:root)
+        precondition(retiredModel.sources.count == 12 && !retiredModel.sources.contains(where: { $0.id == "petdex" }))
+        precondition(retiredModel.sources.allSatisfy { !$0.enabled } && retiredModel.sources.last == custom,"Retiring a source preserves other source choices and custom catalogs")
+        retiredModel.open();try await PetStoreTests.wait(retiredModel)
+        precondition(retiredModel.themes.isEmpty && PetFixture.requests.isEmpty,"An enabled legacy source and warm cache must not restore or fetch a retired catalog")
+        precondition(retiredModel.favoriteThemes == [dex] && !retiredModel.canFetch(dex),"Saved metadata survives without enabling retired-source downloads")
+        retiredModel.close()
 
         let client=PetHTTPClient(protocolClasses:[PetFixture.self])
         let cache=root.appendingPathComponent("community-cache",isDirectory:true)
-        for id in ["codexpet","petdex","david"] {
+        for id in ["codexpet","david"] {
             let preferences=PetTestPreferences()
             preferences.set(try JSONEncoder().encode(PetSource.defaults.map { var s=$0;s.enabled=s.id==id;return s }),forKey:"pets.sources")
             let selected=try pets(fixtures[id]!,id)[0]
@@ -73,6 +90,6 @@ enum PetCommunityCatalogTests {
             let restored=ThemeStoreModel(preferences:preferences,client:client,cacheDirectory:cache,libraryRoot:root)
             precondition(restored.favoriteThemes[0].spriteURL == selected.spriteURL && restored.favoriteThemes[0].inlineManifest == selected.inlineManifest)
         }
-        print("Community expansion passed: eight new adapters, CDN/inline manifests, preserved rights notices, large bounded catalogs, unsafe paths, offline favorites and source preference migration")
+        print("Community expansion passed: eight new adapters, CDN/inline manifests, preserved rights notices, large bounded catalogs, unsafe paths, offline favorites and retired-source migration without downloads")
     }
 }

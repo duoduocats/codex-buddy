@@ -4,9 +4,16 @@ import Combine
 enum UsageSubpage: String, CaseIterable, Identifiable {
     case display, trends, forecast
     var id: Self { self }
+    var symbol: String {
+        switch self {
+        case .display: return "menubar.rectangle"
+        case .trends: return "chart.xyaxis.line"
+        case .forecast: return "chart.line.uptrend.xyaxis"
+        }
+    }
     var title: String {
         switch self {
-        case .display: return L("顶栏助手", "Menu bar assistant")
+        case .display: return L("用量助手", "Usage assistant")
         case .trends: return L("用量趋势", "Usage trends")
         case .forecast: return L("用量预测", "Usage forecast")
         }
@@ -32,12 +39,14 @@ enum UsageSubpage: String, CaseIterable, Identifiable {
     @Published private(set) var data: UsageTrends
     @Published private(set) var calendarData: UsageTrendHeatmap
     @Published private(set) var points: [UsageTrendPoint]
+    @Published private(set) var chartPoints: [UsageTrendPoint]
     @Published private(set) var chartSegments: [UsageTrendChartSegment]
+    @Published private(set) var renderSegments:[UsageTrendRenderSegment]
     @Published private(set) var chartYMaximum: Double
     @Published private(set) var chartYTicks: [Double]
     private(set) var maximum: Int64
     private(set) var calendarRevision = 0
-    @Published var calendarRange: UsageTrendRange = .year { didSet { if oldValue != calendarRange { rebuildCalendar() } } }
+    let calendarRange:UsageTrendRange = .year
     @Published var range: UsageTrendRange = .days30 { didSet { if oldValue != range { data=data.selectingRange(range);rebuildPoints();scrollSelectionRevision += 1 } } }
     @Published var grouping: UsageTrendGrouping = .daily { didSet { if oldValue != grouping { rebuildPoints();scrollSelectionRevision += 1 } } }
     @Published private(set) var selectedID: String?
@@ -57,8 +66,9 @@ enum UsageSubpage: String, CaseIterable, Identifiable {
         let initialPoints=initial.points(for:.daily)
         let initialMaximum=initialPoints.compactMap(\.tokens).max() ?? 0
         let scale=Self.chartScale(maximum:initialMaximum)
-        data=initial;calendarData=initial.heatmap;points=initialPoints;maximum=initialMaximum
-        chartSegments=initial.chartSegments(for:.daily);chartYMaximum=scale.maximum;chartYTicks=scale.ticks
+        data=initial;calendarData=initial.heatmap;points=initialPoints;chartPoints=initial.chartPoints(for:.daily);maximum=initialMaximum
+        let segments=initial.chartSegments(for:.daily)
+        chartSegments=segments;renderSegments=segments.map(UsageTrendRenderSegment.init);chartYMaximum=scale.maximum;chartYTicks=scale.ticks
         annualDays=Self.annualPoints(initial)
         selectedID = initialPoints.last(where:{ $0.tokens != nil })?.id
         selectedDay=selectedID
@@ -88,9 +98,8 @@ enum UsageSubpage: String, CaseIterable, Identifiable {
         let day = calendar.dateComponents([.year,.month,.day],from:date)
         return "\(day.year ?? 0)-\(day.month ?? 0)-\(day.day ?? 0)|\(calendar.timeZone.identifier)|\(calendar.timeZone.secondsFromGMT(for:date))|\(Locale.autoupdatingCurrent.identifier)|\(calendar.firstWeekday)|\(calendar.minimumDaysInFirstWeek)"
     }
-    var selected: UsageTrendPoint? { points.first(where:{ $0.id == selectedID }) }
-    var chartPoints: [UsageTrendPoint] { points }
-    var periodTotal: Int64? { data.knownTotal }
+    var selected: UsageTrendPoint? { chartPoints.first(where:{ $0.id == selectedID }) }
+    var periodTotal: Int64? { data.knownTotal ?? (data.historyState != .unavailable && !data.totalOverflowed ? 0 : nil) }
     var periodTotalPartial: Bool { data.coverage.isPartial }
     var periodTotalOverflowed: Bool { data.totalOverflowed }
     var periodTotalText: String {
@@ -126,16 +135,21 @@ enum UsageSubpage: String, CaseIterable, Identifiable {
     func selectDate(_ date: Date) {
         guard date.timeIntervalSinceReferenceDate.isFinite,
               let source=annualDays.first(where:{ $0.date == date }) else { return }
-        if date < data.rangeStartDate { range = .year }
         if let point=point(for:source.date) { setSelection(point:point,sourceDay:source.day) }
+        else {selectedDay=source.day;selectedID=nil}
     }
     @discardableResult func selectNearestChartDate(_ date: Date) -> Bool {
         guard date.timeIntervalSinceReferenceDate.isFinite else { return false }
-        let known=points.filter { $0.tokens != nil }
+        let known=chartPoints.filter { $0.tokens != nil }
         guard let first=known.first,let last=known.last else { return false }
         let clamped=min(last.date,max(first.date,date))
         guard let nearest=known.min(by:{ abs($0.date.timeIntervalSince(clamped)) < abs($1.date.timeIntervalSince(clamped)) }) else { return false }
         select(nearest);return true
+    }
+    func chartPoint(forDay day:String) -> UsageTrendPoint? {
+        guard let date=annualDays.first(where:{$0.day == day})?.date else {return nil}
+        if grouping == .weekly {return chartPoints.first {$0.startDate <= date && date <= $0.endDate}}
+        return chartPoints.first {$0.date == date}
     }
     func refresh() { model.refreshUsageTrends() }
     private func rebuild() {
@@ -145,7 +159,7 @@ enum UsageSubpage: String, CaseIterable, Identifiable {
         rebuildPoints()
     }
     private func rebuildCalendar() {
-        calendarData=data.heatmap(for:calendarRange);calendarRevision += 1
+        calendarData=data.heatmap;calendarRevision += 1
     }
     private static func annualPoints(_ data: UsageTrends) -> [UsageTrendPoint] {
         data.heatmap.columns.flatMap(\.cells).filter(\.insideRange).map { cell in
@@ -157,7 +171,9 @@ enum UsageSubpage: String, CaseIterable, Identifiable {
     private func rebuildPoints() {
         let value=data.points(for:grouping)
         maximum=value.compactMap(\.tokens).max() ?? 0;points=value
+        chartPoints=data.chartPoints(for:grouping)
         chartSegments=data.chartSegments(for:grouping)
+        renderSegments=chartSegments.map(UsageTrendRenderSegment.init)
         let scale=Self.chartScale(maximum:maximum)
         chartYMaximum=scale.maximum;chartYTicks=scale.ticks
         retainSelection()
@@ -180,9 +196,8 @@ enum UsageSubpage: String, CaseIterable, Identifiable {
         return (upper,Array(stride(from:0.0,through:upper,by:tickStep)))
     }
     private func retainSelection() {
-        if let selectedDay,let row=data.dailyRows.first(where:{ $0.day == selectedDay }),
-           let point=point(for:row.date) {
-            selectedID=point.id;return
+        if let selectedDay,let row=annualDays.first(where:{ $0.day == selectedDay }) {
+            selectedID=point(for:row.date)?.id;return
         }
         if let day=annualDays.last(where:{ $0.date >= data.rangeStartDate && $0.date <= data.rangeEndDate && $0.tokens != nil }) {
             selectedDay=day.day

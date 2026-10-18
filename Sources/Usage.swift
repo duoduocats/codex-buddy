@@ -175,7 +175,8 @@ private final class NoRedirect: NSObject, URLSessionTaskDelegate {
     var petTransfer: ((Int64,Bool)->Void)?
     private var recordedPets=Set<Int>()
     private func report(_ task:URLSessionTask,bytes:Int64,complete:Bool) {
-        guard task.originalRequest?.url?.path == "/backend-api/pets",!recordedPets.contains(task.taskIdentifier) else { return }
+        let path=task.originalRequest?.url?.path ?? ""
+        guard (path == "/backend-api/pets" || (path.hasPrefix("/backend-api/pets/pet_") && task.originalRequest?.httpMethod == "DELETE")),!recordedPets.contains(task.taskIdentifier) else { return }
         recordedPets.insert(task.taskIdentifier)
         if recordedPets.count > 128 { recordedPets=Set(recordedPets.sorted().suffix(64)) }
         petTransfer?(bytes,complete)
@@ -257,12 +258,26 @@ private final class NoRedirect: NSObject, URLSessionTaskDelegate {
         let result=try await request(path:path,identitySalt:identitySalt,maximumBytes:1_000_000,petIdentity:true)
         guard result.accountKey != nil else { throw UsageFailure.authentication };return result
     }
-    private func request(path: String, identitySalt: Data? = nil, maximumBytes:Int? = nil,petIdentity:Bool = false) async throws -> (data: Data, accountKey: String?) {
+    func deletePet(id:String,identitySalt:Data,expectedAccountKey:String) async throws {
+        guard id.hasPrefix("pet_"),id.utf8.count > 4,id.utf8.count <= 180,
+              id.utf8.allSatisfy({(48...57).contains($0) || (65...90).contains($0) || (97...122).contains($0) || $0 == 45 || $0 == 95}),
+              identitySalt.count == 32,!expectedAccountKey.isEmpty else {throw UsageFailure.malformed}
+        let result=try await request(path:"/backend-api/pets/"+id,identitySalt:identitySalt,maximumBytes:65_536,
+            petIdentity:true,method:"DELETE",expectedAccountKey:expectedAccountKey,successCodes:[200,204,404])
+        guard result.accountKey == expectedAccountKey else {throw CancellationError()}
+        if !result.data.isEmpty {
+            guard let object=try? JSONSerialization.jsonObject(with:result.data) as? [String:Any],
+                  object["error"] == nil,(object["success"] as? Bool) != false else {throw UsageFailure.malformed}
+        }
+    }
+    private func request(path: String, identitySalt: Data? = nil, maximumBytes:Int? = nil,petIdentity:Bool = false,
+        method:String = "GET",expectedAccountKey:String? = nil,successCodes:Set<Int> = [200]) async throws -> (data: Data, accountKey: String?) {
         guard let data = credentialProvider(),
               let auth = try? JSONSerialization.jsonObject(with:data) as? [String:Any],
               let tokens = auth["tokens"] as? [String:Any],
               let token = tokens["access_token"] as? String, !token.isEmpty else { throw UsageFailure.authentication }
         var request = URLRequest(url:URL(string:"https://chatgpt.com\(path)")!)
+        request.httpMethod=method
         request.setValue("Bearer \(token)",forHTTPHeaderField:"Authorization")
         request.setValue("codex-cli",forHTTPHeaderField:"User-Agent")
         request.setValue("application/json",forHTTPHeaderField:"Accept")
@@ -275,13 +290,14 @@ private final class NoRedirect: NSObject, URLSessionTaskDelegate {
                 accountKey = digest.map { String(format:"%02x",$0) }.joined()
             }
         }
+        if let expectedAccountKey,accountKey != expectedAccountKey {throw CancellationError()}
         do {
             let body:Data,response:URLResponse
             if let maximumBytes {
                 let (stream,reply)=try await session.bytes(for:request);response=reply
                 guard let http=reply as? HTTPURLResponse else { throw UsageFailure.unavailable }
                 if http.statusCode == 401 || http.statusCode == 403 { throw UsageFailure.authentication }
-                guard http.statusCode == 200 else { throw UsageFailure.unavailable }
+                guard successCodes.contains(http.statusCode) else { throw UsageFailure.unavailable }
                 guard reply.expectedContentLength <= Int64(maximumBytes) else { throw UsageFailure.malformed }
                 let consuming=Task.detached(priority:.utility) {
                     var data=Data()
@@ -294,8 +310,8 @@ private final class NoRedirect: NSObject, URLSessionTaskDelegate {
             } else { (body,response)=try await session.data(for:request) }
             guard let http = response as? HTTPURLResponse else { throw UsageFailure.unavailable }
             if http.statusCode == 401 || http.statusCode == 403 { throw UsageFailure.authentication }
-            guard http.statusCode == 200 else { throw UsageFailure.unavailable }
-            return (body,accountKey)
+            guard successCodes.contains(http.statusCode) else { throw UsageFailure.unavailable }
+            return (method == "DELETE" && http.statusCode == 404 ? Data() : body,accountKey)
         } catch let error as UsageFailure { throw error }
           catch let error as URLError where error.code == .timedOut { throw UsageFailure.timeout }
           catch { throw UsageFailure.unavailable }

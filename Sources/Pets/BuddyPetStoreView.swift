@@ -17,9 +17,7 @@ struct BuddyPetStoreView: View {
 
     var body: some View {
         VStack(spacing:0) {
-            header.padding(.horizontal,32).padding(.top,32).padding(.bottom,34)
-            tabs.padding(.horizontal,32)
-            Divider().padding(.horizontal,32)
+            header.padding(.horizontal,28).padding(.top,18).padding(.bottom,12)
             ScrollView {
                 VStack(alignment:.leading,spacing:18) {
                     if let theme = store.selected { detail(theme) }
@@ -32,17 +30,24 @@ struct BuddyPetStoreView: View {
                         case .sources: sources
                         }
                     }
-                }.padding(.horizontal,32).padding(.top,18).padding(.bottom,32)
+                }.padding(.horizontal,28).padding(.top,18).padding(.bottom,32)
                     .frame(maxWidth:.infinity,alignment:.leading)
             }
             if store.modifyingLocalLibrary {
                 HStack(spacing:10) {
                     ProgressView().controlSize(.small)
-                    Text(store.uninstallingLocally ? L("正在卸载宠物…", "Removing pet…") : L("正在校验并保存宠物…", "Verifying and saving pet…"))
+                    Text(store.deletingCloudPet ? L("正在删除云端宠物…", "Deleting cloud pet…") : store.uninstallingLocally ? L("正在卸载宠物…", "Removing pet…") : L("正在校验并保存宠物…", "Verifying and saving pet…"))
                     Spacer()
                 }.font(.system(size:13)).padding(16).background(Color.accentColor.opacity(0.08))
             }
             if let notice = store.notice { noticeRow(notice) }
+            BuddyBottomNavigation(items:PetStorePage.allCases.map {
+                BuddyNavigationItem(id:$0.rawValue,title:$0.title,symbol:$0.symbol)
+            },selection:Binding(get:{page.rawValue},set:{if let next=PetStorePage(rawValue:$0) {page=next}}),
+                accessibilityPrefix:"pets-tab-",accessibilityLabel:L("宠物页面", "Pet pages"),
+                onSelect:{_ in store.select(nil);store.notice=nil})
+                .frame(width:528,height:60).padding(.top,8).padding(.bottom,14)
+                .frame(maxWidth:.infinity)
         }.disabled(store.modifyingLocalLibrary || updates.installing)
             .sheet(isPresented:$addingSource) { PetSourceSheet(store:store) }
             .sheet(isPresented:$showingGuide) {
@@ -70,41 +75,24 @@ struct BuddyPetStoreView: View {
 
     private var header: some View {
         HStack(spacing:14) {
-            BuddyPageHeading(title:BuddyPage.pets.title)
-            Spacer(minLength:16)
             if page == .sources {
+                searchField(L("搜索来源", "Search sources"),text:$sourceSearch).frame(maxWidth:.infinity)
                 Button { addingSource=true } label: {
                     Label(L("添加来源", "Add source"),systemImage:"plus").padding(.horizontal,12).padding(.vertical,7)
                         .contentShape(RoundedRectangle(cornerRadius:9))
-                }.buttonStyle(PetPrimaryButtonStyle()).disabled(store.sources.filter({!$0.builtIn}).count >= 8)
+                }.buttonStyle(PetPrimaryButtonStyle()).fixedSize(horizontal:true,vertical:false)
+                    .disabled(store.sources.filter({!$0.builtIn}).count >= 8)
             } else {
                 searchField(page == .installed ? L("搜索已添加宠物", "Search added pets") : L("搜索宠物、作者", "Search pets, authors"),text:page == .installed ? $installedSearch : $search)
-                    .frame(width:265)
+                    .frame(maxWidth:.infinity)
             }
+            if store.loading {ProgressView().controlSize(.small).accessibilityLabel(L("更新宠物目录", "Refreshing pet catalogs"))}
             Button { if page == .installed { store.refreshLibrary() } else { store.refresh() } } label: {
                 Image(systemName:"arrow.clockwise").font(.system(size:18)).frame(width:38,height:38)
                     .contentShape(RoundedRectangle(cornerRadius:9))
             }.buttonStyle(.plain).background(Color.primary.opacity(0.035),in:RoundedRectangle(cornerRadius:9))
                 .overlay(RoundedRectangle(cornerRadius:9).stroke(Color.primary.opacity(0.10),lineWidth:0.7))
                 .disabled(page != .installed && store.loading).accessibilityLabel(L("刷新宠物", "Refresh pets"))
-        }
-    }
-    private var tabs: some View {
-        HStack(spacing:28) {
-            ForEach(PetStorePage.allCases) { item in
-                Button { page=item;store.select(nil);store.notice=nil } label: {
-                    VStack(spacing:12) {
-                        Label(item.title,systemImage:item.symbol).font(.system(size:15,weight:page == item ? .semibold : .regular))
-                            .frame(minHeight:26).padding(.horizontal,3)
-                        Rectangle().fill(page == item ? Color.accentColor : Color.clear).frame(height:3)
-                    }.fixedSize(horizontal:true,vertical:false)
-                        .foregroundStyle(page == item ? Color.accentColor : Color.primary.opacity(0.85))
-                        .contentShape(Rectangle())
-                }.buttonStyle(.plain).accessibilityAddTraits(page == item ? .isSelected : [])
-                    .accessibilityIdentifier("pets-tab-"+item.rawValue)
-            }
-            Spacer(minLength:0)
-            if store.loading { ProgressView().controlSize(.small).accessibilityLabel(L("更新宠物目录", "Refreshing pet catalogs")) }
         }
     }
     private func searchField(_ prompt:String,text:Binding<String>) -> some View {
@@ -127,11 +115,15 @@ struct BuddyPetStoreView: View {
                     .padding(.vertical,7).padding(.trailing,14).contentShape(Rectangle())
             }.buttonStyle(.plain)
             PetDetailLayout {
-                PetAnimatedPreview(image:store.sheet,loading:store.preparing,error:store.detailError).frame(height:610)
+                PetAnimatedPreview(image:store.sheet,loading:store.preparing,error:store.detailError,thumbnail:store.selectedThumbnail).frame(height:610)
                 detailInformation(theme)
             }
-            if store.detailError != nil {
-                Button(L("重新加载", "Retry")) { store.select(theme) }.buttonStyle(.link)
+            if let error=store.detailError {
+                HStack(alignment:.top,spacing:16) {
+                    Text(error).font(.system(size:13)).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+                    Spacer(minLength:8)
+                    Button(L("重新加载", "Retry")) { store.select(theme) }.buttonStyle(.link)
+                }
             }
         }
     }
@@ -224,12 +216,11 @@ struct BuddyPetStoreView: View {
                 }.padding(.vertical,10)
                 Divider()
             }
-            if let cloud=store.cloudLibrary { CloudInstalledPetList(library:cloud,search:installedSearch,manage:{store.chooseInstalled()}).padding(.top,filtered.isEmpty ? 0 : 20) }
+            if let cloud=store.cloudLibrary { CloudInstalledPetList(library:cloud,search:installedSearch).padding(.top,filtered.isEmpty ? 0 : 20) }
         }
     }
     private var sources: some View {
         VStack(alignment:.leading,spacing:14) {
-            searchField(L("搜索来源", "Search sources"),text:$sourceSearch).frame(width:320).padding(.bottom,10)
             sourceGroup(L("内置来源", "Built-in sources"),builtIn:true)
             sourceGroup(L("自定义来源", "Custom sources"),builtIn:false).padding(.top,10)
         }
@@ -253,11 +244,14 @@ struct BuddyPetStoreView: View {
                         Text(store.sourceErrors[source.id].map { $0+(store.cachedSources.contains(source.id) ? L(" · 本机缓存", " · cached") : "") } ?? sourceLocation(source))
                             .font(.system(size:11)).foregroundStyle(.secondary).lineLimit(1)
                     }.frame(maxWidth:.infinity,alignment:.leading)
+                    sourceCount(source)
                     Button { store.showWebsite(source.websiteURL) } label:{ Image(systemName:"arrow.up.right.square").font(.system(size:17)).frame(width:32,height:32).contentShape(Rectangle()) }
                         .buttonStyle(.plain).accessibilityLabel(L("访问来源", "Visit source ")+source.name)
                     if !builtIn {
                         Button(role:.destructive) { store.removeSource(source) } label:{Image(systemName:"minus.circle").frame(width:30,height:30).contentShape(Rectangle())}
                             .buttonStyle(.plain).accessibilityLabel(L("移除来源", "Remove source ")+source.name)
+                    } else {
+                        Color.clear.frame(width:30,height:30).allowsHitTesting(false).accessibilityHidden(true)
                     }
                     Toggle(source.name,isOn:Binding(get:{source.enabled},set:{store.setEnabled(source,$0)})).labelsHidden()
                         .toggleStyle(OverviewSwitchStyle(title:L("启用来源", "Enable source ")+source.name)).frame(width:48)
@@ -269,6 +263,19 @@ struct BuddyPetStoreView: View {
                     .font(.system(size:13)).foregroundStyle(.secondary).padding(.vertical,18)
             }
         }
+    }
+    private func sourceCount(_ source:PetSource) -> some View {
+        let state=store.sourceCatalogState(source.id)
+        let count=state.count.map { L("\($0.formatted()) 个主题", "\($0.formatted()) \($0 == 1 ? "theme" : "themes")") }
+        return VStack(alignment:.trailing,spacing:3) {
+            Text(count ?? "—").font(.system(size:13,weight:.medium)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
+            if state.cached {Text(L("缓存", "Cached")).font(.system(size:11)).foregroundStyle(.secondary)}
+        }.frame(width:112,alignment:.trailing)
+            .accessibilityElement(children:.ignore)
+            .accessibilityLabel(L("\(source.name) 的主题数量", "Theme count for \(source.name)"))
+            .accessibilityValue(count.map {$0+(state.cached ? L("，缓存", ", cached") : "")} ?? L("尚未获取", "Not loaded"))
+            .accessibilityIdentifier("pet-source-count-"+source.id)
+            .help(count == nil ? L("读取该来源的目录后显示主题总数。", "The theme count appears after this catalog has loaded.") : L("此来源目录中的主题总数，不受搜索或标签筛选影响。", "All themes in this source catalog, before search or tag filters."))
     }
     private func sourceLocation(_ source:PetSource) -> String {
         source.websiteURL.host == "github.com" ? source.websiteURL.path.trimmingCharacters(in:CharacterSet(charactersIn:"/")) : source.websiteURL.host ?? ""

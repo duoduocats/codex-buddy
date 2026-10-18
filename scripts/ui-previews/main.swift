@@ -54,6 +54,12 @@ struct Themes:View {
             .background(Color(red:0.11,green:0.13,blue:0.19)).environment(\.colorScheme,.dark)
     }
 }
+@MainActor final class PreviewCloudPets:CloudPetFetching {
+    private var pets=[CloudInstalledPet(id:"pet_sample_cat",name:"示例云端猫",imageURL:nil,imageExpiresAt:nil,updatedAt:nil),CloudInstalledPet(id:"pet_sample_dog",name:"示例云端狗",imageURL:nil,imageExpiresAt:nil,updatedAt:nil)]
+    func accountKey()->String? {"synthetic-preview-only"}
+    func page(cursor:String?) async throws -> CloudPetPage {.init(pets:pets,cursor:nil,accountKey:"synthetic-preview-only")}
+    func delete(petID:String,accountKey:String) async throws {pets.removeAll {$0.id == petID}}
+}
 @MainActor final class ScreenshotDelegate:NSObject,NSApplicationDelegate {
     var window:NSWindow?
     var model:AppModel?
@@ -129,6 +135,13 @@ struct Themes:View {
                 UsageForecastObservation.sanitized(usage:quota(58+Double(index)/6),accountKey:account,
                     at:now.addingTimeInterval(-6*3600+Double(index)*300))
             }
+            if args.contains("--forecast-gap") {
+                model.forecastObservations=model.forecastObservations.map {row in
+                    UsageForecastObservation(windowID:row.windowID,observedAt:row.observedAt.addingTimeInterval(-180),
+                        usedPercent:row.usedPercent,windowDurationMins:row.windowDurationMins,resetDate:row.resetDate,planType:row.planType,source:row.source)
+                }
+                model.forecastUpdated=now.addingTimeInterval(-180)
+            }
             if args.contains("--forecast-extra") { model.demoForecastExtraDate=now.addingTimeInterval(9*3600) }
             if args.contains("--forecast-cold") { model.forecastObservations=[] }
             if args.contains("--forecast-stale") { model.forecastUpdated=now.addingTimeInterval(-600) }
@@ -148,7 +161,7 @@ struct Themes:View {
             let petPreferences=UsagePreviewPreferences()
             if args.contains("--pets") && !args.contains("--pets-all-sources") {
                 petPreferences.set(try! JSONEncoder().encode(PetSource.defaults.map { source in
-                    var item=source;item.enabled=["huaqing","cutechen","senyo"].contains(item.id);return item
+                    var item=source;item.enabled = !args.contains("--cloud-fixture") && ["huaqing","cutechen","senyo"].contains(item.id);return item
                 }),forKey:"pets.sources")
             }
             let petRoot=URL(fileURLWithPath:"/private/tmp",isDirectory:true).appendingPathComponent("buddy-pets-ui-"+UUID().uuidString,isDirectory:true)
@@ -161,7 +174,7 @@ struct Themes:View {
                     let tp=UsagePreviewPreferences();tp.set(true,forKey:"tags.localPreview")
                     tagStore=PetTagStore(preferences:tp,client:PetTagPreviewClient(),cache:PetCatalogCache(directory:copy))
                 }
-                let store=ThemeStoreModel(preferences:petPreferences,cacheDirectory:petRoot.appendingPathComponent("cache"),tags:tagStore,libraryRoot:petRoot,
+                let store=ThemeStoreModel(preferences:petPreferences,cacheDirectory:petRoot.appendingPathComponent("cache"),tags:tagStore,cloud:args.contains("--cloud-fixture") ? PetCloudLibrary(client:PreviewCloudPets()) : nil,libraryRoot:petRoot,
                     openURL:{ _ in false },openCodexURL:{ _ in .failure(.failed) })
                 self.petStore=store;return store
             })

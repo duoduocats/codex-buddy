@@ -42,6 +42,15 @@ struct CloudPetPage {
 @MainActor protocol CloudPetFetching {
     func accountKey() -> String?
     func page(cursor:String?) async throws -> CloudPetPage
+    func delete(petID:String,accountKey:String) async throws
+}
+extension CloudPetFetching {
+    func delete(petID:String,accountKey:String) async throws {throw UsageFailure.unavailable}
+}
+struct CloudPetDeletionRequest:Identifiable {
+    let id=UUID()
+    let pet:CloudInstalledPet
+    let accountKey:String
 }
 @MainActor final class CloudPetClient:CloudPetFetching {
     private let client:UsageClient
@@ -51,6 +60,11 @@ struct CloudPetPage {
         self.salt=salt ?? Data((0..<32).map { _ in UInt8.random(in:0...255) })
     }
     func accountKey() -> String? { client.petAccountKey(identitySalt:salt) }
+    func delete(petID:String,accountKey:String) async throws {
+        guard self.accountKey() == accountKey else {throw CancellationError()}
+        try await client.deletePet(id:petID,identitySalt:salt,expectedAccountKey:accountKey)
+        guard self.accountKey() == accountKey else {throw CancellationError()}
+    }
     func page(cursor:String?) async throws -> CloudPetPage {
         let result=try await client.readPetPage(cursor:cursor,identitySalt:salt)
         guard let key=result.accountKey,key == accountKey() else { throw CancellationError() }
@@ -62,6 +76,12 @@ struct CloudPetPage {
     @Published private(set) var pets=[CloudInstalledPet]()
     @Published private(set) var loading=false
     @Published private(set) var unavailable=false
+    @Published var deletionRequest:CloudPetDeletionRequest?
+    @Published private(set) var deletingPetID:String?
+    @Published private(set) var deletionMessage:String?
+    @Published private(set) var deletionFailed=false
+    private var deletionTask:Task<Void,Never>?
+    private var removedIDs=Set<String>()
     @Published private(set) var previewRevision=0
     @Published private(set) var previewing=Set<String>()
     @Published private(set) var previewErrors=Set<String>()
@@ -72,26 +92,41 @@ struct CloudPetPage {
     private var task:Task<Void,Never>?
     private var generation=0
     private var previews=[String:Task<Void,Never>]()
+    private var activePreviewLoads=0
+    private var previewTickets=[String:UUID]()
+    private var visiblePreviewRows=[UUID:String]()
+    private var pendingPreviews=[String]()
+    private var manualPreviews=Set<String>()
+    private var attemptedPreviews=Set<String>()
+    private var previewURLRefreshedAt=Date.distantPast
+    private let imageFetcher:(URL) async throws -> Data
     private let images=NSCache<NSString,NSImage>()
-    init(client:CloudPetFetching) { self.client=client;images.countLimit=24;images.totalCostLimit=8_000_000 }
+    init(client:CloudPetFetching,imageFetcher:@escaping(URL) async throws -> Data = { try await PetHTTPClient().cloudImage(from:$0,limit:32_000_000) }) {
+        self.client=client;self.imageFetcher=imageFetcher;images.countLimit=24;images.totalCostLimit=8_000_000
+    }
     func setVisible(_ value:Bool) {
         visible=value
-        if value { refresh() } else { generation += 1;task?.cancel();task=nil;loading=false;cancelPreviews() }
+        if !value {deletionRequest=nil}
+        if value { refresh();scheduleVisiblePreviews() } else { generation += 1;task?.cancel();task=nil;loading=false;cancelPreviews() }
     }
-    private func cancelPreviews() { previews.values.forEach {$0.cancel()};previews=[:];previewing=[] }
+    private func cancelPreviews(keepManual:Bool = false) {
+        previews.values.forEach {$0.cancel()};previews=[:];previewTickets=[:];pendingPreviews=[];if !keepManual {manualPreviews=[]};attemptedPreviews=[];previewing=[]
+    }
     private func clearAccount() {
         generation += 1;task?.cancel();task=nil;cancelPreviews();pets=[];previewErrors=[];images.removeAllObjects();previewRevision += 1
-        loading=false;fetchedAt = .distantPast;attemptedAt = .distantPast
+        deletionRequest=nil;deletionMessage=nil;removedIDs=[]
+        loading=false;fetchedAt = .distantPast;attemptedAt = .distantPast;previewURLRefreshedAt = .distantPast
     }
     func refresh(force:Bool = false,now:Date = Date()) {
         guard visible else { return }
         let key=client.accountKey()
         if account != key { clearAccount();account=key }
         guard let key else { clearAccount();account=nil;unavailable=true;return }
+        guard deletionTask == nil else {return}
         guard task == nil,force || now.timeIntervalSince(fetchedAt) >= 300,force || now.timeIntervalSince(attemptedAt) >= 10 else { return }
-        cancelPreviews();attemptedAt=now;generation += 1;let ticket=generation;loading=true;unavailable=false
+        deletionRequest=nil;cancelPreviews(keepManual:true);attemptedAt=now;generation += 1;let ticket=generation;loading=true;unavailable=false
         task=Task {
-            defer {if ticket == generation {loading=false;task=nil}}
+            defer {if ticket == generation {loading=false;task=nil;scheduleVisiblePreviews()}}
             do {
                 var rows=[CloudInstalledPet](),seen=Set<String>(),cursor:String?
                 for index in 0..<50 {
@@ -104,11 +139,21 @@ struct CloudPetPage {
                     guard index < 49,seen.insert(cursor!).inserted else {throw UsageFailure.malformed}
                 }
                 var identities=Set<String>()
-                let result=rows.filter {identities.insert($0.id).inserted}.sorted {
+                removedIDs.formIntersection(Set(rows.map(\.id)))
+                let result=rows.filter {!removedIDs.contains($0.id) && identities.insert($0.id).inserted}.sorted {
                     if $0.updatedAt != $1.updatedAt {return ($0.updatedAt ?? .distantPast) > ($1.updatedAt ?? .distantPast)}
                     return $0.name.localizedStandardCompare($1.name) == .orderedAscending
                 }
-                for old in pets where result.first(where:{$0.id == old.id})?.updatedAt != old.updatedAt {images.removeObject(forKey:old.id as NSString)}
+                for old in pets {
+                    guard let current=result.first(where:{$0.id == old.id}) else {
+                        images.removeObject(forKey:old.id as NSString);previewErrors.remove(old.id);continue
+                    }
+                    if current.updatedAt != old.updatedAt || current.imageURL != old.imageURL {
+                        images.removeObject(forKey:old.id as NSString)
+                    }
+                    if current.imageURL != old.imageURL || current.imageExpiresAt != old.imageExpiresAt || current.updatedAt != old.updatedAt {previewErrors.remove(old.id)}
+                }
+                manualPreviews.formIntersection(Set(result.map(\.id)))
                 if pets != result {pets=result};fetchedAt=now
             } catch {
                 guard !Task.isCancelled,visible,ticket == generation else {return}
@@ -116,29 +161,112 @@ struct CloudPetPage {
             }
         }
     }
-    func image(for pet:CloudInstalledPet) -> NSImage? {images.object(forKey:pet.id as NSString)}
-    func preview(_ pet:CloudInstalledPet,using fetcher:PetHTTPClient = PetHTTPClient()) {
-        if images.object(forKey:pet.id as NSString) != nil {return}
-        if visible,pet.imageExpiresAt.map({$0 <= Date()}) == true {
-            Task {refresh(force:true);await finish();if let fresh=pets.first(where:{$0.id == pet.id}),fresh.imageExpiresAt.map({$0 > Date()}) == true {preview(fresh,using:fetcher)}};return
+    func requestDeletion(_ pet:CloudInstalledPet) {
+        guard visible,!loading,deletionTask == nil,let key=account,key == client.accountKey(),
+              let current=pets.first(where:{$0 == pet}),pet.id.hasPrefix("pet_") else {return}
+        deletionMessage=nil;deletionRequest = .init(pet:current,accountKey:key)
+    }
+    func cancelDeletion() {deletionRequest=nil}
+    func confirmDeletion() {
+        guard visible,!loading,deletionTask == nil,let request=deletionRequest else {return}
+        deletionRequest=nil
+        guard account == request.accountKey,client.accountKey() == request.accountKey else {
+            clearAccount();account=nil;unavailable=true;return
         }
-        guard visible,previews[pet.id] == nil,previews.count < 2,let key=account,key == client.accountKey(),
-              let url=pet.imageURL,let expires=pet.imageExpiresAt,expires > Date() else {return}
-        let ticket=generation;previewErrors.remove(pet.id);previewing.insert(pet.id)
-        previews[pet.id]=Task {
-            defer {if ticket == generation {previews[pet.id]=nil;previewing.remove(pet.id)}}
+        guard pets.contains(request.pet) else {return}
+        task?.cancel();task=nil;generation += 1;loading=false;cancelPreviews()
+        deletingPetID=request.pet.id;deletionFailed=false;deletionMessage=nil
+        deletionTask=Task {
+            defer {deletingPetID=nil;deletionTask=nil;scheduleVisiblePreviews()}
             do {
-                let data=try await fetcher.cloudImage(from:url,limit:32_000_000)
+                try await client.delete(petID:request.pet.id,accountKey:request.accountKey)
+                guard account == request.accountKey,client.accountKey() == request.accountKey else {
+                    if account == request.accountKey {clearAccount();account=nil}
+                    return
+                }
+                removedIDs.insert(request.pet.id);pets.removeAll {$0.id == request.pet.id}
+                images.removeObject(forKey:request.pet.id as NSString);previewErrors.remove(request.pet.id);previewRevision += 1
+                fetchedAt = .distantPast
+                deletionMessage=L("已从云端删除“\(request.pet.name)”。", "Deleted “\(request.pet.name)” from the cloud.")
+            } catch {
+                guard account == request.accountKey,client.accountKey() == request.accountKey else {
+                    if account == request.accountKey {clearAccount();account=nil}
+                    return
+                }
+                fetchedAt = .distantPast;deletionFailed=true
+                deletionMessage=L("未能确认删除结果。请刷新列表，确认后再重试。", "Deletion could not be confirmed. Refresh the list before trying again.")
+            }
+        }
+    }
+    func finishDeletion() async {await deletionTask?.value}
+    func image(for pet:CloudInstalledPet) -> NSImage? {images.object(forKey:pet.id as NSString)}
+    func setPreviewVisible(_ pet:CloudInstalledPet,token:UUID,_ value:Bool) {
+        if value {
+            visiblePreviewRows[token]=pet.id;scheduleVisiblePreviews()
+        } else if let id=visiblePreviewRows.removeValue(forKey:token),!visiblePreviewRows.values.contains(id) {
+            manualPreviews.remove(id);attemptedPreviews.remove(id);pendingPreviews.removeAll {$0 == id}
+            previews.removeValue(forKey:id)?.cancel();previewTickets[id]=nil;previewing.remove(id)
+            scheduleVisiblePreviews()
+        }
+    }
+    func preview(_ pet:CloudInstalledPet) {
+        guard visible,pets.contains(where:{$0.id == pet.id}),images.object(forKey:pet.id as NSString) == nil else {return}
+        previewErrors.remove(pet.id);attemptedPreviews.remove(pet.id);manualPreviews.insert(pet.id)
+        if let current=pets.first(where:{$0.id == pet.id}),current.imageExpiresAt.map({$0 <= Date()}) == true,!loading {
+            previewURLRefreshedAt=Date();refresh(force:true)
+        } else {scheduleVisiblePreviews()}
+    }
+    private func scheduleVisiblePreviews(discover:Bool = true) {
+        guard visible,!loading,deletionTask == nil,let key=account,key == client.accountKey() else {return}
+        let wanted=Set(visiblePreviewRows.values).union(manualPreviews)
+        var expired=false
+        for pet in pets where discover && wanted.contains(pet.id) {
+            guard images.object(forKey:pet.id as NSString) == nil,previews[pet.id] == nil,
+                  !pendingPreviews.contains(pet.id),!previewErrors.contains(pet.id),!attemptedPreviews.contains(pet.id),
+                  let url=pet.imageURL,CloudInstalledPet.validImageURL(url),let expiry=pet.imageExpiresAt else {continue}
+            if expiry <= Date() {previewErrors.insert(pet.id);manualPreviews.remove(pet.id);expired=true;continue}
+            pendingPreviews.append(pet.id);previewing.insert(pet.id)
+        }
+        // Refresh expired signed URLs once for the visible set, rather than once
+        // per row. Unchanged/failed results stay retryable without a fetch loop.
+        if expired,Date().timeIntervalSince(previewURLRefreshedAt) >= 30 {
+            previewURLRefreshedAt=Date();refresh(force:true);return
+        }
+        while activePreviewLoads < 2,!pendingPreviews.isEmpty {
+            let id=pendingPreviews.removeFirst()
+            guard wanted.contains(id),let pet=pets.first(where:{$0.id == id}),let url=pet.imageURL,
+                  let expiry=pet.imageExpiresAt,expiry > Date() else {previewing.remove(id);continue}
+            beginPreview(pet,url:url,accountKey:key)
+        }
+    }
+    private func beginPreview(_ pet:CloudInstalledPet,url:URL,accountKey key:String) {
+        let ticket=generation,operation=UUID();previewTickets[pet.id]=operation;attemptedPreviews.insert(pet.id)
+        activePreviewLoads += 1
+        previews[pet.id]=Task {
+            defer {
+                activePreviewLoads -= 1
+                if ticket == generation,previewTickets[pet.id] == operation {
+                    previews[pet.id]=nil;previewTickets[pet.id]=nil;previewing.remove(pet.id);manualPreviews.remove(pet.id)
+                }
+                scheduleVisiblePreviews(discover:ticket == generation)
+            }
+            do {
+                try Task.checkCancellation()
+                let data=try await imageFetcher(url)
+                try Task.checkCancellation()
                 let thumbnail=try await Task.detached(priority:.utility) {() -> CGImage in
-                    guard let source=CGImageSourceCreateWithData(data as CFData,nil),let properties=CGImageSourceCopyPropertiesAtIndex(source,0,nil) as? [CFString:Any],
+                    guard data.count <= 32_000_000,let source=CGImageSourceCreateWithData(data as CFData,nil),let properties=CGImageSourceCopyPropertiesAtIndex(source,0,nil) as? [CFString:Any],
                           properties[kCGImagePropertyPixelWidth] as? Int == 1536,[1872,2288].contains(properties[kCGImagePropertyPixelHeight] as? Int ?? 0) else {throw PetStoreError.invalidImage}
                     return try PetSprite.thumbnailImage(data,sprite:true)
                 }.value
-                guard !Task.isCancelled,visible,ticket == generation,key == client.accountKey() else {return}
+                guard !Task.isCancelled,visible,ticket == generation,previewTickets[pet.id] == operation,
+                      key == account,key == client.accountKey(),pets.contains(pet) else {return}
                 images.setObject(NSImage(cgImage:thumbnail,size:NSSize(width:thumbnail.width,height:thumbnail.height)),forKey:pet.id as NSString,cost:thumbnail.width*thumbnail.height*4);previewRevision += 1
-            } catch {if !Task.isCancelled,visible,ticket == generation,key == client.accountKey() {previewErrors.insert(pet.id)}}
+            } catch {
+                if !Task.isCancelled,visible,ticket == generation,previewTickets[pet.id] == operation,key == account,key == client.accountKey() {previewErrors.insert(pet.id)}
+            }
         }
     }
-    func clearImages() {generation += 1;task?.cancel();task=nil;loading=false;cancelPreviews();images.removeAllObjects();previewErrors=[];previewRevision += 1}
+    func clearImages() {deletionRequest=nil;generation += 1;task?.cancel();task=nil;loading=false;cancelPreviews();images.removeAllObjects();previewErrors=[];previewRevision += 1}
     func finish() async {await task?.value}
 }

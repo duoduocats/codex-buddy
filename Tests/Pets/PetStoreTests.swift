@@ -76,7 +76,7 @@ final class PetFixture:URLProtocol {
         precondition(try! PetCatalog.decode(missingDescription,source:PetSource.defaults.first(where:{$0.id == "cutechen"})!).pets[0].summary.isEmpty)
         precondition(cat.id != decoded.pets[0].id,"Catalogs must retain their source identities")
 
-        precondition(PetSource.defaults.count == 12 && !PetSource.defaults.contains(where:{$0.id == "duoduocat"}))
+        precondition(PetSource.defaults.count == 11 && !PetSource.defaults.contains(where:{["duoduocat","petdex"].contains($0.id)}))
         let gallerySource=PetSource.defaults.first(where:{$0.id == "legeling"})!
         let gallery=Data(#"[{"slug":"fixture-high--tester","name":"High","localized_names":{"zh":"测试高热度","en":"High"},"author":"Synthetic Author","license":"CC0","primary_category":"Animals"},{"slug":"fixture-zero--tester","name":"Zero","author":"Synthetic Author","license":"CC0","primary_category":"Animals"},{"slug":"fixture-unknown--tester","name":"Unknown","author":"Synthetic Author","license":"CC0","primary_category":"Animals"}]"#.utf8)
         let galleryPets=try PetCatalog.decode(gallery,source:gallerySource).pets
@@ -132,7 +132,8 @@ final class PetFixture:URLProtocol {
         defer { try? FileManager.default.removeItem(at:installerTestRoot) }
         try PetPackageInstallerTests.run(root:installerTestRoot,sprite:v2)
         try PetPackageUninstallerTests.run(root:installerTestRoot,sprite:v2)
-        PetPreviewTests.run()
+        await PetPreviewTests.run()
+        try await PetPreviewLoadingTests.run(root:installerTestRoot,sprite:v2)
         _=try PetSprite.image(v1,version:1);_=try PetSprite.image(v2,version:2)
         rejected { _=try PetSprite.image(v1,version:2) }
         rejected { _=try PetSprite.image(sprite(version:1,width:512),version:1) }
@@ -291,7 +292,52 @@ final class PetFixture:URLProtocol {
         precondition(metricStore.themes.isEmpty && metricStore.popularity.isEmpty && metricStore.statisticsDate == nil)
         metricStore.close()
         try await PetIntegrationTests.run(root:installerTestRoot,sprite:v2)
-        print("Pet store passed: twelve community sources, public popularity snapshots and fallback, sprite thumbnails, custom catalogs, URL and manifest validation, v1/v2 images, read-only local library, bounded credential-free requests, official install links, caching, source preferences and cancellation")
+        try await sourceCounts(root:temp,client:client)
+        print("Pet store passed: eleven community sources, public popularity snapshots and fallback, sprite thumbnails, custom catalogs, URL and manifest validation, v1/v2 images, read-only local library, bounded credential-free requests, official install links, caching, source preferences and cancellation")
+    }
+    @MainActor private static func sourceCounts(root:URL,client:PetHTTPClient) async throws {
+        let source=try PetSource.custom(url:URL(string:"https://example.com/counts.json")!)
+        let prefs=PetTestPreferences()
+        prefs.set(try JSONEncoder().encode(PetSource.defaults.map {var value=$0;value.enabled=false;return value}+[source]),forKey:"pets.sources")
+        var object=try JSONSerialization.jsonObject(with:feed) as! [String:Any]
+        let first=(object["pets"] as! [[String:Any]])[0]
+        var second=first;second["id"]="second-fixture";second["name"]="Second fixture"
+        object["pets"]=[first,second];let two=try JSONSerialization.data(withJSONObject:object)
+        object["pets"]=[];let empty=try JSONSerialization.data(withJSONObject:object)
+        let cache=root.appendingPathComponent("source-count-cache")
+        let store=ThemeStoreModel(preferences:prefs,client:client,cacheDirectory:cache,libraryRoot:root)
+        precondition(store.sourceCatalogState(source.id).count == nil && !store.sourceCatalogState(source.id).cached,"An unread source is unknown, not an empty catalog")
+        PetFixture.reset([source.catalogURL.absoluteString:two]);store.open();try await wait(store)
+        precondition(store.sourceCatalogState(source.id).count == 2 && !store.sourceCatalogState(source.id).cached)
+        store.toggleFavorite(store.themes[0]);store.selectedTagIDs=["subject.fixture"]
+        precondition(store.matchingThemes(query:"no-matching-theme").isEmpty && store.favoriteThemes.count == 1)
+        let before=PetFixture.requests.count
+        precondition(store.sourceCatalogState(source.id).count == 2 && PetFixture.requests.count == before,"Source totals are unfiltered and querying them cannot start network requests")
+        PetFixture.reset([source.catalogURL.absoluteString:empty])
+        store.setEnabled(source,false);try await wait(store)
+        precondition(store.themes.isEmpty && store.sourceCatalogState(source.id).count == 2 && store.sourceCatalogState(source.id).cached)
+        precondition(PetFixture.requests.isEmpty,"Turning a source off retains its known total without fetching it")
+        store.setEnabled(source,true);try await wait(store)
+        precondition(store.sourceCatalogState(source.id).count == 0 && !store.sourceCatalogState(source.id).cached,"A successfully decoded empty directory must report zero")
+        PetFixture.reset();store.refresh();try await wait(store)
+        precondition(store.sourceCatalogState(source.id).count == 0 && store.sourceCatalogState(source.id).cached && store.sourceErrors[source.id] != nil,"Failed refresh keeps a cached zero rather than making it unknown")
+        PetFixture.reset([source.catalogURL.absoluteString:two]);store.refresh();try await wait(store)
+        PetFixture.reset([source.catalogURL.absoluteString:Data("malformed".utf8)]);store.refresh();try await wait(store)
+        precondition(store.sourceCatalogState(source.id).count == 2 && store.sourceCatalogState(source.id).cached && store.sourceErrors[source.id] != nil)
+        store.close()
+        PetFixture.reset()
+        let restored=ThemeStoreModel(preferences:prefs,client:client,cacheDirectory:cache,libraryRoot:root)
+        restored.open();try await wait(restored)
+        precondition(restored.sourceCatalogState(source.id).count == 2 && restored.sourceCatalogState(source.id).cached,"An enabled source restored from its existing disk cache keeps the decoded total offline")
+        try await restored.clearCache();try await wait(restored)
+        precondition(restored.sourceCatalogState(source.id).count == nil && !restored.sourceCatalogState(source.id).cached,"Clearing the directory cannot leave a stale count behind")
+        restored.setEnabled(source,false);try await wait(restored);restored.close()
+        PetFixture.reset()
+        let neverLoaded=ThemeStoreModel(preferences:prefs,client:client,cacheDirectory:root.appendingPathComponent("source-count-unread"),libraryRoot:root)
+        neverLoaded.open();try await wait(neverLoaded)
+        precondition(neverLoaded.sourceCatalogState(source.id).count == nil && PetFixture.requests.isEmpty,"A disabled, unread source stays unknown without a discovery request")
+        neverLoaded.close()
+        print("Source counts passed: decoded totals, unknown versus empty, filter independence, disabled-source reuse without fetching, offline/invalid fallback, disk restoration and cache clearing")
     }
     @MainActor static func wait(_ store:ThemeStoreModel) async throws {
         for _ in 0..<300 {

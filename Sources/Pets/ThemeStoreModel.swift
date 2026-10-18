@@ -42,6 +42,7 @@ struct PetUninstallRequest:Identifiable {
     @Published var selectedTagIDs=Set<String>()
     @Published var selected:PetTheme?
     @Published private(set) var sheet:CGImage?
+    @Published private(set) var selectedThumbnail:NSImage?
     @Published private(set) var preparedLink:URL?
     @Published private(set) var preparedPackage:PetPackageInstaller.Package?
     @Published private(set) var preparing=false
@@ -54,7 +55,8 @@ struct PetUninstallRequest:Identifiable {
     @Published private(set) var uninstallingLocally=false
     @Published var uninstallRequest:PetUninstallRequest?
     @Published private(set) var trashedDirectory:URL?
-    var modifyingLocalLibrary:Bool { installingLocally || uninstallingLocally }
+    @Published private(set) var deletingCloudPet=false
+    var modifyingLocalLibrary:Bool { installingLocally || uninstallingLocally || deletingCloudPet }
     @Published private(set) var localInstallDirectory:URL?
     @Published private(set) var recoveryDirectory:URL?
     @Published var notice:String?
@@ -63,6 +65,9 @@ struct PetUninstallRequest:Identifiable {
     let cloudLibrary:PetCloudLibrary?
     private var installedPageVisible=false
     private var tagSubscription:AnyCancellable?
+    private var tagStateSubscription:AnyCancellable?
+    private var tagCoverageCache=[String:PetTagCoverage]()
+    private var cloudTransactionSubscription:AnyCancellable?
     let client:PetFetching
     private let preferences:UserDefaults
     private let cache: PetCatalogCache
@@ -79,6 +84,7 @@ struct PetUninstallRequest:Identifiable {
     private var handoffGeneration=0
     private var catalogs=[String:[PetTheme]]()
     private var thumbnails=NSCache<NSURL,NSImage>()
+    private var previewCache=PetPreviewMemoryCache()
     private var catalogTask:Task<Void,Never>?
     private var detailTask:Task<Void,Never>?
     private var catalogGeneration=0
@@ -104,7 +110,11 @@ struct PetUninstallRequest:Identifiable {
         }
         sources += saved.filter { !$0.builtIn && $0.format == .catalog && $0.id == "custom-"+PetURL.key($0.catalogURL.absoluteString) && (try? PetURL.validate($0.catalogURL)) != nil && (try? PetURL.validate($0.websiteURL)) != nil }.prefix(8)
         self.sources=sources;sourceNames=Dictionary(uniqueKeysWithValues:sources.map { ($0.id,$0.name) })
+        cloudTransactionSubscription=cloud?.$deletingPetID.map {$0 != nil}.removeDuplicates().sink { [weak self] in self?.deletingCloudPet=$0 }
         thumbnails.countLimit=64;thumbnails.totalCostLimit=12_000_000
+        // Forward loading/error changes too: the filter menu must not present
+        // an unavailable metadata feed as a completed search with no matches.
+        tagStateSubscription=tags?.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
         tagSubscription=tags?.$revision.removeDuplicates().sink { [weak self] _ in
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
@@ -129,7 +139,8 @@ struct PetUninstallRequest:Identifiable {
         visible=false;catalogGeneration += 1;detailGeneration += 1;handoffGeneration += 1
         handoffTask?.cancel();handoffTask=nil;handingOff=false;installationHandoff=false
         catalogTask?.cancel();catalogTask=nil;detailTask?.cancel();detailTask=nil
-        loading=false;preparing=false;sheet=nil;preparedLink=nil;preparedPackage=nil;selected=nil;notice=nil
+        loading=false;preparing=false;sheet=nil;selectedThumbnail=nil;preparedLink=nil;preparedPackage=nil;selected=nil;notice=nil
+        previewCache.clear()
     }
     func setInstalledPageVisible(_ value:Bool) {
         installedPageVisible=value;guard visible,!demonstration else { return }
@@ -155,6 +166,7 @@ struct PetUninstallRequest:Identifiable {
     func refresh() {
         guard visible, !demonstration, !clearingCache else { return }
         catalogTask?.cancel();catalogGeneration += 1
+        if !modifyingLocalLibrary,selected != nil,preparing || checkingLocalInstall || localInstallRequest != nil || handingOff { invalidatePreviewForCatalogRefresh() }
         let generation=catalogGeneration;let enabled=sources.filter(\.enabled);let client=client;let cache=cache
         loading=true;sourceErrors=[:];cachedSources=Set(enabled.compactMap { catalogs[$0.id] == nil ? nil : $0.id })
         catalogTask=Task {
@@ -260,6 +272,9 @@ struct PetUninstallRequest:Identifiable {
     }
     private func rebuildThemes() {
         themes=sources.filter(\.enabled).flatMap { catalogs[$0.id] ?? [] };searchRevision += 1
+        if !modifyingLocalLibrary,let selected,let current=themes.first(where:{$0.id == selected.id}),current != selected {
+            self.selected=current;invalidatePreviewForCatalogRefresh()
+        }
         let refreshedFavorites=PetFavoritesRepository.updating(favorites,with:themes)
         if refreshedFavorites != favorites, favoriteRepository.save(refreshedFavorites) { favorites=refreshedFavorites }
     }
@@ -290,8 +305,23 @@ struct PetUninstallRequest:Identifiable {
     }
     private func persistSources() { if let data=try? JSONEncoder().encode(sources) { preferences.set(data,forKey:"pets.sources") } }
     func sourceName(_ id:String) -> String { sourceNames[id] ?? id }
+    func sourceCatalogState(_ id:String) -> (count:Int?,cached:Bool) {
+        guard let count=catalogs[id]?.count else {return (nil,false)}
+        let enabled=sources.first(where:{$0.id == id})?.enabled == true
+        return (count,!enabled || cachedSources.contains(id))
+    }
     func isInstalled(_ theme:PetTheme) -> Bool {
         installedIDs.contains(theme.id)
+    }
+    func tagCoverage(sourceID:String = "",favoritesOnly:Bool = false) -> PetTagCoverage {
+        let key="\(searchRevision)|\(tagStore?.revision ?? "")|\(sourceID)|\(favoritesOnly)"
+        if let value=tagCoverageCache[key] { return value }
+        let candidates=favoritesOnly ? favorites.map(\.theme) : themes
+        let value=tagStore?.coverage(for:candidates,sourceID:sourceID)
+            ?? .init(themeCount:candidates.filter { sourceID.isEmpty || $0.sourceID == sourceID }.count,labeledThemeCount:0,tagCounts:[:])
+        if tagCoverageCache.count >= 24 { tagCoverageCache.removeAll(keepingCapacity:true) }
+        tagCoverageCache[key]=value
+        return value
     }
     func search(_ request: PetSearchRequest) async throws -> [PetTheme] {
         let all=favorites.map(\.theme)+themes
@@ -309,7 +339,7 @@ struct PetUninstallRequest:Identifiable {
         try await tagStore?.clear()
         try await cache.clear()
         catalogs=[:];themes=[];cachedSources=[];popularity=[:];statisticsDate=nil
-        thumbnails.removeAllObjects();await searchEngine.clear();searchRevision += 1;refreshed = .distantPast
+        thumbnails.removeAllObjects();previewCache.clear();await searchEngine.clear();searchRevision += 1;refreshed = .distantPast
     }
     func thumbnail(for theme:PetTheme) async -> NSImage? {
         guard visible, let url=theme.previewURL else { return nil }
@@ -324,10 +354,11 @@ struct PetUninstallRequest:Identifiable {
         guard canFetch(theme) else { return nil }
         do {
             let data=try await client.data(from:url,limit:theme.previewIsSprite ? 32_000_000 : 6_000_000,kind:.preview)
-            try Task.checkCancellation();guard visible else { return nil }
+            try Task.checkCancellation();guard visible,generation == catalogGeneration else { return nil }
             let sprite=theme.previewIsSprite
+            if sprite { previewCache.rememberSprite(data,url:url,theme:theme,generation:generation) }
             let frame=try await Task.detached(priority:.utility) { try PetSprite.thumbnailImage(data,sprite:sprite) }.value
-            try Task.checkCancellation();guard visible else { return nil }
+            try Task.checkCancellation();guard visible,generation == catalogGeneration else { return nil }
             let image=NSImage(cgImage:frame,size:NSSize(width:frame.width,height:frame.height))
             thumbnails.setObject(image,forKey:cacheURL as NSURL,cost:Int(image.size.width*image.size.height)*4)
             let bytes=await Task.detached(priority:.utility) { () -> Data? in
@@ -338,27 +369,50 @@ struct PetUninstallRequest:Identifiable {
             return image
         } catch { return nil }
     }
+    private func invalidatePreviewForCatalogRefresh() {
+        guard !modifyingLocalLibrary else { return }
+        localCheckGeneration += 1;localCheckTask?.cancel();localCheckTask=nil;checkingLocalInstall=false;localInstallRequest=nil;uninstallRequest=nil
+        handoffGeneration += 1;handoffTask?.cancel();handoffTask=nil;handingOff=false;installationHandoff=false
+        detailGeneration += 1;detailTask?.cancel();detailTask=nil;preparing=false
+        sheet=nil;preparedLink=nil;preparedPackage=nil
+        detailError=L("目录已更新，请重新加载预览。", "The catalog changed. Reload the preview.")
+    }
+    private func cachedThumbnail(for theme:PetTheme) -> NSImage? {
+        guard let url=theme.previewURL else { return nil }
+        let key=PetURL.key(url.absoluteString+"|"+(theme.tagFingerprint ?? ""))
+        return thumbnails.object(forKey:URL(string:"https://thumbnail.invalid/"+key)! as NSURL)
+    }
     func select(_ theme:PetTheme?) {
         guard !modifyingLocalLibrary else { return }
         localCheckGeneration += 1;localCheckTask?.cancel();localCheckTask=nil;checkingLocalInstall=false;localInstallRequest=nil;uninstallRequest=nil
-        detailTask?.cancel();detailGeneration += 1;selected=theme
+        detailTask?.cancel();detailTask=nil;detailGeneration += 1;selected=theme
         handoffGeneration += 1;handoffTask?.cancel();handoffTask=nil;handingOff=false;installationHandoff=false
-        sheet=nil;preparedLink=nil;preparedPackage=nil;detailError=nil;notice=nil;preparing=false
+        sheet=nil;selectedThumbnail=theme.flatMap(cachedThumbnail);preparedLink=nil;preparedPackage=nil;detailError=nil;notice=nil;preparing=false
         guard let theme, visible, !demonstration else { return }
         guard canFetch(theme) else {
             detailError=L("该来源已关闭或移除。请在主题来源中开启，再加载预览。", "This source is disabled or removed. Enable it in Sources to load the preview.");return
         }
-        preparing=true;let generation=detailGeneration
+        if let cached=previewCache.detail(for:theme,generation:catalogGeneration) {
+            sheet=cached.image;preparedLink=cached.link;preparedPackage=cached.package;return
+        }
+        preparing=true;let generation=detailGeneration;let catalogTicket=catalogGeneration
         detailTask=Task {
             defer { if generation == detailGeneration { preparing=false;detailTask=nil } }
             do {
                 let manifest:PetManifest
                 if let inline=theme.inlineManifest { manifest=inline }
                 else { manifest=try JSONDecoder().decode(PetManifest.self,from:await client.data(from:theme.manifestURL,limit:65_536,kind:.petPackage)) }
-                try manifest.validate()
+                try manifest.validate();try Task.checkCancellation()
+                guard visible,generation == detailGeneration,catalogTicket == catalogGeneration else { return }
                 let imageURL=try theme.spriteURL.map(PetURL.validate) ?? manifest.imageURL(relativeTo:theme.manifestURL)
-                let bytes=try await client.data(from:imageURL,limit:20_971_520,kind:.petPackage)
-                let image=try await Task.detached(priority:.utility) { try PetSprite.image(bytes,version:manifest.version) }.value
+                let bytes:Data
+                if let cached=previewCache.spriteData(url:imageURL,theme:theme,generation:catalogTicket) { bytes=cached }
+                else { bytes=try await client.data(from:imageURL,limit:20_971_520,kind:.petPackage) }
+                try Task.checkCancellation()
+                let image=try await Task.detached(priority:.userInitiated) { try PetSprite.image(bytes,version:manifest.version) }.value
+                try Task.checkCancellation()
+                guard visible,generation == detailGeneration,catalogTicket == catalogGeneration else { return }
+                sheet=image
                 let link=try manifest.installURL(imageURL:imageURL,fallbackName:theme.name)
                 var license=theme.license
                 if let url=theme.licenseURL {
@@ -367,14 +421,16 @@ struct PetUninstallRequest:Identifiable {
                     license += "\n\n"+text
                 }
                 try Task.checkCancellation()
-                guard visible, generation == detailGeneration else { return }
-                sheet=image;preparedLink=link
-                preparedPackage=PetPackageInstaller.Package(sourceID:theme.sourceID,remoteID:theme.remoteID,
+                guard visible,generation == detailGeneration,catalogTicket == catalogGeneration else { return }
+                preparedLink=link
+                let package=PetPackageInstaller.Package(sourceID:theme.sourceID,remoteID:theme.remoteID,
                     name:manifest.displayName?.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty == false ? manifest.displayName! : theme.name,
                     description:manifest.description,author:theme.author,license:license,sourceURL:theme.websiteURL,imageURL:imageURL,
                     spriteVersionNumber:manifest.version,spriteData:bytes)
+                preparedPackage=package
+                if catalogTicket == catalogGeneration { previewCache.insert(theme:theme,generation:catalogTicket,image:image,link:link,package:package) }
             } catch is CancellationError {} catch {
-                guard visible, generation == detailGeneration, !Task.isCancelled else { return }
+                guard visible,generation == detailGeneration,catalogTicket == catalogGeneration,!Task.isCancelled else { return }
                 detailError=(error as? PetStoreError)?.localizedDescription ?? L("主题暂时无法加载，请重试。", "Could not load this theme. Try again.")
             }
         }
@@ -479,7 +535,7 @@ struct PetUninstallRequest:Identifiable {
         }
     }
     func revealTrashedFiles() { if let url=trashedDirectory { NSWorkspace.shared.activateFileViewerSelecting([url]) } }
-    func finishCurrentInstallation() async { await localInstallTask?.value;await localUninstallTask?.value }
+    func finishCurrentInstallation() async { await localInstallTask?.value;await localUninstallTask?.value;await cloudLibrary?.finishDeletion() }
     func finishInstallationCheck() async { await localCheckTask?.value }
     func revealLocalFiles() {
         guard let url=recoveryDirectory ?? localInstallDirectory else { return }
@@ -520,6 +576,7 @@ struct PetUninstallRequest:Identifiable {
         handingOff=true;installationHandoff=install;notice=nil
         handoffGeneration += 1;let generation=handoffGeneration
         handoffTask=Task {
+            guard visible,generation == handoffGeneration,!Task.isCancelled else { return }
             let result=await openCodexURL(url)
             guard visible,generation == handoffGeneration,!Task.isCancelled else { return }
             handingOff=false;handoffTask=nil

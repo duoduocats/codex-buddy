@@ -24,7 +24,7 @@ mkdir -p "$BUILD/icon-assets"
   --platform macosx --minimum-deployment-target 13.0 --app-icon AppIcon \
   --output-partial-info-plist "$BUILD/icon-info.plist" --output-format human-readable-text
 cp "$BUILD/icon-assets/Assets.car" "$APP/Contents/Resources/Assets.car"
-swiftc -module-cache-path "$BUILD/module-cache" -swift-version 5 -Osize \
+swiftc -module-cache-path "$BUILD/module-cache" -swift-version 5 -Osize -whole-module-optimization \
   -target arm64-apple-macosx13.0 -framework AppKit -framework SwiftUI -framework Charts -framework ServiceManagement -framework UserNotifications \
   "$ROOT"/Sources/*.swift "$ROOT"/Sources/Pets/*.swift -o "$APP/Contents/MacOS/CodexBuddy"
 strip -x "$APP/Contents/MacOS/CodexBuddy"
