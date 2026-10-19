@@ -6,6 +6,8 @@ actor PetCatalogCache {
     static let shared = PetCatalogCache(directory:FileManager.default.urls(for:.cachesDirectory,in:.userDomainMask)[0]
         .appendingPathComponent("com.duoduocat.codexbuddy/Pets",isDirectory:true))
     let directory: URL
+    private struct PreviewFile { let bytes:Int;let date:Date }
+    private var previewFiles:[String:PreviewFile]?
     init(directory: URL) { self.directory = directory.standardizedFileURL }
     private func validateDirectory() throws {
         for url in [directory,directory.deletingLastPathComponent()] {
@@ -32,13 +34,38 @@ actor PetCatalogCache {
         let url = try file(name)
         try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true)
         try data.write(to:url,options:.atomic)
+        if name.hasPrefix("preview-") { previewFiles=nil }
+    }
+    // Build the small LRU index once, then update it with each atomic write.
+    // Scanning and sorting the directory after every card made a burst of N
+    // thumbnails pay N full directory walks on the same serial cache actor.
+    func writePreview(_ data:Data,name:String) throws {
+        try Task.checkCancellation()
+        guard name.hasPrefix("preview-"),name.hasSuffix(".png"),data.count <= 1_000_000 else { throw CocoaError(.fileWriteInvalidFileName) }
+        var files=loadPreviewFiles()
+        try write(data,name:name)
+        files[name]=PreviewFile(bytes:data.count,date:Date());previewFiles=files
+        trimPreviews()
+    }
+    private func loadPreviewFiles()->[String:PreviewFile] {
+        if let previewFiles { return previewFiles }
+        guard (try? validateDirectory()) != nil,let entries=try? FileManager.default.contentsOfDirectory(at:directory,includingPropertiesForKeys:[.fileSizeKey,.contentModificationDateKey,.isSymbolicLinkKey]) else { return [:] }
+        var files=[String:PreviewFile]()
+        for url in entries where url.lastPathComponent.hasPrefix("preview-") && url.pathExtension == "png" {
+            guard let values=try? url.resourceValues(forKeys:[.fileSizeKey,.contentModificationDateKey,.isSymbolicLinkKey]),values.isSymbolicLink != true else { continue }
+            files[url.lastPathComponent]=PreviewFile(bytes:max(0,values.fileSize ?? 0),date:values.contentModificationDate ?? .distantPast)
+        }
+        previewFiles=files;return files
     }
     func trimPreviews() {
-        guard !Task.isCancelled,(try? validateDirectory()) != nil,let entries=try? FileManager.default.contentsOfDirectory(at:directory,includingPropertiesForKeys:[.fileSizeKey,.contentModificationDateKey,.isSymbolicLinkKey]) else { return }
-        let files=entries.filter { $0.lastPathComponent.hasPrefix("preview-") && $0.pathExtension == "png" && (try? $0.resourceValues(forKeys:[.isSymbolicLinkKey]).isSymbolicLink) != true }
-            .sorted { ((try? $0.resourceValues(forKeys:[.contentModificationDateKey]).contentModificationDate) ?? .distantPast) > ((try? $1.resourceValues(forKeys:[.contentModificationDateKey]).contentModificationDate) ?? .distantPast) }
-        var total:Int64=0
-        for (index,url) in files.enumerated() { total += Int64((try? url.resourceValues(forKeys:[.fileSizeKey]).fileSize) ?? 0);if index >= 256 || total > 32_000_000 { remove(url.lastPathComponent) } }
+        guard !Task.isCancelled,(try? validateDirectory()) != nil else { return }
+        var files=loadPreviewFiles();var bytes=files.values.reduce(Int64(0)) { $0+Int64($1.bytes) }
+        guard files.count > 256 || bytes > 32_000_000 else { return }
+        for (name,file) in files.sorted(by:{$0.value.date < $1.value.date}) {
+            guard files.count > 256 || bytes > 32_000_000 else { break }
+            remove(name);files.removeValue(forKey:name);bytes -= Int64(file.bytes)
+        }
+        previewFiles=files
     }
     func pruneTagFiles(keeping:Set<String>) {
         guard !Task.isCancelled,(try? validateDirectory()) != nil,let entries=try? FileManager.default.contentsOfDirectory(at:directory,includingPropertiesForKeys:[.isSymbolicLinkKey]) else { return }
@@ -46,10 +73,14 @@ actor PetCatalogCache {
             if (try? url.resourceValues(forKeys:[.isSymbolicLinkKey]).isSymbolicLink) != true { remove(url.lastPathComponent) }
         }
     }
-    func remove(_ name: String) { if let url = try? file(name) { try? FileManager.default.removeItem(at:url) } }
+    func remove(_ name: String) {
+        if let url = try? file(name) { try? FileManager.default.removeItem(at:url) }
+        if name.hasPrefix("preview-") { previewFiles?.removeValue(forKey:name) }
+    }
     func clear() throws {
         try validateDirectory()
         if FileManager.default.fileExists(atPath:directory.path) { try FileManager.default.removeItem(at:directory) }
+        previewFiles=nil
     }
     func byteCount() throws -> Int64 {
         try validateDirectory()
