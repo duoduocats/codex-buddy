@@ -7,6 +7,7 @@ on:
     paths-ignore: [announcements/messages.json, announcements/tibo-28.json]
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -21,16 +22,36 @@ jobs:
           fetch-depth: 0
       - name: Full history privacy scan
         run: python3 scripts/check-source.py --history
+      - id: verification
+        name: Reuse identical PR verification on main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/ci-verification.py find
       - name: Set up build-only audit tools
+        if: steps.verification.outputs.reused != 'true'
         run: |
           python3 -m venv "$RUNNER_TEMP/buddy-audit-venv"
           "$RUNNER_TEMP/buddy-audit-venv/bin/python" -m pip install --disable-pip-version-check -r scripts/requirements-packaging.txt
           echo "$RUNNER_TEMP/buddy-audit-venv/bin" >> "$GITHUB_PATH"
       - name: Tests and source privacy scan
+        if: steps.verification.outputs.reused != 'true'
         run: bash scripts/test.sh
       - name: Build native app
+        if: steps.verification.outputs.reused != 'true'
         env:
           BUILD_DIR: ${{ runner.temp }}/buddy-build
         run: bash build.sh
       - name: Shipping bundle audit
+        if: steps.verification.outputs.reused != 'true'
         run: python3 scripts/check-package.py "${{ runner.temp }}/buddy-build/Codex Buddy.app"
+      - name: Record successful full verification
+        if: steps.verification.outputs.reused != 'true'
+        run: python3 scripts/ci-verification.py record --output "${{ runner.temp }}/buddy-verification"
+      - uses: actions/upload-artifact@v4
+        if: steps.verification.outputs.reused != 'true'
+        with:
+          name: verified-source
+          path: ${{ runner.temp }}/buddy-verification/verified-source.json
+          if-no-files-found: error
+          retention-days: 14

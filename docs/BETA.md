@@ -4,11 +4,11 @@
 
 ## 中文
 
-本页介绍**2.5.0-beta.3**。新主面板、即时预览和集成宠物功能目前在 Beta 中提供，正式版 **2.4.5** 的操作说明见 [README](../README.md)。
+本页介绍**2.5.0-beta.4**。新主面板、即时预览和集成宠物功能目前在 Beta 中提供，正式版 **2.4.5** 的操作说明见 [README](../README.md)。
 
 ### 安装与更新
 
-- 从 [2.5.0-beta.3 Release](https://github.com/duoduocats/codex-buddy/releases/tag/v2.5.0-beta.3) 下载 arm64 DMG，支持 Apple Silicon、macOS 13+。
+- 从 [2.5.0-beta.4 Release](https://github.com/duoduocats/codex-buddy/releases/tag/v2.5.0-beta.4) 下载 arm64 DMG，支持 Apple Silicon、macOS 13+。
 - 已安装正式版时，可在设置的 **通用与更新** 中开启 **接收 Beta 更新**，再点击 **检查更新**。安装 Beta 后，该选项位于 **通用** 页。
 - Beta 接收默认关闭；开启后会检查正式版和 Beta。关闭后不再接收新的 Beta，也不会自动降级已安装的测试版。
 - 首次安装步骤和 macOS 开发者验证说明见 [正式版安装指南](../README.md#下载与首次安装)。
@@ -39,17 +39,17 @@
 
 选择 **安装到本机**，核对作者、授权和目标目录后确认。安装后在 Codex 设置中手动进入 **虚拟宠物**，刷新并选择使用。已安装主题可移到废纸篓；覆盖安装会保留恢复副本。
 
-已安装列表也会展示当前账号可读取的 Codex 云端宠物，可见缩略图会自动加载；删除云端宠物需确认。内置来源现为 11 个，Petdex 已移除，已有宠物保留。标签索引公开后可按需同步；索引不可用时仍可使用原有浏览与搜索。
+已安装列表也会展示当前账号可读取的 Codex 云端宠物，可见缩略图会自动加载；删除云端宠物需确认。内置来源现为 11 个，Petdex 已移除，已有宠物保留。标签筛选已暂时移除，搜索、来源筛选和排序继续可用；已有标签说明与本地数据保留。
 
 Buddy 与独立 Codex Pets 的收藏、来源设置和缓存各自保存，两边可识别同一个 Codex 宠物目录。社区素材按需加载，不包含在应用包中。
 
 ## English
 
-This guide covers **2.5.0-beta.3**. The redesigned main window, live preview and integrated pets are available in Beta. For the stable **2.4.5** interface, see [README.en.md](../README.en.md).
+This guide covers **2.5.0-beta.4**. The redesigned main window, live preview and integrated pets are available in Beta. For the stable **2.4.5** interface, see [README.en.md](../README.en.md).
 
 ### Install and update
 
-- Download the arm64 DMG from the [2.5.0-beta.3 release](https://github.com/duoduocats/codex-buddy/releases/tag/v2.5.0-beta.3). For Apple Silicon and macOS 13+.
+- Download the arm64 DMG from the [2.5.0-beta.4 release](https://github.com/duoduocats/codex-buddy/releases/tag/v2.5.0-beta.4). For Apple Silicon and macOS 13+.
 - From the stable app, enable **Receive Beta updates** under **General & updates**, then choose **Check for updates**. After installing Beta, this option is in **General**.
 - Beta reception is off by default. Enabling it checks stable and Beta releases. Disabling it stops new Beta updates and does not automatically downgrade an installed Beta.
 - See the [stable installation guide](../README.en.md#download-and-install) for first installation and macOS developer-verification steps.
@@ -80,6 +80,6 @@ Use **Discover, Favorites, Installed, Sources** within **Pets** to browse and se
 
 Choose **Install locally**, review the author, license and destination, then confirm. In Codex settings, manually open **Pets**, refresh, and choose the companion. Installed themes can be moved to Trash; replacing a package keeps a recovery copy.
 
-Installed also lists readable Codex cloud pets for the current account. Visible thumbnails load automatically; deleting a cloud pet requires confirmation. There are eleven built-in sources after removing Petdex, and existing pets are preserved. Tag metadata can sync on demand when a public index is available; normal browsing and search remain usable without one.
+Installed also lists readable Codex cloud pets for the current account. Visible thumbnails load automatically; deleting a cloud pet requires confirmation. There are eleven built-in sources after removing Petdex, and existing pets are preserved. Tag filters are temporarily removed. Search, source filters and sorting remain available; existing tag descriptions and local metadata are retained.
 
 Buddy and the standalone Codex Pets app keep separate favorites, source preferences and caches while recognizing the same Codex pet directory. Artwork loads on demand and is not bundled.
