@@ -198,7 +198,7 @@ enum PetSprite {
               let properties=CGImageSourceCopyPropertiesAtIndex(source,0,nil) as? [CFString:Any],
               let width=properties[kCGImagePropertyPixelWidth] as? Int, let height=properties[kCGImagePropertyPixelHeight] as? Int,
               width > 0, height > 0, width <= 4096, height <= 4096,
-              let image=CGImageSourceCreateThumbnailAtIndex(source,0,[kCGImageSourceCreateThumbnailFromImageAlways:true,kCGImageSourceThumbnailMaxPixelSize:240] as CFDictionary) else { throw PetStoreError.invalidImage }
+              let image=CGImageSourceCreateThumbnailAtIndex(source,0,[kCGImageSourceCreateThumbnailFromImageAlways:true,kCGImageSourceThumbnailMaxPixelSize:240,kCGImageSourceShouldCacheImmediately:true] as CFDictionary) else { throw PetStoreError.invalidImage }
         return image
     }
 }

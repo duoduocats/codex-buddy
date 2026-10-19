@@ -3,14 +3,16 @@ import AppKit
 
 struct PetTileImage: View {
     let theme: PetTheme
-    @ObservedObject var store: ThemeStoreModel
-    @State private var image: NSImage?
+    let store: ThemeStoreModel
+    @State private var loaded:(key:String,image:NSImage)?
     var body: some View {
+        let key=PetThumbnailLoader.key(for:theme) ?? theme.id
+        let image=(loaded?.key == key ? loaded?.image:nil) ?? store.cachedThumbnail(for:theme)
         Group {
             if let image { Image(nsImage:image).resizable().scaledToFit().padding(5) }
             else { PetStoreMark(size:44) }
-        }.accessibilityHidden(true).task(id:theme.id) {
-            image=nil;image=await store.thumbnail(for:theme)
+        }.accessibilityHidden(true).task(id:key) {
+            if let image=await store.thumbnail(for:theme),!Task.isCancelled { loaded=(key,image) }
         }
     }
 }

@@ -133,6 +133,7 @@ final class PetFixture:URLProtocol {
         try PetPackageInstallerTests.run(root:installerTestRoot,sprite:v2)
         try PetPackageUninstallerTests.run(root:installerTestRoot,sprite:v2)
         await PetPreviewTests.run()
+        try await PetThumbnailLoadingTests.run(root:installerTestRoot,sprite:v2)
         try await PetPreviewLoadingTests.run(root:installerTestRoot,sprite:v2)
         _=try PetSprite.image(v1,version:1);_=try PetSprite.image(v2,version:2)
         rejected { _=try PetSprite.image(v1,version:2) }

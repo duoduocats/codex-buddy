@@ -83,7 +83,7 @@ struct PetUninstallRequest:Identifiable {
     private var handoffTask:Task<Void,Never>?
     private var handoffGeneration=0
     private var catalogs=[String:[PetTheme]]()
-    private var thumbnails=NSCache<NSURL,NSImage>()
+    private let thumbnailLoader:PetThumbnailLoader
     private var previewCache=PetPreviewMemoryCache()
     private var catalogTask:Task<Void,Never>?
     private var detailTask:Task<Void,Never>?
@@ -102,7 +102,8 @@ struct PetUninstallRequest:Identifiable {
         favoriteRepository=PetFavoritesRepository(preferences:preferences)
         let savedFavorites=favoriteRepository.read();favorites=savedFavorites;favoriteIDs=Set(savedFavorites.map(\.id))
         self.openCodexURL=openCodexURL;self.copyText=copyText;self.trashItem=trashItem
-        cache=cacheDirectory.map { PetCatalogCache(directory:$0) } ?? .shared
+        let thumbnailCache=cacheDirectory.map { PetCatalogCache(directory:$0) } ?? .shared
+        cache=thumbnailCache;thumbnailLoader=PetThumbnailLoader(client:client,cache:thumbnailCache)
         let saved=(preferences.object(forKey:"pets.sources") as? Data).flatMap { try? JSONDecoder().decode([PetSource].self,from:$0) } ?? []
         var sources=PetSource.defaults
         for index in sources.indices {
@@ -111,7 +112,6 @@ struct PetUninstallRequest:Identifiable {
         sources += saved.filter { !$0.builtIn && $0.format == .catalog && $0.id == "custom-"+PetURL.key($0.catalogURL.absoluteString) && (try? PetURL.validate($0.catalogURL)) != nil && (try? PetURL.validate($0.websiteURL)) != nil }.prefix(8)
         self.sources=sources;sourceNames=Dictionary(uniqueKeysWithValues:sources.map { ($0.id,$0.name) })
         cloudTransactionSubscription=cloud?.$deletingPetID.map {$0 != nil}.removeDuplicates().sink { [weak self] in self?.deletingCloudPet=$0 }
-        thumbnails.countLimit=64;thumbnails.totalCostLimit=12_000_000
         // Forward loading/error changes too: the filter menu must not present
         // an unavailable metadata feed as a completed search with no matches.
         tagStateSubscription=tags?.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
@@ -137,6 +137,7 @@ struct PetUninstallRequest:Identifiable {
         installedScanGeneration += 1;installedScan?.cancel();installedScan=nil
         tagStore?.setVisible(false)
         visible=false;catalogGeneration += 1;detailGeneration += 1;handoffGeneration += 1
+        thumbnailLoader.cancelAll()
         handoffTask?.cancel();handoffTask=nil;handingOff=false;installationHandoff=false
         catalogTask?.cancel();catalogTask=nil;detailTask?.cancel();detailTask=nil
         loading=false;preparing=false;sheet=nil;selectedThumbnail=nil;preparedLink=nil;preparedPackage=nil;selected=nil;notice=nil
@@ -165,7 +166,7 @@ struct PetUninstallRequest:Identifiable {
     }
     func refresh() {
         guard visible, !demonstration, !clearingCache else { return }
-        catalogTask?.cancel();catalogGeneration += 1
+        catalogTask?.cancel();catalogGeneration += 1;thumbnailLoader.cancelAll()
         if !modifyingLocalLibrary,selected != nil,preparing || checkingLocalInstall || localInstallRequest != nil || handingOff { invalidatePreviewForCatalogRefresh() }
         let generation=catalogGeneration;let enabled=sources.filter(\.enabled);let client=client;let cache=cache
         loading=true;sourceErrors=[:];cachedSources=Set(enabled.compactMap { catalogs[$0.id] == nil ? nil : $0.id })
@@ -339,35 +340,17 @@ struct PetUninstallRequest:Identifiable {
         try await tagStore?.clear()
         try await cache.clear()
         catalogs=[:];themes=[];cachedSources=[];popularity=[:];statisticsDate=nil
-        thumbnails.removeAllObjects();previewCache.clear();await searchEngine.clear();searchRevision += 1;refreshed = .distantPast
+        thumbnailLoader.cancelAll(clearImages:true);previewCache.clear();await searchEngine.clear();searchRevision += 1;refreshed = .distantPast
     }
     func thumbnail(for theme:PetTheme) async -> NSImage? {
-        guard visible, let url=theme.previewURL else { return nil }
+        guard visible,!clearingCache,!Task.isCancelled else { return nil }
         let generation=catalogGeneration
-        let key=PetURL.key(url.absoluteString+"|"+(theme.tagFingerprint ?? ""))
-        let cacheURL=URL(string:"https://thumbnail.invalid/"+key)! // memory key only, never requested
-        if let image=thumbnails.object(forKey:cacheURL as NSURL) { return image }
-        let name="preview-"+key+".png"
-        if let data=await cache.read(name,limit:1_000_000),let image=try? await Task.detached(priority:.utility,operation:{try PetSprite.thumbnailImage(data)}).value {
-            guard visible,generation == catalogGeneration,!Task.isCancelled else { return nil };let result=NSImage(cgImage:image,size:NSSize(width:image.width,height:image.height));thumbnails.setObject(result,forKey:cacheURL as NSURL);return result
+        guard let loaded=await thumbnailLoader.image(for:theme,canFetch:canFetch(theme)),
+              visible,!clearingCache,generation == catalogGeneration,!Task.isCancelled else { return nil }
+        if let sprite=loaded.sprite,let url=theme.previewURL {
+            previewCache.rememberSprite(sprite,url:url,theme:theme,generation:generation)
         }
-        guard canFetch(theme) else { return nil }
-        do {
-            let data=try await client.data(from:url,limit:theme.previewIsSprite ? 32_000_000 : 6_000_000,kind:.preview)
-            try Task.checkCancellation();guard visible,generation == catalogGeneration else { return nil }
-            let sprite=theme.previewIsSprite
-            if sprite { previewCache.rememberSprite(data,url:url,theme:theme,generation:generation) }
-            let frame=try await Task.detached(priority:.utility) { try PetSprite.thumbnailImage(data,sprite:sprite) }.value
-            try Task.checkCancellation();guard visible,generation == catalogGeneration else { return nil }
-            let image=NSImage(cgImage:frame,size:NSSize(width:frame.width,height:frame.height))
-            thumbnails.setObject(image,forKey:cacheURL as NSURL,cost:Int(image.size.width*image.size.height)*4)
-            let bytes=await Task.detached(priority:.utility) { () -> Data? in
-                let result=NSMutableData();guard let writer=CGImageDestinationCreateWithData(result,UTType.png.identifier as CFString,1,nil) else { return nil }
-                CGImageDestinationAddImage(writer,frame,nil);return CGImageDestinationFinalize(writer) ? result as Data : nil
-            }.value
-            if let bytes,visible,generation == catalogGeneration,!Task.isCancelled { try? await cache.write(bytes,name:name);await cache.trimPreviews() }
-            return image
-        } catch { return nil }
+        return loaded.image
     }
     private func invalidatePreviewForCatalogRefresh() {
         guard !modifyingLocalLibrary else { return }
@@ -377,11 +360,7 @@ struct PetUninstallRequest:Identifiable {
         sheet=nil;preparedLink=nil;preparedPackage=nil
         detailError=L("目录已更新，请重新加载预览。", "The catalog changed. Reload the preview.")
     }
-    private func cachedThumbnail(for theme:PetTheme) -> NSImage? {
-        guard let url=theme.previewURL else { return nil }
-        let key=PetURL.key(url.absoluteString+"|"+(theme.tagFingerprint ?? ""))
-        return thumbnails.object(forKey:URL(string:"https://thumbnail.invalid/"+key)! as NSURL)
-    }
+    func cachedThumbnail(for theme:PetTheme) -> NSImage? { thumbnailLoader.cached(for:theme) }
     func select(_ theme:PetTheme?) {
         guard !modifyingLocalLibrary else { return }
         localCheckGeneration += 1;localCheckTask?.cancel();localCheckTask=nil;checkingLocalInstall=false;localInstallRequest=nil;uninstallRequest=nil

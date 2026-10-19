@@ -10,7 +10,7 @@ See your **remaining ChatGPT / Codex quota, reset countdown, and daily token usa
 
 A native macOS utility for **Apple Silicon · macOS 13+**. It uses your existing local ChatGPT / Codex login; no separate API key is needed.
 
-This page describes the current [stable release, 2.5.0](https://github.com/duoduocats/codex-buddy/releases/tag/v2.5.0), including the redesigned main window, live preview, usage trends and forecast, and integrated pet store.
+This page describes the current [stable release, 2.5.1](https://github.com/duoduocats/codex-buddy/releases/tag/v2.5.1), including the redesigned main window, live preview, usage trends and forecast, and integrated pet store.
 
 ## DuoDuoCat
 

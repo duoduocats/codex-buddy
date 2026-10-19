@@ -10,7 +10,7 @@
 
 原生 macOS 小工具，支持 **Apple Silicon · macOS 13+**。使用本机已有的 ChatGPT / Codex 登录状态，无需另填 API Key。
 
-本页介绍当前[正式版 2.5.0](https://github.com/duoduocats/codex-buddy/releases/tag/v2.5.0)，包含新主面板、即时预览、用量趋势与预测，以及集成宠物商店。
+本页介绍当前[正式版 2.5.1](https://github.com/duoduocats/codex-buddy/releases/tag/v2.5.1)，包含新主面板、即时预览、用量趋势与预测，以及集成宠物商店。
 
 ## 多多猫 DuoDuoCat
 
