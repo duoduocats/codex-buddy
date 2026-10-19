@@ -10,7 +10,7 @@ See your **remaining ChatGPT / Codex quota, reset countdown, and daily token usa
 
 A native macOS utility for **Apple Silicon · macOS 13+**. It uses your existing local ChatGPT / Codex login; no separate API key is needed.
 
-This page describes the current [stable release, 2.4.5](https://github.com/duoduocats/codex-buddy/releases/tag/v2.4.5). See the [Beta guide](docs/BETA.md#english) for the new main window, live preview and pets in 2.5 Beta.
+This page describes the current [stable release, 2.5.0](https://github.com/duoduocats/codex-buddy/releases/tag/v2.5.0), including the redesigned main window, live preview, usage trends and forecast, and integrated pet store.
 
 ## DuoDuoCat
 
@@ -23,22 +23,48 @@ Choose **DuoDuoCat** or the classic Ring. See quota, a reset countdown, and avai
 - **Quota at a glance:** choose Ring or DuoDuoCat, with a reset countdown or remaining percentage in the center. Four dots represent available resets when the service provides them.
 - **Daily token chart:** view daily usage over 7, 14, or 30 days. If today’s record is not available yet, the chart ends yesterday; a reported zero still appears.
 - **Five usage statistics:** lifetime tokens, peak daily tokens, longest task, longest streak, and current streak.
+- **Trends and forecast:** annual token activity, linked daily, weekly and cumulative charts, and comparisons between recorded quota history and extra-reset scenarios.
+- **Pet themes:** browse eleven community sources, search and save favorites, preview animations, install locally and manage added pets.
 - **Share usage images:** turn the selected date range and statistics into an image to share, save, or copy through the system menu.
 - **Messages and reset reminders:** receive announcements in the panel, with countdowns when an exact reset time is announced and optional system notifications.
-- **Tibo’s 28-day challenge:** follow daily improvements and quota resets, select a day for details and original posts, and revisit records in Settings after the challenge ends.
+- **Messages and special activity:** browse announcements and open Tibo’s 28-day challenge from the floating calendar, with records retained after the activity ends.
 - **In-app updates:** see your installed version and release notes, then download and install new versions within the app.
 - **Your choice of display:** hide the daily usage section or sharing button, or enable launch at login.
 - **English and Simplified Chinese:** the interface follows macOS preferred languages; reset dates follow your system time zone and 12 / 24-hour preferences.
 
-Enable **Reset details** under **Panel** to see when your available resets expire. Choose **All** or **Upcoming**; upcoming details default to the next 7 days, with 1 / 3 / 7 / 14 / 30-day windows. Resets with the same expiration time are grouped together.
+Enable **Reset details** under **Usage → Usage assistant → Panel** to see when your available resets expire. Choose **All** or **Upcoming**; upcoming details default to the next 7 days, with 1 / 3 / 7 / 14 / 30-day windows. Resets with the same expiration time are grouped together.
+
+## Main window and usage
+
+The main window has **Usage, Pets, Messages, and General**. The Dock icon appears while the main or activity window is open; closing all windows keeps the app running in the menu bar.
+
+**Usage assistant** places display options around a combined menu-bar and expanded-panel sample. Settings update the preview immediately. The sample is labelled **Sample data preview**; the real menu bar and panel continue to show your account usage. macOS 26 uses native Liquid Glass bottom navigation with dragging; older systems use a compatible style. System motion and transparency preferences are respected.
+
+In **Usage trends**, the annual token calendar is independent of the chart's 30-day, 90-day or one-year range. Hover either view to link dates and inspect exact token counts. Daily and weekly curves render missing buckets at zero, while cumulative curves carry known totals forward. Missing source records are not rewritten, and partial totals show “≥”.
+
+**Usage forecast** shows recorded quota history and a regular curve. Enable **Extra reset (simulation)** and choose a date to compare a hypothetical scenario on the same chart. Limited observations use a labelled budget reference. Simulations do not alter real quota or promise an official reset; past unrecorded readings cannot be recovered.
+
+## Pet themes
+
+Use **Discover, Favorites, Installed, Sources** within **Pets** to browse community themes, search and filter by source, sort by name or popularity, and keep local favorites. Animation previews and v2 look-direction previews are supported. Tag filters are temporarily removed; existing tag descriptions and local metadata are retained.
+
+Choose **Install locally**, review the author, license and destination, then confirm. In Codex settings, open **Pets**, refresh, and choose the companion. Installed themes can be moved to Trash, and replacing a package keeps a recovery copy.
+
+Installed also lists readable Codex cloud pets for the current account. Visible thumbnails load automatically; deleting a cloud pet requires confirmation. Eleven sources are built in after retiring Petdex, with existing pets preserved. Artwork loads on demand and is not bundled.
+
+Buddy and the standalone Codex Pets app keep separate favorites, sources and caches while recognizing the same Codex pet directory.
+
+**General** separates app preferences, updates, app data and traffic statistics. Manage launch at login, system alerts and Beta reception there. Cache cleanup preserves quota history and personal data.
 
 ## Messages and updates
 
 See quota-reset notices and other messages in the expanded panel, with times following your Mac’s time zone and regional format. When an exact reset time is officially announced, the message shows that time and a countdown; other messages show their publication time, or a clearly labelled collection time when the original time cannot be verified. Expired messages disappear. Click **×** to dismiss a message temporarily; it returns when you reopen the app if it is still valid.
 
-Codex Buddy appears in the Dock while Settings or the activity window is open. Closing all windows hides its Dock icon and keeps the app running in the menu bar. Use the Settings sidebar to jump to a section. Under **Panel**, **Messages** controls receipt and display, with separate Reset reminders and Activity messages choices. **System alerts** independently pushes the same selected message types to macOS Notification Center. Turning off Messages stops receiving and push alerts, hides activity entries and closes the activity window.
+**Messages** retains a scrollable list of recent announcements, with past notices marked in their time row.
 
-The panel shows messages, quota, reset expiry details and daily tokens in that order. Use **View activity** on an activity message to open the full **Tibo’s 28-day challenge** progress. Challenge dates follow Pacific time; message timestamps follow your Mac’s time zone. After the challenge ends, use **General & updates → Activity records** in Settings to revisit it. System alerts follow your selected message types; disabling push keeps messages available in the panel.
+Under **Usage → Usage assistant → Panel**, **Messages** controls receipt and display, with separate Reset reminders and Activity messages choices. **System alerts** in **General** independently pushes the same selected message types to macOS Notification Center. Turning off Messages stops receiving and push alerts, hides activity entries and closes the activity window.
+
+The panel shows messages, quota, reset expiry details and daily tokens in that order. Use **View activity** on an activity message or the **Special activity** calendar in **Messages** to open **Tibo’s 28-day challenge**. Challenge dates follow Pacific time; message timestamps follow your Mac’s time zone. After the challenge ends, its entry leaves the expanded panel, while **Past activity** in **Messages** retains the records. System alerts follow your selected message types; disabling push keeps messages available in the panel.
 
 Under **Messages**, turn **Reset reminders** and **Activity messages** on or off independently. Each type controls receiving, displaying and pushing its content. Turning off Activity messages also closes the activity window. Turning off the master disables both child controls while preserving their choices.
 
@@ -46,9 +72,9 @@ During the campaign, messages and activity records check for updates every five 
 
 <img src="docs/images/challenge-en.png" width="720" alt="Tibo’s 28-day challenge: day-by-day progress, improvement details and original-post links" />
 
-Click **Check for updates** in Settings to see new versions and release notes. When an update is available, use the **Download update** button beside Settings in the expanded panel to upgrade within the app.
+Use **Check for updates** under **General → Updates** to see new versions and release notes. Download updates there or from the expanded panel. This stable release uses the notify policy: detection shows a download prompt, and installation requires confirmation.
 
-Beta updates are off by default. Enable **Receive Beta updates** under **General & updates** to receive Beta releases. With it off, both automatic and manual checks use stable releases only. Turning Beta off does not downgrade the app; a newer installed Beta waits for a later stable release.
+Beta updates are off by default. Enable **Receive Beta updates** under **General → Updates** to receive Beta releases. With it off, both automatic and manual checks use stable releases only. Turning Beta off does not downgrade the app; a newer installed Beta waits for a later stable release.
 
 Settings shows the last successful update check. Temporary connection failures retry automatically, and failed updates preserve a working version.
 
@@ -83,12 +109,13 @@ macOS saves the app as a security exception. These steps apply to developer-veri
 | Show reset details | Off; choose All or Upcoming |
 | System alerts | Off; enabling requests system notification permission |
 | Launch at login | Off |
+| Receive Beta updates | Off |
 
 Upgrades preserve your settings. Turning off daily token usage hides the chart and statistics in the lower part of the panel.
 
 ## Lightweight and private
 
-A native macOS app with a current download of about **2.8 MB**. It uses your existing local login to check quota, without reading conversations or project code. Usage images are created on your Mac; you choose when to save or share them.
+A native macOS app with a current download of about **4 MB**. It uses your existing local login to check quota, without reading conversations or project code. Usage images are created on your Mac; you choose when to save or share them.
 
 See the [privacy policy](docs/PRIVACY.md).
 
