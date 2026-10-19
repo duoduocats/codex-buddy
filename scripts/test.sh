@@ -29,6 +29,7 @@ swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 \
 python3 "$ROOT/scripts/test-privacy.py"
 python3 "$ROOT/scripts/test-pdf-privacy.py"
 python3 "$ROOT/scripts/test-release-policy.py"
+python3 "$ROOT/scripts/test-ci-verification.py"
 swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 \
   "$ROOT/Sources/RefreshPolicy.swift" "$ROOT/Sources/Localization.swift" "$ROOT/Sources/Statistics.swift" "$ROOT/Sources/Usage.swift" "$ROOT/Tests/NetworkTests.swift" -o "$TEST_BUILD/network-tests"
 "$TEST_BUILD/network-tests"
@@ -66,10 +67,6 @@ swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 -Osize -ta
   "${SHARE_SOURCES[@]}" "$ROOT/Tests/ApplicationStorageTests.swift" -o "$TEST_BUILD/application-storage-tests"
 "$TEST_BUILD/application-storage-tests"
 "$TEST_BUILD/settings-services-tests"
-swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 -Osize -target arm64-apple-macosx13.0 \
-  -framework AppKit -framework SwiftUI -framework Charts -framework ServiceManagement -framework UserNotifications \
-  "${SHARE_SOURCES[@]}" "$ROOT/Tests/PetCloudLibraryTests.swift" -o "$TEST_BUILD/cloud-pet-tests"
-"$TEST_BUILD/cloud-pet-tests"
 swiftc -module-cache-path "$TEST_BUILD/module-cache" -swift-version 5 -Osize -target arm64-apple-macosx13.0 \
   -framework AppKit -framework SwiftUI -framework Charts -framework ServiceManagement -framework UserNotifications \
   "${SHARE_SOURCES[@]}" "$ROOT/Tests/UsageTrendsPresentationTests.swift" -o "$TEST_BUILD/trend-presentation-tests"

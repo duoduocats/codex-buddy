@@ -84,3 +84,24 @@ Network recovery uses the existing native path monitor. No new background timer,
 account identifier, cookie, credential, third-party mirror or telemetry is added.
 The anonymous Contents API remains subject to GitHub's rate limits; a final
 successful quota-zero response is retained while its next deadline is respected.
+
+## Reusing release verification
+
+Pull requests run the complete test suite, history privacy scan, native build and
+shipping-bundle audit. Only after those steps succeed does CI upload a small
+verification receipt; the consuming job also requires that entire run to have
+completed successfully.
+
+Main and Release can reuse that verification only when the complete Git tree,
+CI workflow blob, repository, run identity and tested commit agree. Pull-request
+merge commits are checked against the recorded run head. Receipts from forks,
+failed runs, expired artifacts or changed trees are rejected. Receipts expire
+after fourteen days. If the API or verification is unavailable, the normal full
+tests run. PR verification itself is never skipped.
+
+Release still validates the tag and update policy, scans history, builds the
+final app and DMG, audits their contents and signature, and tests actual DMG
+staging and tamper rejection. It creates a draft for the existing publication
+review; this optimization does not publish automatically or change the selected
+update mode. A previous local client test can be reused for release-metadata-only
+preparation when all approved client inputs are unchanged.

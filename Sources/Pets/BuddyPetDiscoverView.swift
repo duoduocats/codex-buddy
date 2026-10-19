@@ -23,26 +23,18 @@ struct BuddyPetDiscoverView:View {
     var favoritesOnly=false
     @StateObject private var results = PetQueryModel()
     @State private var visibleCount = 60
-    private var request: PetSearchRequest { .init(revision:store.searchRevision,query:search,sourceID:sourceFilter,byInstalls:sortByInstalls,favoritesOnly:favoritesOnly,tagRevision:store.tagStore?.revision ?? "",selectedTagIDs:store.selectedTagIDs.sorted()) }
-    private var tagCoverage:PetTagCoverage { store.tagCoverage(sourceID:sourceFilter,favoritesOnly:favoritesOnly) }
-    private var tagsUnavailable:Bool { !store.selectedTagIDs.isEmpty && store.tagStore?.hasMetadata != true }
+    // Tag filtering is temporarily unavailable; retained selections must not hide pets.
+    private var request: PetSearchRequest { .init(revision:store.searchRevision,query:search,sourceID:sourceFilter,byInstalls:sortByInstalls,favoritesOnly:favoritesOnly,tagRevision:store.tagStore?.revision ?? "") }
     var body:some View {
         LazyVStack(alignment:.leading,spacing:12) {
             controls
             if results.themes.isEmpty {
                 VStack(spacing:12) {
                     PetStoreMark(size:52)
-                    Text(tagsUnavailable ? (store.tagStore?.syncing == true ? L("正在获取标签…","Loading tags…") : L("标签暂不可用","Tags are unavailable")) : favoritesOnly && store.selectedTagIDs.isEmpty ? L("把喜欢的小伙伴留在这里", "Keep your favorites here") : store.loading ? L("正在寻找小伙伴…", "Finding companions…") : L("暂无匹配主题", "No matching themes"))
+                    Text(favoritesOnly ? L("把喜欢的小伙伴留在这里", "Keep your favorites here") : store.loading ? L("正在寻找小伙伴…", "Finding companions…") : L("暂无匹配主题", "No matching themes"))
                         .font(.system(size:17,weight:.semibold))
-                    Text(tagsUnavailable ? L("可以重新获取标签，或清除标签继续浏览。","Retry loading tags, or clear the filters to keep browsing.") : !store.selectedTagIDs.isEmpty ? L("没有符合这些条件的已标注宠物。","No tagged pets match these filters.") : favoritesOnly ? L("点击主题上的书签即可收藏，收藏只保存在这台 Mac。", "Bookmark a theme to save it on this Mac.") : L("换个关键词或来源试试。", "Try another keyword or source."))
+                    Text(favoritesOnly ? L("点击主题上的书签即可收藏，收藏只保存在这台 Mac。", "Bookmark a theme to save it on this Mac.") : L("换个关键词或来源试试。", "Try another keyword or source."))
                         .font(.system(size:12)).foregroundStyle(.secondary)
-                    if tagsUnavailable {
-                        HStack(spacing:18) {
-                            Button(L("重新获取","Retry")) {store.tagStore?.sync(force:true)}.buttonStyle(.link)
-                                .disabled(store.tagStore?.syncing == true)
-                            Button(L("清除标签","Clear tags")) {store.selectedTagIDs=[]}.buttonStyle(.link)
-                        }
-                    }
                 }.frame(maxWidth:.infinity).padding(.vertical,72)
             } else {
                 LazyVGrid(columns:[GridItem(.adaptive(minimum:260),spacing:16)],alignment:.leading,spacing:16) {
@@ -66,7 +58,6 @@ struct BuddyPetDiscoverView:View {
                     .padding(.horizontal,10).frame(width:220,height:36)
                     .background(Color.primary.opacity(0.03),in:RoundedRectangle(cornerRadius:9))
                     .overlay(RoundedRectangle(cornerRadius:9).stroke(Color.primary.opacity(0.12),lineWidth:0.7))
-                if let tags=store.tagStore,!tags.facets.isEmpty { PetTagFilters(facets:tags.facets,selected:$store.selectedTagIDs,coverage:tagCoverage,hasMetadata:tags.hasMetadata,syncing:tags.syncing,onOpen:tags.activateFilters,retry:{tags.sync(force:true)}) }
                 Spacer(minLength:8)
                 SettingsSegments(labels:[L("名称", "Name"),L("热度", "Popular")],selection:Binding(
                     get:{sortByInstalls ? 1 : 0},set:{sortByInstalls = $0 == 1}),accessibilityLabel:L("排序", "Sort"))
@@ -75,13 +66,7 @@ struct BuddyPetDiscoverView:View {
             }.frame(minHeight:30)
             VStack(alignment:.leading,spacing:10) {
                 HStack { PetSourcePicker(sources:store.sources,selection:$sourceFilter).frame(width:220,height:36);Spacer();SettingsSegments(labels:[L("名称","Name"),L("热度","Popular")],selection:Binding(get:{sortByInstalls ? 1:0},set:{sortByInstalls=$0==1}),accessibilityLabel:L("排序","Sort")).frame(width:190,height:36) }
-                if let tags=store.tagStore,!tags.facets.isEmpty { PetTagFilters(facets:tags.facets,selected:$store.selectedTagIDs,coverage:tagCoverage,hasMetadata:tags.hasMetadata,syncing:tags.syncing,onOpen:tags.activateFilters,retry:{tags.sync(force:true)}) }
             }
-            }
-            if let tags=store.tagStore,!store.selectedTagIDs.isEmpty {
-                HStack(spacing:8) { ForEach(tags.facets.flatMap(\.tags).filter { store.selectedTagIDs.contains($0.id) }) { tag in
-                    Button { store.selectedTagIDs.remove(tag.id) } label: { HStack(spacing:6) { Text(tag.label.text);Image(systemName:"xmark").font(.system(size:9)) }.font(.system(size:12)).padding(.horizontal,9).padding(.vertical,5).background(Color.blue.opacity(0.14),in:Capsule()).contentShape(Capsule()) }.buttonStyle(.plain).foregroundStyle(.blue)
-                } }
             }
             if !store.sourceErrors.isEmpty || (!store.loading && !store.cachedSources.isEmpty) {
                 Label(L("部分来源未更新，可在来源页重试。", "Some sources could not update. Retry in Sources."),systemImage:"wifi.exclamationmark")
