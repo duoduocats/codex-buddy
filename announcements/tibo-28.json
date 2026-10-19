@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "tibo-28-2026-10-05",
-  "revision": 27,
+  "revision": 28,
   "startDate": "2026-10-05",
   "days": 28,
   "timeZone": "America/Los_Angeles",
@@ -446,6 +446,24 @@
       "sourceURL": "https://x.com/thsottiaux/status/2111492673890824348",
       "collectedAt": "2026-10-17T16:44:51.039Z",
       "sourcePublishedAt": "2026-10-17T16:20:00Z"
+    },
+    {
+      "id": "tibo-day-14-edit-messages",
+      "revision": 1,
+      "day": 14,
+      "kind": "improvement",
+      "status": "completed",
+      "title": {
+        "zh": "桌面应用支持编辑历史消息",
+        "en": "Edit previous messages in the desktop app"
+      },
+      "body": {
+        "zh": "Tibo 宣布第 14 天改进：现在可以在桌面应用中编辑同一聊天内的历史消息。",
+        "en": "Tibo announced the Day 14 improvement: previous messages within a thread can now be edited in the desktop app."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2111990254408434095",
+      "collectedAt": "2026-10-19T01:41:45.524Z",
+      "sourcePublishedAt": "2026-10-19T01:18:00Z"
     }
   ]
 }
