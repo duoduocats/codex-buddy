@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "tibo-28-2026-10-05",
-  "revision": 28,
+  "revision": 29,
   "startDate": "2026-10-05",
   "days": 28,
   "timeZone": "America/Los_Angeles",
@@ -431,17 +431,17 @@
     },
     {
       "id": "tibo-day-13-reset",
-      "revision": 1,
+      "revision": 2,
       "day": 13,
       "kind": "reset",
-      "status": "scheduled",
+      "status": "completed",
       "title": {
-        "zh": "第 13 天额度重置计划",
-        "en": "Day 13 quota reset planned"
+        "zh": "第 13 天额度重置已完成",
+        "en": "Day 13 quota reset complete"
       },
       "body": {
-        "zh": "Tibo 宣布第 13 天将进行额度重置，并在回复中称会在“今天 EOD PST 前”的某个时间推出。尚未确认完成。",
-        "en": "Tibo announced a quota reset for Day 13 and said in a reply that it would land sometime today by EOD PST. Completion has not yet been confirmed."
+        "zh": "第 13 天额度重置已完成。Tibo 随后发布“Done”；原 EOD 计划已过期，不再显示待确认。完成公告时间不代表各账号实际到账时刻。",
+        "en": "The Day 13 quota reset is complete. Tibo subsequently posted “Done”; the original EOD deadline has passed, so the event is no longer pending confirmation. The announcement time is not each account’s actual reset time."
       },
       "sourceURL": "https://x.com/thsottiaux/status/2111492673890824348",
       "collectedAt": "2026-10-17T16:44:51.039Z",
