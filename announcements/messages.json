@@ -133,6 +133,24 @@
       "publishedAt": "2026-10-17T21:12:00Z",
       "expiresAt": "2026-10-18T21:12:00Z",
       "timestampBasis": "source"
+    },
+    {
+      "id": "tibo-day-15-reset",
+      "revision": 1,
+      "status": "completed",
+      "title": {
+        "zh": "第 15 天额度重置已完成",
+        "en": "Day 15 quota reset complete"
+      },
+      "body": {
+        "zh": "Tibo 引用先前的第 15 天节目帖，宣布已进行额度重置：“and reset. Enjoy.”。可刷新查看当前账号额度。",
+        "en": "Quoting his earlier Day 15 broadcast post, Tibo announced a quota reset: “and reset. Enjoy.” Refresh to check your account’s current quota."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2112432076767289678",
+      "type": "message",
+      "publishedAt": "2026-10-20T06:33:00Z",
+      "expiresAt": "2026-10-21T06:33:00Z",
+      "timestampBasis": "source"
     }
   ]
 }
