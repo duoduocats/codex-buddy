@@ -151,6 +151,24 @@
       "publishedAt": "2026-10-20T06:33:00Z",
       "expiresAt": "2026-10-21T06:33:00Z",
       "timestampBasis": "source"
+    },
+    {
+      "id": "tibo-usage-plan-correction-2026-10-20",
+      "revision": 1,
+      "type": "message",
+      "status": "scheduled",
+      "publishedAt": "2026-10-20T17:10:00Z",
+      "expiresAt": "2026-10-21T17:10:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "受影响账号将获 credits 补偿",
+        "en": "Credits planned for affected accounts"
+      },
+      "body": {
+        "zh": "Tibo 确认约 4 万个账号的用量扣算与实际所选套餐不一致，问题已修复，团队正在逐一联系受影响用户，并承诺向受影响账号补发 credits；原帖未说明金额或到账时间。",
+        "en": "Tibo identified about 40,000 accounts whose applied usage limits did not match their selected plan. The issue is corrected, affected users are being contacted individually, and credits will be added to affected accounts. No amount or delivery time was specified."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2112592264686149749"
     }
   ]
 }

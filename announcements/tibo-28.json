@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "tibo-28-2026-10-05",
-  "revision": 30,
+  "revision": 31,
   "startDate": "2026-10-05",
   "days": 28,
   "timeZone": "America/Los_Angeles",
@@ -482,6 +482,24 @@
       "sourceURL": "https://x.com/thsottiaux/status/2112432076767289678",
       "collectedAt": "2026-10-20T07:04:23.904Z",
       "sourcePublishedAt": "2026-10-20T06:33:00Z"
+    },
+    {
+      "id": "tibo-usage-plan-correction-2026-10-20",
+      "revision": 1,
+      "day": 16,
+      "kind": "improvement",
+      "status": "completed",
+      "title": {
+        "zh": "用量扣算与套餐不一致问题已修复",
+        "en": "Usage and plan mismatch corrected"
+      },
+      "body": {
+        "zh": "Tibo 确认约 4 万个账号的用量扣算与实际所选套餐不一致，问题已修复，团队正在逐一联系受影响用户，并承诺向受影响账号补发 credits；原帖未说明金额或到账时间。",
+        "en": "Tibo identified about 40,000 accounts whose applied usage limits did not match their selected plan. The issue is corrected, affected users are being contacted individually, and credits will be added to affected accounts. No amount or delivery time was specified."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2112592264686149749",
+      "collectedAt": "2026-10-20T18:00:49.818Z",
+      "sourcePublishedAt": "2026-10-20T17:10:00Z"
     }
   ]
 }
