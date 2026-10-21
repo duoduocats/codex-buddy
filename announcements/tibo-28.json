@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "tibo-28-2026-10-05",
-  "revision": 31,
+  "revision": 32,
   "startDate": "2026-10-05",
   "days": 28,
   "timeZone": "America/Los_Angeles",
@@ -500,6 +500,24 @@
       "sourceURL": "https://x.com/thsottiaux/status/2112592264686149749",
       "collectedAt": "2026-10-20T18:00:49.818Z",
       "sourcePublishedAt": "2026-10-20T17:10:00Z"
+    },
+    {
+      "id": "tibo-day-16-persistent-cache",
+      "revision": 1,
+      "day": 16,
+      "kind": "improvement",
+      "status": "completed",
+      "title": {
+        "zh": "延长缓存并支持恢复旧会话",
+        "en": "Longer caching and cached conversation resumes"
+      },
+      "body": {
+        "zh": "Tibo 宣布 API 可选 12 小时缓存；Codex 与 Work 登录用户的缓存将持续保留，返回旧会话或间隔数小时后继续时可保证命中缓存，不再因此受罚。",
+        "en": "Tibo announced optional 12-hour API caching. For logged-in Codex and Work users, cache is kept indefinitely, with guaranteed cache hits and no penalty when returning to an old conversation or resuming hours later."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2112712984644784534",
+      "collectedAt": "2026-10-21T02:51:40.163Z",
+      "sourcePublishedAt": "2026-10-21T01:10:00Z"
     }
   ]
 }
