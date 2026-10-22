@@ -38,7 +38,7 @@ def background(out):
                   anchor='mt' if center else 'lt')
     # Recent Finder windows draw a translucent title bar over the background.
     # Leave space for it while keeping the real icons in the same positions.
-    label('Codex Buddy', (360, 63), 27, strong=True)
+    label('CodexBuddy', (360, 63), 27, strong=True)
     label('拖入 Applications，开始使用', (360, 101), 15)
     label('Drag into Applications to install', (360, 126), 13, MUTED)
     # Include Finder's filename labels as well as its real icons in each tile.
@@ -61,8 +61,8 @@ def guide(out):
     pdfmetrics.registerFont(TTFont('GuideBold', str(BOLD)))
     c = canvas.Canvas(str(out / PDF_NAME), pagesize=(612, 792), invariant=1,
                       pageCompression=1)
-    c.setTitle('Codex Buddy - Installation Guide / 安装指南')
-    c.setAuthor('Codex Buddy contributors')
+    c.setTitle('CodexBuddy - Installation Guide / 安装指南')
+    c.setAuthor('CodexBuddy contributors')
     c.setSubject('First installation on macOS: drag to Applications and approve the first launch')
     icon = ImageReader(str(ROOT / 'Resources/AppIcon.iconset/icon_128x128@2x.png'))
 
@@ -102,7 +102,7 @@ def guide(out):
         zh = lang == 'zh'
         rect(0,0,612,792,'#FFFFFF',0)
         c.drawImage(icon,42,712,49,49,mask='auto')
-        text('Codex Buddy',104,741,25,bold=True)
+        text('CodexBuddy',104,741,25,bold=True)
         text('首次安装指南' if zh else 'First installation',105,719,13,MUTED)
         text('macOS 13+ · Apple silicon',42,682,11,MUTED)
 
@@ -111,9 +111,9 @@ def guide(out):
         rect(77,528,493,99)
         c.drawImage(icon,150,554,45,45,mask='auto')
         arrow(244,354,576); folder(402,555)
-        text('Codex Buddy',137,541,10)
+        text('CodexBuddy',137,541,10)
         text('Applications',400,541,10)
-        text('安装后请从 Applications 文件夹打开 App。' if zh else 'Open Codex Buddy from Applications after copying it.',77,514,11,MUTED)
+        text('安装后请从 Applications 文件夹打开 App。' if zh else 'Open CodexBuddy from Applications after copying it.',77,514,11,MUTED)
 
         number(2,480)
         text('首次启动被拦截时，先关闭提示' if zh else 'If the first launch is blocked, dismiss the alert',77,479,15,bold=True)
@@ -130,12 +130,12 @@ def guide(out):
         arrow(169 if zh else 184,207,307)
         text('隐私与安全性' if zh else 'Privacy & Security',225,303,11,bold=True)
         text('向下滚动至安全性' if zh else 'Scroll down to Security',93,277,11,MUTED)
-        text('Codex Buddy',93,245,12)
+        text('CodexBuddy',93,245,12)
         button('仍要打开' if zh else 'Open Anyway',429,237,121)
         text('再次确认“打开”；按系统提示验证即可。' if zh else 'Confirm Open, and authenticate if macOS asks.',77,208,11,MUTED)
 
         number(4,174)
-        text('完成，去顶栏查看额度' if zh else 'You are ready. Find Codex Buddy in the menu bar',77,173,15,bold=True)
+        text('完成，去顶栏查看额度' if zh else 'You are ready. Find CodexBuddy in the menu bar',77,173,15,bold=True)
         text('此后可正常启动，无需重复设置。' if zh else 'Future launches do not need the same approval.',77,151,11,MUTED)
         text('先确认下载来自下方官方 Release，且文件未遭篡改。' if zh else 'Use the official release below and verify the download is intact.',42,116,10,MUTED)
         text('图中设置为示意图；若提示包含恶意软件或 App 已损坏，请停止并重新核对下载。' if zh else 'Illustrations are schematic. Stop if macOS reports malware or a damaged app.',42,98,9,MUTED)

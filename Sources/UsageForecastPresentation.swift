@@ -21,11 +21,8 @@ struct UsageForecastHistoryRow: Identifiable, Equatable {
     // only scenario gate. There is no separate normal/scenario page.
     var extraResetMode = false
     @Published private(set) var comparison: UsageForecastComparison?
-    @Published private(set) var tiboSummary = ""
     @Published private(set) var evaluationSummary = ""
-    @Published private(set) var tiboHistoryRows: [UsageForecastHistoryRow] = []
     @Published private(set) var evaluationRows: [UsageForecastHistoryRow] = []
-    private var tiboEstimate: Date?
     @Published var extraResetEnabled = false {
         didSet {
             guard oldValue != extraResetEnabled else { return }
@@ -55,7 +52,7 @@ struct UsageForecastHistoryRow: Identifiable, Equatable {
             ?? model.now.addingTimeInterval(3*3600)
         if sample,let selected=model.demoForecastExtraDate { extraResetDate=selected;extraResetEnabled=true }
         clockKey=Self.key(model.now)
-        rebuildComparison();rebuildResearch()
+        rebuildComparison();rebuildEvaluation()
         model.$usage.combineLatest(model.$forecastObservations,model.$forecastUpdated)
             .removeDuplicates { $0.0 == $1.0 && $0.1 == $1.1 && $0.2 == $1.2 }
             .sink { [weak self] usage,observations,updated in
@@ -70,12 +67,7 @@ struct UsageForecastHistoryRow: Identifiable, Equatable {
         model.$error.removeDuplicates().sink { [weak self] value in
             guard let self else { return };self.quotaError=value != nil;self.rebuildComparison()
         }.store(in:&subscriptions)
-        model.$forecastEvaluations.removeDuplicates().sink { [weak self] _ in self?.rebuildResearch() }.store(in:&subscriptions)
-        model.reminders.objectWillChange.sink { [weak self] _ in
-            // Published values are delivered before mutation. Project the
-            // retained feed after that mutation; never issue a new fetch.
-            DispatchQueue.main.async { [weak self] in self?.rebuildResearch() }
-        }.store(in:&subscriptions)
+        model.$forecastEvaluations.removeDuplicates().sink { [weak self] _ in self?.rebuildEvaluation() }.store(in:&subscriptions)
         model.$refreshing.removeDuplicates().sink { [weak self] in self?.refreshing=$0 }.store(in:&subscriptions)
         model.$now.sink { [weak self] value in
             guard let self else { return }
@@ -167,7 +159,7 @@ struct UsageForecastHistoryRow: Identifiable, Equatable {
     }
     func selectWindow(_ id: String) {
         guard snapshot.windows.contains(where: { $0.id == id }) else { return }
-        explicitWindowSelection=true;selectedWindowID=id;rebuildComparison();rebuildResearch()
+        explicitWindowSelection=true;selectedWindowID=id;rebuildComparison();rebuildEvaluation()
     }
     func refresh() { model.refresh(includeStatistics:false) }
     private var suggestedExtraDate: Date {
@@ -186,7 +178,7 @@ struct UsageForecastHistoryRow: Identifiable, Equatable {
         if !explicitWindowSelection || !snapshot.windows.contains(where: { $0.id == selectedWindowID }) {
             selectedWindowID=Self.preferredWindow(snapshot)?.id
         }
-        rebuildComparison();rebuildResearch()
+        rebuildComparison();rebuildEvaluation()
     }
     private func rebuildComparison() {
         let value=window.map { UsageForecastComparison(window:$0,now:now,scenarioEnabled:simulated,
@@ -242,31 +234,7 @@ struct UsageForecastHistoryRow: Identifiable, Equatable {
             ? L("假设选定时刻恢复至 100%", "Assumes a full reset at the selected time")
             : L("请选择下次常规重置之前", "Choose a time before the regular reset")
     }
-    var tiboEstimateAvailable: Bool { tiboEstimate != nil }
-    func applyTiboEstimate() {
-        guard let date=tiboEstimate,date > now,let reset=window?.resetDate,date < reset else { return }
-        extraResetDate=date;extraResetEnabled=true
-    }
-    private func rebuildResearch() {
-        let feed=model.reminders.recentMessages().filter { record in
-            guard record.publishedAt <= now,let url=record.sourceURL,ResetAnnouncementDocument.validSourceURL(url),
-                  ["x.com","twitter.com"].contains(url.host?.lowercased() ?? ""),url.path.hasPrefix("/thsottiaux/status/") else { return false }
-            return record.type == "globalReset" || record.resetEffect != nil
-        }
-        let events=feed.map { TiboResetResearchEvent.fromFeed($0) }
-        let cadence=TiboResetCadence(events:events,now:now)
-        let estimates=cadence.cohorts.compactMap(\.announcementEstimate).filter { !$0.isPast }
-        tiboEstimate=estimates.map { $0.earliest.addingTimeInterval($0.latest.timeIntervalSince($0.earliest)/2) }
-            .filter { $0 > now && $0 < (window?.resetDate ?? .distantPast) }.min()
-        let tibo: String
-        if !model.reminders.acceptsResetMessages { tibo=L("接收重置消息已关闭", "Reset messages are off") }
-        else if let cohort=cadence.cohorts.first(where: { $0.hasSufficientHistory }),let interval=cohort.medianInterval {
-            tibo=L("\(cohort.sampleCount) 次公告 · 间隔中位数 \(UsageForecastFormat.number(interval/86400)) 天", "\(cohort.sampleCount) announcements · median interval \(UsageForecastFormat.number(interval/86400)) days")
-        } else { tibo=L("样本不足，暂不估计", "Not enough history to estimate") }
-        if tiboSummary != tibo { tiboSummary=tibo }
-        let history=feed.map { UsageForecastHistoryRow(id:$0.id,date:$0.publishedAt,title:$0.title,
-            detail:$0.timestampBasis == .collected ? L("收录时间 · "+$0.body,"Collected · "+$0.body) : $0.body,sourceURL:$0.sourceURL) }
-        if tiboHistoryRows != history { tiboHistoryRows=history }
+    private func rebuildEvaluation() {
         let records=model.forecastEvaluations.filter { $0.prediction.windowID == window?.windowID }.sorted { $0.prediction.issuedAt > $1.prediction.issuedAt }
         let rows=records.map { row -> UsageForecastHistoryRow in
             let label: String,detail: String

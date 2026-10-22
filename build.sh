@@ -32,6 +32,11 @@ cp "$ROOT/Info.plist" "$APP/Contents/Info.plist"
 cp "$BUILD/icon-assets/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 cp "$ROOT/Resources/BuddyMark.png" "$ROOT/Resources/BuddyHead.png" "$ROOT/Resources/install-update.sh" "$APP/Contents/Resources/"
 cp "$ROOT/Resources/ActivityCalendar.png" "$APP/Contents/Resources/"
+# Localized display names keep the legacy bundle path compatible with older updaters.
+for language in en zh-Hans; do
+  mkdir -p "$APP/Contents/Resources/$language.lproj"
+  cp "$ROOT/Resources/$language.lproj/InfoPlist.strings" "$APP/Contents/Resources/$language.lproj/"
+done
 cp "$ROOT/LICENSE" "$APP/Contents/Resources/LICENSE.txt"
 cp "$ROOT/THIRD_PARTY_NOTICES.md" "$APP/Contents/Resources/"
 xattr -d com.apple.FinderInfo "$APP" 2>/dev/null || true

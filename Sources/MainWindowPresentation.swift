@@ -25,9 +25,9 @@ import AppKit
         let menu=NSMenu()
         let appItem=NSMenuItem();menu.addItem(appItem)
         let actions=NSMenu();appItem.submenu=actions
-        actions.addItem(withTitle:L("隐藏 Codex Buddy","Hide Codex Buddy"),action:#selector(NSApplication.hide(_:)),keyEquivalent:"h")
+        actions.addItem(withTitle:L("隐藏 CodexBuddy","Hide CodexBuddy"),action:#selector(NSApplication.hide(_:)),keyEquivalent:"h")
         actions.addItem(NSMenuItem.separator())
-        actions.addItem(withTitle:L("退出 Codex Buddy","Quit Codex Buddy"),action:#selector(NSApplication.terminate(_:)),keyEquivalent:"q")
+        actions.addItem(withTitle:L("退出 CodexBuddy","Quit CodexBuddy"),action:#selector(NSApplication.terminate(_:)),keyEquivalent:"q")
         let editItem=NSMenuItem(title:L("编辑","Edit"),action:nil,keyEquivalent:"");menu.addItem(editItem)
         let edit=NSMenu(title:editItem.title);editItem.submenu=edit
         for (title,selector,key) in [(L("剪切","Cut"),"cut:","x"),(L("复制","Copy"),"copy:","c"),(L("粘贴","Paste"),"paste:","v"),(L("全选","Select All"),"selectAll:","a")] {

@@ -108,11 +108,10 @@ import Charts
                     Divider().frame(height:36)
                     resetDateControl
                     Spacer(minLength:12)
-                    tiboEstimateButton
                 }.padding(.horizontal,22).frame(height:82)
             } else {
                 VStack(alignment:.leading,spacing:14) {
-                    HStack { extraToggle;Spacer(minLength:10);tiboEstimateButton }
+                    extraToggle
                     resetDateControl
                 }.padding(18)
             }
@@ -138,12 +137,6 @@ import Charts
                 .background(Color.primary.opacity(0.035),in:RoundedRectangle(cornerRadius:8))
                 .overlay(RoundedRectangle(cornerRadius:8).stroke(Color.primary.opacity(0.14),lineWidth:0.7).allowsHitTesting(false))
         }.frame(width:AppLanguage.chinese ? 324 : 374,alignment:.leading).fixedSize(horizontal:true,vertical:false)
-    }
-    private var tiboEstimateButton:some View {
-        Button(L("使用 Tibo 估计", "Use Tibo estimate")) { state.applyTiboEstimate() }
-            .font(.system(size:14,weight:.medium)).buttonStyle(.bordered).fixedSize(horizontal:true,vertical:false)
-            .disabled(!state.tiboEstimateAvailable || !state.extraResetEnabled)
-            .accessibilityIdentifier("usage-forecast-tibo-estimate")
     }
     private var guidance:some View {
         HStack(spacing:0) {

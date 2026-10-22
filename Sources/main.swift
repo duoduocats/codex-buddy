@@ -212,7 +212,7 @@ private final class PreviewPreferences: UserDefaults {
             let height = SettingsView.fittedHeight(for:.overview,availableHeight:visible?.height ?? SettingsView.height+80)
             let width = min(SettingsView.width,visible.map { max(SettingsView.minimumSize.width,$0.width-80) } ?? SettingsView.width)
             let w = NSWindow(contentRect:NSRect(x:0,y:0,width:width,height:height),styleMask:[.titled,.closable,.miniaturizable,.resizable],backing:.buffered,defer:false)
-            w.title = "Codex Buddy";w.isReleasedWhenClosed = false;w.acceptsMouseMovedEvents=true
+            w.title = "CodexBuddy";w.isReleasedWhenClosed = false;w.acceptsMouseMovedEvents=true
             w.delegate = self
             w.contentMinSize = SettingsView.minimumSize
             w.contentMaxSize = NSSize(width:CGFloat.greatestFiniteMagnitude,height:CGFloat.greatestFiniteMagnitude)
@@ -243,7 +243,7 @@ private final class PreviewPreferences: UserDefaults {
         if challengeWindow == nil {
             let w = NSWindow(contentRect:NSRect(origin:.zero,size:TiboChallengeView.size),
                 styleMask:[.titled,.closable,.miniaturizable,.resizable],backing:.buffered,defer:false)
-            w.title = "Codex Buddy";w.isReleasedWhenClosed = false;w.delegate = self
+            w.title = "CodexBuddy";w.isReleasedWhenClosed = false;w.delegate = self
             w.contentMinSize = TiboChallengeView.minimumSize
             let hosting = NSHostingView(rootView:TiboChallengeView(manager:model.challenge))
             hosting.sizingOptions = [];hosting.autoresizingMask = [.width,.height]

@@ -1,6 +1,6 @@
 # Third-party notices
 
-Codex Buddy source is GPL-3.0-only, copyright 2026 duoduocats and contributors.
+CodexBuddy source is GPL-3.0-only, copyright 2026 duoduocats and contributors.
 
 The app uses macOS system frameworks and does not redistribute Codex CLI or an OpenAI SDK.
 Its quota request fields follow the public OpenAI Codex backend-client implementation:

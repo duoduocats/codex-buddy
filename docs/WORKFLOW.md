@@ -51,7 +51,7 @@ bash scripts/test.sh
 ```sh
 git switch main
 git pull --ff-only
-git tag -a v1.2.1 -m "Codex Buddy 1.2.1"
+git tag -a v1.2.1 -m "CodexBuddy 1.2.1"
 git push origin v1.2.1
 ```
 
