@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "tibo-28-2026-10-05",
-  "revision": 32,
+  "revision": 33,
   "startDate": "2026-10-05",
   "days": 28,
   "timeZone": "America/Los_Angeles",
@@ -518,6 +518,24 @@
       "sourceURL": "https://x.com/thsottiaux/status/2112712984644784534",
       "collectedAt": "2026-10-21T02:51:40.163Z",
       "sourcePublishedAt": "2026-10-21T01:10:00Z"
+    },
+    {
+      "id": "tibo-day-17-reset",
+      "revision": 1,
+      "day": 17,
+      "kind": "reset",
+      "status": "scheduled",
+      "title": {
+        "zh": "第17天额度重置计划",
+        "en": "Day 17 quota reset planned"
+      },
+      "body": {
+        "zh": "Tibo 宣布第17天将进行额度重置，并在相关回复中说明“明天 PST 上午10点前到账”。目前按计划记录，尚无完成确认；原帖未明确适用范围。",
+        "en": "Tibo announced a Day 17 quota reset and added in a related reply: “Lands tomorrow before 10am PST.” Recorded as planned, with no completion confirmation or explicit eligibility scope."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2113162277688070445",
+      "collectedAt": "2026-10-22T08:54:40.325Z",
+      "sourcePublishedAt": "2026-10-22T06:55:00Z"
     }
   ]
 }
