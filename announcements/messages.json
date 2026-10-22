@@ -169,6 +169,24 @@
         "en": "Tibo identified about 40,000 accounts whose applied usage limits did not match their selected plan. The issue is corrected, affected users are being contacted individually, and credits will be added to affected accounts. No amount or delivery time was specified."
       },
       "sourceURL": "https://x.com/thsottiaux/status/2112592264686149749"
+    },
+    {
+      "id": "tibo-day-17-reset",
+      "revision": 1,
+      "type": "message",
+      "status": "scheduled",
+      "title": {
+        "zh": "第17天额度重置计划",
+        "en": "Day 17 quota reset planned"
+      },
+      "body": {
+        "zh": "Tibo 宣布第17天将进行额度重置，并在相关回复中说明“明天 PST 上午10点前到账”。目前按计划记录，尚无完成确认；原帖未明确适用范围。",
+        "en": "Tibo announced a Day 17 quota reset and added in a related reply: “Lands tomorrow before 10am PST.” Recorded as planned, with no completion confirmation or explicit eligibility scope."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2113162277688070445",
+      "publishedAt": "2026-10-22T06:55:00Z",
+      "expiresAt": "2026-10-23T06:55:00Z",
+      "timestampBasis": "source"
     }
   ]
 }
