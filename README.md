@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/images/app-icon.png" width="88" alt="Codex Buddy 应用图标" />
+  <img src="docs/images/app-icon.png" width="88" alt="CodexBuddy 应用图标" />
 </p>
 
-# Codex Buddy — macOS ChatGPT / Codex 额度监控
+# CodexBuddy — macOS ChatGPT / Codex 额度监控
 
 简体中文 · [English](README.en.md) · [下载正式版](https://github.com/duoduocats/codex-buddy/releases/latest) · [Beta 使用说明](docs/BETA.md)
 
@@ -16,7 +16,7 @@
 
 选择 **多多猫** 或经典圆环。在一个小图标里查看额度、重置倒计时和可用重置次数，可在设置中随时切换主题。
 
-<img src="docs/images/overview-zh.png" width="420" alt="Codex Buddy 中文界面：多多猫 DuoDuoCat 菜单栏图标与展开面板，显示剩余额度、下次重置时间、每日 Token 曲线和使用统计" />
+<img src="docs/images/overview-zh.png" width="420" alt="CodexBuddy 中文界面：多多猫 DuoDuoCat 菜单栏图标与展开面板，显示剩余额度、下次重置时间、每日 Token 曲线和使用统计" />
 
 ## 主要功能
 
@@ -81,8 +81,8 @@ Beta 更新开关默认关闭，位于 **通用 → 更新** 中。开启后可�
 ## 下载与首次安装
 
 1. 从 [GitHub Releases](https://github.com/duoduocats/codex-buddy/releases/latest) 下载 **arm64 DMG** 并打开。
-2. 将 **Codex Buddy.app** 拖入右侧的 **Applications（应用程序）**。
-3. 从应用程序目录打开 Codex Buddy，在菜单栏查看额度。先确保本机 ChatGPT / Codex 已登录。
+2. 将 **CodexBuddy** 拖入右侧的 **Applications（应用程序）**。
+3. 从应用程序目录打开 CodexBuddy，在菜单栏查看额度。先确保本机 ChatGPT / Codex 已登录。
 
 安装包内提供拖拽安装背景和 **[中英文图文安装指南](docs/install/Installation-Guide.pdf)**，首次安装可直接查看。
 
@@ -91,7 +91,7 @@ Beta 更新开关默认关闭，位于 **通用 → 更新** 中。开启后可�
 当前发布包使用 ad hoc 签名，尚未经过 Apple 公证。确认安装包来自本仓库后：
 
 1. 尝试打开应用一次，关闭拦截提示。
-2. 打开 **系统设置 → 隐私与安全性**，向下找到 Codex Buddy 的提示，点击 **仍要打开**。
+2. 打开 **系统设置 → 隐私与安全性**，向下找到 CodexBuddy 的提示，点击 **仍要打开**。
 3. 按系统提示完成确认，再点击 **打开**。
 
 该应用会被保存为安全性例外。以上适用于开发者身份或公证提示；若系统报告恶意软件或文件损坏，请停止安装并重新检查下载来源。步骤依据 [Apple 官方说明](https://support.apple.com/zh-cn/102445)。
@@ -131,7 +131,7 @@ Beta 更新开关默认关闭，位于 **通用 → 更新** 中。开启后可�
 
 ### 为什么没有收到消息通知？
 
-先在展开面板设置开启消息通知并选择要接收的类型，开启系统提醒，然后检查 **系统设置 → 通知 → Codex Buddy**。专注模式、网络不可用、应用退出或设备休眠可能影响通知。
+先在展开面板设置开启消息通知并选择要接收的类型，开启系统提醒，然后检查 **系统设置 → 通知 → CodexBuddy**。专注模式、网络不可用、应用退出或设备休眠可能影响通知。
 
 ### 支持 Intel Mac 吗？
 

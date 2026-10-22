@@ -8,6 +8,10 @@ enum BuddyBrand {
         return NSImage(contentsOf:url)
     }()
     static let settingsGlyph = shareMascot.flatMap { templateGlyph(from:$0) }
+    static let sidebarHeadGlyph = shareMascot.flatMap { logo(fromMascot:$0,dark:true) }.map { head in
+        head.isTemplate=true
+        return head
+    }
     private static let shareMascot: NSImage? = {
         guard let url = Bundle.main.url(forResource:"BuddyMark",withExtension:"png"),
               let image = NSImage(contentsOf:url) else { return nil }

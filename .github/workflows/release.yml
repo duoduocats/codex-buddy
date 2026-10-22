@@ -97,4 +97,4 @@ jobs:
           RELEASE_TAG: ${{ needs.build.outputs.tag }}
           RELEASE_PRERELEASE: ${{ needs.build.outputs.prerelease }}
         run: |
-          gh release create "$RELEASE_TAG" dist/*.dmg dist/*.sha256 dist/update-policy.json --verify-tag --draft --prerelease="$RELEASE_PRERELEASE" --title "Codex Buddy $RELEASE_TAG" --notes-file dist/release-notes.md
+          gh release create "$RELEASE_TAG" dist/*.dmg dist/*.sha256 dist/update-policy.json --verify-tag --draft --prerelease="$RELEASE_PRERELEASE" --title "CodexBuddy $RELEASE_TAG" --notes-file dist/release-notes.md

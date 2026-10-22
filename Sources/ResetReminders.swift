@@ -224,7 +224,7 @@ extension ResetNotificationDelivering {
                 failures = 0;preferences.set(0,forKey:Self.preferencePrefix+"failures")
                 connectionFailure = false;serverNotBefore = client.retryNotBefore
                 preferences.set(serverNotBefore,forKey:Self.preferencePrefix+"serverNotBefore")
-                if message != L("通知未获授权，请在系统设置中允许 Codex Buddy 通知。", "Notifications are not allowed. Enable Codex Buddy notifications in System Settings.") { message = nil }
+                if message != L("通知未获授权，请在系统设置中允许 CodexBuddy 通知。", "Notifications are not allowed. Enable CodexBuddy notifications in System Settings.") { message = nil }
                 prune();selectUpcoming();processNotifications(replace:true)
             } catch is CancellationError { }
             catch {
@@ -325,7 +325,7 @@ extension ResetNotificationDelivering {
                 guard ticket == generation, acceptsAnyMessages, !Task.isCancelled else { return }
                 guard allowed else {
                     enabled = false;preferences.set(false,forKey:Self.preferencePrefix+"enabled")
-                    message = L("通知未获授权，请在系统设置中允许 Codex Buddy 通知。", "Notifications are not allowed. Enable Codex Buddy notifications in System Settings.")
+                    message = L("通知未获授权，请在系统设置中允许 CodexBuddy 通知。", "Notifications are not allowed. Enable CodexBuddy notifications in System Settings.")
                     notificationTask = nil;return
                 }
                 enabled = true;enabledAt = now();preferences.set(true,forKey:Self.preferencePrefix+"enabled")

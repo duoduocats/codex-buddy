@@ -96,14 +96,16 @@ import Combine
                 sourceURL:URL(string:"https://x.com/thsottiaux/status/900000\(index)"),
                 resetEffect:.immediateQuotaReset,globalScopeID:"synthetic-scope",campaignID:"synthetic-campaign")
         }
+        multiple.extraResetDate=now.addingTimeInterval(2400);multiple.extraResetEnabled=true
+        let actualBeforeMessages=model.usage
+        let manualDate=multiple.extraResetDate
         model.reminders.useDemo(now:now,messages:simulatedFeed);model.now=now.addingTimeInterval(60)
-        precondition(multiple.tiboEstimateAvailable && multiple.tiboHistoryRows.count == 3)
-        let actualBeforeEstimate=model.usage;multiple.applyTiboEstimate()
-        precondition(multiple.extraResetEnabled && multiple.extraResetDate == now.addingTimeInterval(2400))
-        precondition(model.usage == actualBeforeEstimate,"Applying an announcement-clock estimate must only change the local hypothetical date")
+        precondition(multiple.extraResetEnabled && multiple.extraResetDate == manualDate,
+                     "Reset announcements must not replace the manually selected hypothetical date")
+        precondition(model.usage == actualBeforeMessages,"Announcements must not change real quota")
         model.reminders.setMessagesEnabled(false);model.now=now.addingTimeInterval(120)
-        precondition(multiple.tiboHistoryRows.isEmpty && !multiple.tiboEstimateAvailable,
-                     "Turning reception off must hide activity inputs and disable historical estimates without fetching")
+        precondition(multiple.extraResetEnabled && multiple.extraResetDate == manualDate,
+                     "Message reception must remain independent of manual reset scenarios")
         model.client.stop()
         print("Forecast presentation passed: fixed baseline with one-switch counterfactual, target-date budget comparison and waiting savings, independent selection, cold/stale/error states, isolated redraws and synthetic privacy")
     }

@@ -13,7 +13,7 @@ background=volume/'.background'/'install.png'
 alias=Alias.for_file(str(background))
 # The relative target and volume name resolve after a downloaded DMG is remounted.
 # Do not retain the builder's temporary mount location in distributed metadata.
-alias.volume.posix_path=b'/Volumes/Codex Buddy'
+alias.volume.posix_path=b'/Volumes/CodexBuddy'
 with DSStore.open(str(volume/'.DS_Store'),'w+') as store:
     store['.']['bwsp']={
         # WindowBounds is Finder's outer frame. Allow the title/path bars in

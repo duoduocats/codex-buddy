@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/images/app-icon.png" width="88" alt="Codex Buddy app icon" />
+  <img src="docs/images/app-icon.png" width="88" alt="CodexBuddy app icon" />
 </p>
 
-# Codex Buddy — macOS menu bar ChatGPT / Codex usage monitor
+# CodexBuddy — macOS menu bar ChatGPT / Codex usage monitor
 
 English · [简体中文](README.md) · [Download stable](https://github.com/duoduocats/codex-buddy/releases/latest) · [Beta guide](docs/BETA.md#english)
 
@@ -16,7 +16,7 @@ This page describes the current [stable release, 2.5.1](https://github.com/duodu
 
 Choose **DuoDuoCat** or the classic Ring. See quota, a reset countdown, and available resets in one small icon. Switch themes in Settings at any time.
 
-<img src="docs/images/overview-en.png" width="420" alt="Codex Buddy English interface: DuoDuoCat menu bar icon and expanded panel with remaining quota, next reset time, daily token chart, and usage statistics" />
+<img src="docs/images/overview-en.png" width="420" alt="CodexBuddy English interface: DuoDuoCat menu bar icon and expanded panel with remaining quota, next reset time, daily token chart, and usage statistics" />
 
 ## Features
 
@@ -81,8 +81,8 @@ Settings shows the last successful update check. Temporary connection failures r
 ## Download and install
 
 1. Download and open the **arm64 DMG** from [GitHub Releases](https://github.com/duoduocats/codex-buddy/releases/latest).
-2. Drag **Codex Buddy.app** into **Applications** on the right.
-3. Open Codex Buddy from Applications and look for its menu bar icon. Make sure ChatGPT / Codex is already signed in on your Mac.
+2. Drag **CodexBuddy** into **Applications** on the right.
+3. Open CodexBuddy from Applications and look for its menu bar icon. Make sure ChatGPT / Codex is already signed in on your Mac.
 
 The DMG includes a drag-to-install background and an **[illustrated English and Chinese installation guide](docs/install/Installation-Guide.pdf)** for first-time users.
 
@@ -91,7 +91,7 @@ The DMG includes a drag-to-install background and an **[illustrated English and 
 Current releases are ad hoc signed and are not Apple notarized. After confirming that the download came from this repository:
 
 1. Try opening the app once, then dismiss the blocked-launch alert.
-2. Open **System Settings → Privacy & Security**, scroll to the Codex Buddy notice, and click **Open Anyway**.
+2. Open **System Settings → Privacy & Security**, scroll to the CodexBuddy notice, and click **Open Anyway**.
 3. Complete the system confirmation, then click **Open**.
 
 macOS saves the app as a security exception. These steps apply to developer-verification or notarization alerts. If macOS reports malware or a damaged file, stop and check the download. See [Apple's instructions](https://support.apple.com/en-us/102445).
@@ -131,7 +131,7 @@ Check that ChatGPT / Codex is signed in on your Mac, then click the panel's refr
 
 ### Why did I not receive a message notification?
 
-Enable Messages and the desired types under Panel, enable System alerts and check **System Settings → Notifications → Codex Buddy**. Focus settings, an unavailable connection, quitting the app, or device sleep may affect notifications.
+Enable Messages and the desired types under Panel, enable System alerts and check **System Settings → Notifications → CodexBuddy**. Focus settings, an unavailable connection, quitting the app, or device sleep may affect notifications.
 
 ### Are Intel Macs supported?
 

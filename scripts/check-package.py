@@ -14,6 +14,8 @@ expected = {
     'Contents/Resources/BuddyMark.png',
     'Contents/Resources/ActivityCalendar.png',
     'Contents/Resources/Assets.car',
+    'Contents/Resources/en.lproj/InfoPlist.strings',
+    'Contents/Resources/zh-Hans.lproj/InfoPlist.strings',
     'Contents/Resources/LICENSE.txt', 'Contents/Resources/THIRD_PARTY_NOTICES.md', 'Contents/_CodeSignature/CodeResources',
 }
 files = {str(p.relative_to(app)) for p in app.rglob('*') if p.is_file()}
@@ -22,6 +24,14 @@ assert not any(p.is_symlink() for p in app.rglob('*')), 'Symlink in app'
 size = sum((app / name).stat().st_size for name in files)
 assert size < 6_000_000, 'App exceeds 6 MB budget'
 info = plistlib.loads((app / 'Contents/Info.plist').read_bytes())
+# Finder compares the unlocalized display name with the historical bundle filename.
+# Only that compatibility value retains a space; every localized presentation is CodexBuddy.
+assert info['CFBundleDisplayName'] == 'Codex Buddy' and info['CFBundleName'] == 'CodexBuddy'
+assert info.get('LSHasLocalizedDisplayName') is True
+for language in ['en','zh-Hans']:
+    path=app/'Contents/Resources'/str(language+'.lproj')/'InfoPlist.strings'
+    names=json.loads(subprocess.check_output(['plutil','-convert','json','-o','-',str(path)]))
+    assert names == {'CFBundleDisplayName':'CodexBuddy','CFBundleName':'CodexBuddy'}, 'Inconsistent localized application name'
 assert info['CFBundleIdentifier'] == 'com.duoduocat.codexbuddy', 'Unexpected app identity'
 assert info['CFBundleIconName'] == 'AppIcon' and info['CFBundleIconFile'] == 'AppIcon', 'Missing native icon or legacy fallback'
 canonical_icon = Path(__file__).resolve().parents[1] / 'Resources/AppIcon.icns'
@@ -110,7 +120,7 @@ if args.dmg:
                 layout=store['.']['icvp']
                 assert layout['backgroundType'] == 2 and layout['iconSize'] == 96.0, 'Wrong Finder layout'
                 alias=Alias.from_bytes(layout['backgroundImageAlias'])
-                assert alias.volume.name == 'Codex Buddy', 'Background alias uses wrong volume'
+                assert alias.volume.name == 'CodexBuddy', 'Background alias uses wrong volume'
                 assert alias.target.posix_path == '/.background/install.png', 'Background alias uses wrong path'
                 for name,position in [('Codex Buddy.app',(204,220)),('Applications',(516,220)),
                                       ('安装指南 Installation Guide.pdf',(360,428))]:

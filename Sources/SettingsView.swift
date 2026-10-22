@@ -77,13 +77,9 @@ struct SettingsView: View {
     private func syncUsageVisibility() { model.setUsageTrendsVisible(page == .overview && usageNavigation.page == .trends) }
     private var sidebar: some View {
         VStack(alignment:.leading,spacing:0) {
-            VStack(alignment:.leading,spacing:10) {
-                if let icon = BuddyBrand.settingsGlyph {
-                    Image(nsImage:icon).renderingMode(.template).resizable().interpolation(.high).scaledToFit()
-                        .foregroundStyle(colorScheme == .dark ? Color.white : Color.black)
-                        .frame(width:42,height:42).accessibilityHidden(true)
-                }
-            }.frame(maxWidth:.infinity,alignment:.center).padding(.horizontal,16).padding(.top,40).padding(.bottom,32)
+            SidebarBrand()
+                .frame(maxWidth:.infinity,alignment:.center)
+                .padding(.horizontal,16).padding(.top,40).padding(.bottom,32)
             VStack(spacing:5) {
                 ForEach(BuddyPage.allCases) { item in
                     Button { if page != item { selection = item } } label: {

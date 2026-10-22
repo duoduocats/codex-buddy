@@ -29,7 +29,7 @@ python3 -c 'import ds_store, mac_alias, pypdf' || {
     echo 'Install build-only tools: python3 -m pip install -r scripts/requirements-packaging.txt' >&2
     exit 1
 }
-hdiutil create -volname 'Codex Buddy' -srcfolder "$CONTENTS" -format UDRW -fs HFS+ -ov "$RW" -quiet
+hdiutil create -volname 'CodexBuddy' -srcfolder "$CONTENTS" -format UDRW -fs HFS+ -ov "$RW" -quiet
 hdiutil attach "$RW" -mountpoint "$MOUNT" -nobrowse -noautoopen -quiet
 python3 "$ROOT/scripts/configure-dmg.py" "$MOUNT"
 hdiutil detach "$MOUNT" -quiet
