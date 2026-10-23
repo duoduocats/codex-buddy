@@ -187,6 +187,24 @@
       "publishedAt": "2026-10-22T06:55:00Z",
       "expiresAt": "2026-10-23T06:55:00Z",
       "timestampBasis": "source"
+    },
+    {
+      "id": "tibo-day-18-reset",
+      "revision": 1,
+      "type": "message",
+      "status": "scheduled",
+      "title": {
+        "zh": "第18天额度重置计划",
+        "en": "Day 18 quota reset planned"
+      },
+      "body": {
+        "zh": "Tibo 宣布第18天再次进行额度重置，并在相关回复中说明将于“明天 PST 上午10点前”与一项小更新一起落地。目前按计划记录，尚无完成确认或明确适用范围。",
+        "en": "Tibo announced another quota reset for Day 18. A related reply says it will land tomorrow before 10am PST alongside a small update. Recorded as planned; completion and eligibility scope were not specified."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2113492187770175603",
+      "publishedAt": "2026-10-23T04:46:00Z",
+      "expiresAt": "2026-10-24T04:46:00Z",
+      "timestampBasis": "source"
     }
   ]
 }

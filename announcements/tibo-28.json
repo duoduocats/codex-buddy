@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "tibo-28-2026-10-05",
-  "revision": 33,
+  "revision": 34,
   "startDate": "2026-10-05",
   "days": 28,
   "timeZone": "America/Los_Angeles",
@@ -536,6 +536,42 @@
       "sourceURL": "https://x.com/thsottiaux/status/2113162277688070445",
       "collectedAt": "2026-10-22T08:54:40.325Z",
       "sourcePublishedAt": "2026-10-22T06:55:00Z"
+    },
+    {
+      "id": "tibo-day-18-decisions-api",
+      "revision": 1,
+      "day": 18,
+      "kind": "improvement",
+      "status": "completed",
+      "title": {
+        "zh": "Decisions API 正式可用",
+        "en": "Decisions API generally available"
+      },
+      "body": {
+        "zh": "Tibo 在第18天更新中宣布 Decisions API 已正式可用，并提到已发布一些性能改进；原帖未提供性能细节。",
+        "en": "In his Day 18 update, Tibo announced that the Decisions API is generally available and mentioned shipped performance improvements, without detailing those improvements."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2113492187770175603",
+      "collectedAt": "2026-10-23T05:24:39.397Z",
+      "sourcePublishedAt": "2026-10-23T04:46:00Z"
+    },
+    {
+      "id": "tibo-day-18-reset",
+      "revision": 1,
+      "day": 18,
+      "kind": "reset",
+      "status": "scheduled",
+      "title": {
+        "zh": "第18天额度重置计划",
+        "en": "Day 18 quota reset planned"
+      },
+      "body": {
+        "zh": "Tibo 宣布第18天再次进行额度重置，并在相关回复中说明将于“明天 PST 上午10点前”与一项小更新一起落地。目前按计划记录，尚无完成确认或明确适用范围。",
+        "en": "Tibo announced another quota reset for Day 18. A related reply says it will land tomorrow before 10am PST alongside a small update. Recorded as planned; completion and eligibility scope were not specified."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2113492187770175603",
+      "collectedAt": "2026-10-23T05:24:39.397Z",
+      "sourcePublishedAt": "2026-10-23T04:46:00Z"
     }
   ]
 }
