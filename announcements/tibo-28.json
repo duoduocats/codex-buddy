@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "tibo-28-2026-10-05",
-  "revision": 34,
+  "revision": 35,
   "startDate": "2026-10-05",
   "days": 28,
   "timeZone": "America/Los_Angeles",
@@ -572,6 +572,24 @@
       "sourceURL": "https://x.com/thsottiaux/status/2113492187770175603",
       "collectedAt": "2026-10-23T05:24:39.397Z",
       "sourcePublishedAt": "2026-10-23T04:46:00Z"
+    },
+    {
+      "id": "tibo-day-19-small-updates",
+      "revision": 1,
+      "day": 19,
+      "kind": "improvement",
+      "status": "completed",
+      "title": {
+        "zh": "通话、缓存与 CLI 改进",
+        "en": "Call, cache and CLI improvements"
+      },
+      "body": {
+        "zh": "dots 通话连接更快；Codex／Work 会话中切换 reasoning 不再使缓存失效。CLI 新增可复用提示预设、会话内模型及权限设置、企业 MCP 登录和 Windows 企业代理认证，并修复长会话恢复失败。",
+        "en": "Dots calls connect faster, and changing reasoning mid-conversation in Codex and Work no longer invalidates cache. CLI updates add reusable prompt presets, inline model and permission settings, enterprise MCP sign-in and Windows corporate-proxy authentication, and fix long-session resume failures."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2113770573994299544",
+      "collectedAt": "2026-10-24T00:14:51.987Z",
+      "sourcePublishedAt": "2026-10-23T23:12:00Z"
     }
   ]
 }
