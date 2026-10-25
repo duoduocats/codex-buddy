@@ -205,6 +205,24 @@
       "publishedAt": "2026-10-23T04:46:00Z",
       "expiresAt": "2026-10-24T04:46:00Z",
       "timestampBasis": "source"
+    },
+    {
+      "id": "tibo-day-20-reset",
+      "revision": 1,
+      "type": "message",
+      "status": "scheduled",
+      "publishedAt": "2026-10-25T03:39:00Z",
+      "expiresAt": "2026-10-26T03:39:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "第20天额度重置计划",
+        "en": "Day 20 quota reset planned"
+      },
+      "body": {
+        "zh": "Tibo 宣布第20天“休息和重置”，并在相关回复中说明“PST 午夜前”。目前按计划记录，尚无完成确认或明确适用范围。",
+        "en": "Tibo announced “Rest and reset” for Day 20, adding “By midnight PST” in a related reply. Recorded as planned; completion and eligibility scope were not specified."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2114200152701575656"
     }
   ]
 }
