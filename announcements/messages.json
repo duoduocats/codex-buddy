@@ -223,6 +223,24 @@
         "en": "Quoting the Day 20 reset deadline reply, Tibo announced that it has all propagated. This announcement does not establish each account’s actual arrival time; eligibility scope was not specified."
       },
       "sourceURL": "https://x.com/thsottiaux/status/2114237083652882932"
+    },
+    {
+      "id": "tibo-day-21-reset",
+      "revision": 1,
+      "type": "message",
+      "status": "scheduled",
+      "publishedAt": "2026-10-26T05:21:00Z",
+      "expiresAt": "2026-10-27T05:21:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "第21天额度重置计划",
+        "en": "Day 21 quota reset planned"
+      },
+      "body": {
+        "zh": "Tibo 宣布第21天今天进行额度重置。原帖未明确完成状态、具体时刻或适用范围，目前按计划记录。",
+        "en": "Tibo announced a quota reset for today on Day 21. The post did not specify completion, an exact time or eligibility scope; recorded as planned."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2114588174249071102"
     }
   ]
 }
