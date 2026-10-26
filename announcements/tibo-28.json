@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "tibo-28-2026-10-05",
-  "revision": 39,
+  "revision": 40,
   "startDate": "2026-10-05",
   "days": 28,
   "timeZone": "America/Los_Angeles",
@@ -626,6 +626,24 @@
       "sourceURL": "https://x.com/thsottiaux/status/2114588174249071102",
       "collectedAt": "2026-10-26T06:26:41.940Z",
       "sourcePublishedAt": "2026-10-26T05:21:00Z"
+    },
+    {
+      "id": "tibo-day-22-terra",
+      "revision": 1,
+      "day": 22,
+      "kind": "improvement",
+      "status": "completed",
+      "title": {
+        "zh": "GPT-6.1 Terra 回归",
+        "en": "GPT-6.1 Terra returns"
+      },
+      "body": {
+        "zh": "Tibo 宣布 Terra 回归，称其写作、个性表达和理解细致请求的能力明显提升，擅长电脑操作；在 API 和订阅中，相比 6.1 Sol 提供两倍用量。这是模型改进，不是额度重置或重置次数赠送。",
+        "en": "Tibo announced Terra’s return, citing better writing, personality and nuanced request understanding, strong computer use, and twice the usage of 6.1 Sol across API and subscriptions. This is a model improvement, not a quota reset or reset-credit grant."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2114800277677092936",
+      "collectedAt": "2026-10-26T19:45:48.432Z",
+      "sourcePublishedAt": "2026-10-26T19:24:00Z"
     }
   ]
 }
