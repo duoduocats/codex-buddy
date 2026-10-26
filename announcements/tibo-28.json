@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "tibo-28-2026-10-05",
-  "revision": 38,
+  "revision": 39,
   "startDate": "2026-10-05",
   "days": 28,
   "timeZone": "America/Los_Angeles",
@@ -611,17 +611,17 @@
     },
     {
       "id": "tibo-day-21-reset",
-      "revision": 1,
+      "revision": 2,
       "day": 21,
       "kind": "reset",
-      "status": "scheduled",
+      "status": "completed",
       "title": {
-        "zh": "第21天额度重置计划",
-        "en": "Day 21 quota reset planned"
+        "zh": "第21天重置已按计划到期完成",
+        "en": "Day 21 reset marked complete after EOD"
       },
       "body": {
-        "zh": "Tibo 宣布第21天今天进行额度重置。原帖未明确完成状态、具体时刻或适用范围，目前按计划记录。",
-        "en": "Tibo announced a quota reset for today on Day 21. The post did not specify completion, an exact time or eligibility scope; recorded as planned."
+        "zh": "已按 EOD 计划到期自动标记完成。依据 Tibo“今天重置”的计划，美西10月25日的估算截止已过；这不是官方完成确认，也不代表每个账号的实际到账时刻。",
+        "en": "Automatically marked complete after the estimated EOD deadline. The estimated end of October 25 in Los Angeles has passed for Tibo’s “today” reset plan. This is not official completion confirmation or each account’s actual arrival time."
       },
       "sourceURL": "https://x.com/thsottiaux/status/2114588174249071102",
       "collectedAt": "2026-10-26T06:26:41.940Z",
