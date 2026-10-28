@@ -241,6 +241,24 @@
         "en": "Automatically marked complete after the estimated EOD deadline. The estimated end of October 25 in Los Angeles has passed for Tibo’s “today” reset plan. This is not official completion confirmation or each account’s actual arrival time."
       },
       "sourceURL": "https://x.com/thsottiaux/status/2114588174249071102"
+    },
+    {
+      "id": "tibo-day-23-reset",
+      "revision": 1,
+      "type": "message",
+      "status": "scheduled",
+      "publishedAt": "2026-10-28T02:42:00Z",
+      "expiresAt": "2026-10-29T02:42:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "第23天额度重置计划",
+        "en": "Day 23 quota reset planned"
+      },
+      "body": {
+        "zh": "Tibo 宣布第23天今天进行额度重置，并在相关回复说明“PST 午夜前落地”。目前按计划记录，尚无完成确认或明确适用范围。",
+        "en": "Tibo announced a quota reset for today on Day 23, adding “Lands by midnight PST” in a related reply. Recorded as planned; completion and eligibility scope were not specified."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2115273064481218829"
     }
   ]
 }
