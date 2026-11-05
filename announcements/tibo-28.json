@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "tibo-28-2026-10-05",
-  "revision": 42,
+  "revision": 43,
   "startDate": "2026-10-05",
   "days": 28,
   "timeZone": "America/Los_Angeles",
@@ -662,6 +662,96 @@
       "sourceURL": "https://x.com/thsottiaux/status/2115273064481218829",
       "collectedAt": "2026-10-28T02:58:22.693Z",
       "sourcePublishedAt": "2026-10-28T02:42:00Z"
+    },
+    {
+      "id": "tibo-day-24-dot-texting",
+      "revision": 1,
+      "day": 24,
+      "kind": "improvement",
+      "status": "completed",
+      "title": {
+        "zh": "通过短信与 dot 交流",
+        "en": "Text your dot"
+      },
+      "body": {
+        "zh": "Tibo 宣布可像给联系人发短信一样联系 dot，分享或转发内容、留下语音留言，也可通过 Siri 发出短信请求。",
+        "en": "Tibo announced texting your dot like any other contact, including sharing or forwarding content, leaving voice notes, and sending requests through Siri."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2115622002581188681",
+      "collectedAt": "2026-11-05T01:27:55.152Z",
+      "sourcePublishedAt": "2026-10-29T01:49:00Z"
+    },
+    {
+      "id": "tibo-day-25-usage-limits",
+      "revision": 1,
+      "day": 25,
+      "kind": "improvement",
+      "status": "completed",
+      "title": {
+        "zh": "Pro 与 Business Premium 额度政策更新",
+        "en": "Pro and Business Premium limit updates"
+      },
+      "body": {
+        "zh": "Tibo 宣布 Pro 100/200/500 和 Business Premium 用量上限即日起翻倍，同时确认不会降低 Pro 200 原有 Work/Codex 额度；dots 的扩展额度暂时延续，并继续单独计量。这是额度政策改进。",
+        "en": "Tibo announced doubled usage limits for Pro 100/200/500 and Business Premium effective that day, while confirming Pro 200 Work/Codex limits would not be reduced. Extended dot limits continue for now, with usage counted separately. This is a limit-policy improvement."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2115850175868727621",
+      "collectedAt": "2026-11-05T01:27:55.152Z",
+      "sourcePublishedAt": "2026-10-29T16:56:00Z"
+    },
+    {
+      "id": "tibo-day-26-mobile-accounts",
+      "revision": 1,
+      "day": 26,
+      "kind": "improvement",
+      "status": "completed",
+      "title": {
+        "zh": "移动端多账号切换",
+        "en": "Multiple accounts on mobile"
+      },
+      "body": {
+        "zh": "Tibo 宣布移动端已支持便捷切换多个账号，桌面端仍为即将推出。",
+        "en": "Tibo announced easier switching between multiple accounts on mobile; desktop support was still coming soon."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2116405414921384099",
+      "collectedAt": "2026-11-05T01:27:55.152Z",
+      "sourcePublishedAt": "2026-10-31T05:42:00Z"
+    },
+    {
+      "id": "tibo-day-27-banked-reset",
+      "revision": 1,
+      "day": 27,
+      "kind": "reset",
+      "status": "completed",
+      "title": {
+        "zh": "第27天可储存重置 1/2",
+        "en": "Day 27 banked reset 1/2"
+      },
+      "body": {
+        "zh": "Tibo 在第26天预告未来两天将提供可储存重置，随后公布“Banked 1/2”。原文未说明适用范围、使用方法或到期规则，公告不代表每个账号的实际到账时刻。",
+        "en": "Following the Day 26 plan for two days of banked resets, Tibo announced “Banked 1/2”. Eligibility, redemption and expiry rules were not specified. The announcement does not establish each account’s actual arrival time."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2116692529970311254",
+      "collectedAt": "2026-11-05T01:27:55.152Z",
+      "sourcePublishedAt": "2026-11-01T00:43:00Z"
+    },
+    {
+      "id": "tibo-day-28-banked-reset",
+      "revision": 1,
+      "day": 28,
+      "kind": "reset",
+      "status": "completed",
+      "title": {
+        "zh": "第28天可储存重置 2/2",
+        "en": "Day 28 banked reset 2/2"
+      },
+      "body": {
+        "zh": "Tibo 公布“Day 28/ Banked 2/2”，接续第26天预告的两天可储存重置计划。原文未说明适用范围、使用方法或到期规则，公告不代表每个账号的实际到账时刻。",
+        "en": "Tibo announced “Day 28/ Banked 2/2”, following the Day 26 plan for two days of banked resets. Eligibility, redemption and expiry rules were not specified. The announcement does not establish each account’s actual arrival time."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2117035794678546764",
+      "collectedAt": "2026-11-05T01:27:55.152Z",
+      "sourcePublishedAt": "2026-11-01T23:27:00Z"
     }
   ]
 }

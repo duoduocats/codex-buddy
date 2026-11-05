@@ -259,6 +259,42 @@
         "en": "Quoting the Day 23 reset deadline reply, Tibo announced that it is done. This announcement does not establish each account’s actual arrival time; eligibility scope was not specified."
       },
       "sourceURL": "https://x.com/thsottiaux/status/2115330127886463244"
+    },
+    {
+      "id": "tibo-day-27-banked-reset",
+      "revision": 1,
+      "type": "message",
+      "status": "completed",
+      "publishedAt": "2026-11-01T00:43:00Z",
+      "expiresAt": "2026-11-02T00:43:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "第27天可储存重置 1/2",
+        "en": "Day 27 banked reset 1/2"
+      },
+      "body": {
+        "zh": "Tibo 在第26天预告未来两天将提供可储存重置，随后公布“Banked 1/2”。原文未说明适用范围、使用方法或到期规则，公告不代表每个账号的实际到账时刻。",
+        "en": "Following the Day 26 plan for two days of banked resets, Tibo announced “Banked 1/2”. Eligibility, redemption and expiry rules were not specified. The announcement does not establish each account’s actual arrival time."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2116692529970311254"
+    },
+    {
+      "id": "tibo-day-28-banked-reset",
+      "revision": 1,
+      "type": "message",
+      "status": "completed",
+      "publishedAt": "2026-11-01T23:27:00Z",
+      "expiresAt": "2026-11-02T23:27:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "第28天可储存重置 2/2",
+        "en": "Day 28 banked reset 2/2"
+      },
+      "body": {
+        "zh": "Tibo 公布“Day 28/ Banked 2/2”，接续第26天预告的两天可储存重置计划。原文未说明适用范围、使用方法或到期规则，公告不代表每个账号的实际到账时刻。",
+        "en": "Tibo announced “Day 28/ Banked 2/2”, following the Day 26 plan for two days of banked resets. Eligibility, redemption and expiry rules were not specified. The announcement does not establish each account’s actual arrival time."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2117035794678546764"
     }
   ]
 }
