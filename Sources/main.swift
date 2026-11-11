@@ -3,6 +3,13 @@ import SwiftUI
 import Combine
 import Darwin
 
+private func requireNativeCheck(_ value:Bool,_ message:String = "",line:Int = #line) {
+    guard value else {
+        fputs("Native UI check failed at line \(line): \(message)\n",stderr)
+        fatalError("Native UI regression")
+    }
+}
+
 // Native preview checks use synthetic data and independent in-memory settings.
 private final class PreviewPreferences: UserDefaults {
     private var values: [String:Any] = [:]
@@ -111,66 +118,85 @@ private final class PreviewPreferences: UserDefaults {
         }
         if CommandLine.arguments.contains("--ui-check") {
             DispatchQueue.main.asyncAfter(deadline:.now()+1) {
-                self.togglePopover()
+                self.item.button?.performClick(nil)
                 DispatchQueue.main.asyncAfter(deadline:.now()+1) {
                     fputs("Popover opened: \(self.popover.isShown)\n",stderr)
                     fputs("Status frame: \(String(describing:self.item.button?.window?.frame)); popover: \(String(describing:self.popover.contentViewController?.view.window?.frame))\n",stderr)
-                    precondition(self.popover.isShown,"Popover must open")
+                    requireNativeCheck(self.popover.isShown,"Popover must open")
+                    requireNativeCheck(self.settingsWindow == nil,"Status click must not create the main interface")
+                    requireNativeCheck(!self.applicationShouldHandleReopen(NSApp,hasVisibleWindows:false),"Visible status panel must consume reopen")
+                    requireNativeCheck(self.settingsWindow == nil && self.popover.isShown,"Reopen must leave status-only presentation intact")
                     self.showSettings()
                     fputs("Settings visible: \(self.settingsWindow?.isVisible == true)\n",stderr)
-                    precondition(self.settingsWindow?.isVisible == true,"Settings must open")
-                    precondition(NSRunningApplication.current.activationPolicy == .regular,"Settings must use foreground presentation")
-                    precondition(NSApp.applicationIconImage != nil,"Foreground presentation must provide the shipped app icon")
+                    requireNativeCheck(self.settingsWindow?.isVisible == true,"Settings must open")
+                    requireNativeCheck(NSRunningApplication.current.activationPolicy == .regular,"Settings must use foreground presentation")
+                    requireNativeCheck(NSApp.applicationIconImage != nil,"Foreground presentation must provide the shipped app icon")
                     let navigationTop = self.settingsWindow!.frame.maxY
                     self.selectMainPage(.general)
                     let availableHeight = self.settingsWindow!.screen?.visibleFrame.height ?? SettingsView.height+80
                     let generalHeight = self.settingsWindow!.contentRect(forFrameRect:self.settingsWindow!.frame).height
-                    precondition(abs(generalHeight-SettingsView.fittedHeight(for:.general,availableHeight:availableHeight)) < 1,"Tabs must retain the common window height")
-                    precondition(abs(self.settingsWindow!.frame.maxY-navigationTop) < 1,"Page change must preserve the navigation top")
+                    requireNativeCheck(abs(generalHeight-SettingsView.fittedHeight(for:.general,availableHeight:availableHeight)) < 1,"Tabs must retain the common window height")
+                    requireNativeCheck(abs(self.settingsWindow!.frame.maxY-navigationTop) < 1,"Page change must preserve the navigation top")
                     self.selectMainPage(.overview)
                     let overviewHeight = self.settingsWindow!.contentRect(forFrameRect:self.settingsWindow!.frame).height
-                    precondition(abs(overviewHeight-SettingsView.fittedHeight(for:.overview,availableHeight:availableHeight)) < 1,"Tabs must retain the preview space")
+                    requireNativeCheck(abs(overviewHeight-SettingsView.fittedHeight(for:.overview,availableHeight:availableHeight)) < 1,"Tabs must retain the preview space")
                     fputs("Page sizing passed: stable height and stationary navigation.\\n",stderr)
                     let originalWindow = self.settingsWindow
                     self.showSettings()
-                    precondition(self.settingsWindow === originalWindow,"Repeated opens must reuse the settings window")
-                    precondition(self.settingsWindow?.acceptsMouseMovedEvents == true,"Charts require continuous mouse-move delivery")
+                    requireNativeCheck(self.settingsWindow === originalWindow,"Repeated opens must reuse the settings window")
+                    requireNativeCheck(self.settingsWindow?.acceptsMouseMovedEvents == true,"Charts require continuous mouse-move delivery")
                     DispatchQueue.main.asyncAfter(deadline:.now()+0.5) {
                         fputs("Popover closed: \(!self.popover.isShown)\n",stderr)
-                        precondition(!self.popover.isShown,"Popover must close")
+                        requireNativeCheck(!self.popover.isShown,"Popover must close")
                         self.settingsWindow?.close()
-                        precondition(NSRunningApplication.current.activationPolicy == .accessory,"Closing settings must hide the Dock icon")
-                        precondition(self.item.button != nil,"Closing settings must preserve the status item")
-                        self.showSettings()
-                        precondition(self.settingsWindow?.isVisible == true,"Settings must reopen")
-                        precondition(NSRunningApplication.current.activationPolicy == .regular,"Reopening settings must restore the Dock icon")
+                        requireNativeCheck(NSRunningApplication.current.activationPolicy == .accessory,"Closing settings must hide the Dock icon")
+                        requireNativeCheck(self.item.button != nil,"Closing settings must preserve the status item")
+                        self.item.button?.performClick(nil)
+                        requireNativeCheck(self.popover.isShown && self.settingsWindow?.isVisible == false,"Status click must leave closed main window closed")
+                        requireNativeCheck(!self.applicationShouldHandleReopen(NSApp,hasVisibleWindows:false))
+                        requireNativeCheck(self.settingsWindow?.isVisible == false,"Status reopen must not restore the closed window")
+                        self.item.button?.performClick(nil)
+                        requireNativeCheck(!self.popover.isShown,"Second status click must close only the panel")
+                        requireNativeCheck(!self.applicationShouldHandleReopen(NSApp,hasVisibleWindows:false),"Explicit Dock reopen is fully handled")
+                        requireNativeCheck(self.settingsWindow?.isVisible == true,"Settings must reopen")
+                        requireNativeCheck(NSRunningApplication.current.activationPolicy == .regular,"Reopening settings must restore the Dock icon")
+                        DispatchQueue.main.asyncAfter(deadline:.now()+0.5) {
                         self.settingsWindow?.miniaturize(nil)
-                        precondition(NSRunningApplication.current.activationPolicy == .regular,"Minimized settings must keep the Dock icon")
-                        self.showSettings()
-                        precondition(self.settingsWindow?.isMiniaturized == false,"Opening settings must restore a minimized window")
+                        requireNativeCheck(NSRunningApplication.current.activationPolicy == .regular,"Minimized settings must keep the Dock icon")
+                        DispatchQueue.main.asyncAfter(deadline:.now()+0.5) {
+                        requireNativeCheck(self.settingsWindow?.isMiniaturized == true,"Minimization must finish before testing the status click")
+                        self.item.button?.performClick(nil)
+                        requireNativeCheck(self.popover.isShown && self.settingsWindow?.isMiniaturized == true,"Status click must not restore minimized settings")
+                        requireNativeCheck(!self.applicationShouldHandleReopen(NSApp,hasVisibleWindows:false))
+                        requireNativeCheck(self.settingsWindow?.isMiniaturized == true,"Status reopen must preserve minimization")
+                        self.closePopover()
+                        requireNativeCheck(!self.applicationShouldHandleReopen(NSApp,hasVisibleWindows:false))
+                        requireNativeCheck(self.settingsWindow?.isMiniaturized == false,"Opening settings must restore a minimized window")
                         DispatchQueue.main.asyncAfter(deadline:.now()+0.5) {
                             self.settingsWindow?.performClose(nil)
-                            precondition(NSRunningApplication.current.activationPolicy == .accessory,"Window close action must hide the Dock icon")
+                            requireNativeCheck(NSRunningApplication.current.activationPolicy == .accessory,"Window close action must hide the Dock icon")
                             self.showChallenge()
-                            precondition(self.challengeWindow?.isVisible == true,"Activity window must open")
+                            requireNativeCheck(self.challengeWindow?.isVisible == true,"Activity window must open")
                             let originalChallenge = self.challengeWindow
                             self.showChallenge()
-                            precondition(self.challengeWindow === originalChallenge,"Activity opens must reuse the window")
+                            requireNativeCheck(self.challengeWindow === originalChallenge,"Activity opens must reuse the window")
                             self.showSettings();self.settingsWindow?.close()
-                            precondition(NSRunningApplication.current.activationPolicy == .regular,"Activity window must keep the Dock icon")
+                            requireNativeCheck(NSRunningApplication.current.activationPolicy == .regular,"Activity window must keep the Dock icon")
                             self.showSettings();self.challengeWindow?.close()
-                            precondition(NSRunningApplication.current.activationPolicy == .regular,"Settings must keep the Dock icon")
+                            requireNativeCheck(NSRunningApplication.current.activationPolicy == .regular,"Settings must keep the Dock icon")
                             self.showChallenge();self.model.reminders.setActivityMessagesEnabled(false)
-                            precondition(!self.model.challenge.enabled && self.challengeWindow?.isVisible == false,"Activity category off must close activity")
+                            requireNativeCheck(!self.model.challenge.enabled && self.challengeWindow?.isVisible == false,"Activity category off must close activity")
                             self.model.reminders.setActivityMessagesEnabled(true);self.showChallenge()
                             self.model.reminders.setResetMessagesEnabled(false)
-                            precondition(self.challengeWindow?.isVisible == true,"Reset category off must preserve activity")
+                            requireNativeCheck(self.challengeWindow?.isVisible == true,"Reset category off must preserve activity")
                             self.model.reminders.setMessagesEnabled(false)
-                            precondition(!self.model.challenge.enabled && self.challengeWindow?.isVisible == false,"Disabling messages must close activity")
+                            requireNativeCheck(!self.model.challenge.enabled && self.challengeWindow?.isVisible == false,"Disabling messages must close activity")
                             self.settingsWindow?.close()
-                            precondition(NSRunningApplication.current.activationPolicy == .accessory,"Closing both windows hides the Dock icon")
-                            print("Native UI checks passed: status item, popover, settings, Dock visibility, close/reopen and minimized recovery")
+                            requireNativeCheck(NSRunningApplication.current.activationPolicy == .accessory,"Closing both windows hides the Dock icon")
+                            print("Native UI checks passed: status-only clicks, closed/minimized window preservation, explicit Dock reopen, settings, Dock visibility and minimized recovery")
                             self.model.client.stop();exit(0)
+                        }
+                        }
                         }
                     }
                 }
@@ -195,7 +221,8 @@ private final class PreviewPreferences: UserDefaults {
             model.now = Date()
             model.setPanelVisible(true)
             if model.updated == nil || Date().timeIntervalSince(model.updated!) > 5 { model.refresh(includeStatistics:false) }
-            NSApp.activate(ignoringOtherApps:true)
+            // The quota panel is nonactivating: activating the whole app here
+            // also brings its main windows forward on a status-item click.
             // NSStatusBarButton can be flipped: its visual bottom is then maxY.
             let below: NSRectEdge = button.isFlipped ? .maxY : .minY
             popover.show(relativeTo:button.bounds,of:button,preferredEdge:below)
@@ -283,8 +310,13 @@ private final class PreviewPreferences: UserDefaults {
         return frame
     }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        // A status panel owns this interaction. Do not let AppKit's default
+        // reopen handling restore a closed/minimized main window behind it.
+        guard !popover.isShown else { return false }
         if challengeWindow?.isVisible == true || challengeWindow?.isMiniaturized == true { showChallenge() }
-        else if !popover.isShown { showSettings() };return true
+        else { showSettings() }
+        // The explicit window action above has fully handled a Dock/Finder reopen.
+        return false
     }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard pets.modifyingLocalLibrary else { return .terminateNow }
