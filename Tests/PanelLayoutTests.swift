@@ -17,6 +17,11 @@ private final class PanelPreferences: UserDefaults {
         let model = AppModel(preferences:preferences,
             client:UsageClient(credentialProvider:{ fatalError("UI fixtures never read credentials") }))
         model.useDemo()
+        // Exercise message removal with a relative fixture, independent of the
+        // fixed challenge calendar, which may already have ended on the host.
+        guard let message=model.reminders.upcoming else { fatalError("Missing synthetic reset message") }
+        model.reminders.useDemo(now:model.now,messages:[message])
+        precondition(!model.reminders.panelAnnouncements(at:model.now).isEmpty,"The message-removal fixture must start with a visible message")
         let panel = QuotaPanel(maximumHeight:580)
         let hosting = NSHostingController(rootView:UsageView(model:model,settings:{},
             contentHeightChanged:{ panel.setContentHeight($0) }))
@@ -30,12 +35,19 @@ private final class PanelPreferences: UserDefaults {
         panel.show(relativeTo:button.bounds,of:button,preferredEdge:.minY)
         defer { panel.close();anchor.close() }
         func verify(_ label:String) async throws {
-            try await Task.sleep(nanoseconds:250_000_000)
-            let expected = ceil(hosting.sizeThatFits(in:NSSize(width:380,height:1600)).height)
-            let scroll = hosting.view.enclosingScrollView!
-            precondition(abs(hosting.view.frame.height-expected) <= 1,"\(label): document must match content, without blank footer")
-            precondition(abs(panel.contentSize.height-min(expected,580)) <= 1,"\(label): panel must follow actual content")
-            precondition(scroll.contentView.bounds.minY == 0,"\(label): content must start at the top")
+            // Geometry reports arrive asynchronously after hosting/layout settles.
+            // Keep the same assertions, but wait for the actual rendered state.
+            var measured=(document:CGFloat(0),expected:CGFloat(0),panel:CGFloat(0),top:CGFloat(0))
+            for _ in 0..<20 {
+                try await Task.sleep(nanoseconds:100_000_000)
+                hosting.view.layoutSubtreeIfNeeded()
+                let expected=ceil(hosting.sizeThatFits(in:NSSize(width:380,height:1600)).height)
+                let scroll=hosting.view.enclosingScrollView!
+                measured=(hosting.view.frame.height,expected,panel.contentSize.height,scroll.contentView.bounds.minY)
+                if abs(measured.document-expected)<=1 && abs(measured.panel-min(expected,580))<=1 && measured.top==0 { return }
+            }
+            fputs("Panel layout \(label): document=\(measured.document) expected=\(measured.expected) panel=\(measured.panel) top=\(measured.top)\n",stderr)
+            preconditionFailure("Panel layout did not settle within two seconds")
         }
         try await verify("initial messages")
         let scroll = hosting.view.enclosingScrollView!
