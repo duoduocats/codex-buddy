@@ -5,7 +5,9 @@ import Foundation
     static func near(_ a:Double,_ b:Double,_ message:String,line:Int = #line) { check(a.isFinite && b.isFinite && abs(a-b)<0.000_001,message,line:line) }
     static func bounded(_ visual:BuddyNavigationMotion.VisualState,_ geometry:BuddyNavigationMotion.Geometry,line:Int = #line) {
         check(visual.center.isFinite && visual.width.isFinite && visual.stretch.isFinite,"Finite lens geometry",line:line)
-        check(visual.width >= 0 && visual.center-visual.width/2 >= -0.000_001 && visual.center+visual.width/2 <= geometry.width+0.000_001,"The lens stays inside the bar",line:line)
+        let allowance=BuddyNavigationMotion.Geometry.maximumLiftPerSide
+        check(visual.width >= 0 && visual.center-visual.width/2 >= -allowance-0.000_001
+              && visual.center+visual.width/2 <= geometry.width+allowance+0.000_001,"The lens has bounded visual overhang",line:line)
     }
     static func main() {
         let g=BuddyNavigationMotion.Geometry(width:400,count:4)
@@ -27,30 +29,46 @@ import Foundation
         let after=motion.visual(translationX:g.stride*1.51)
         near(after.center-before.center,g.stride*0.02,"Crossing a selection midpoint does not jump the lens")
         check(before.previewIndex==1 && after.previewIndex==2,"Visual item hint follows midpoint without changing geometry")
-        let stretched=motion.visual(translationX:g.stride*1.25,predictedEndTranslationX:g.stride*2)
-        check(stretched.stretch>1 && stretched.stretch<=1.100_001,"Predicted displacement produces bounded deformation")
-        near(motion.visual(translationX:g.stride*1.25,predictedEndTranslationX:g.stride*1.25).stretch,1,"Equal predicted/actual translations do not imply velocity")
-        near(motion.visual(translationX:g.stride*1.25,predictedEndTranslationX:.nan).stretch,1,"Invalid prediction does not deform")
-        near(motion.visual(translationX:g.stride*1.25,predictedEndTranslationX:.infinity).stretch,1,"Infinite prediction does not deform")
-        check(motion.releasedIndex(translationX:g.stride*1.49,predictedEndTranslationX:1_000_000)==1,"Forward flick never changes the nearest actual page")
-        check(motion.releasedIndex(translationX:g.stride*1.51,predictedEndTranslationX:-1_000_000)==2,"Backward flick never changes the nearest actual page")
-        for x in [-1_000_000.0,0,g.stride*1.5,1_000_000] { bounded(motion.visual(translationX:x,predictedEndTranslationX:x+500),g) }
+        for rail in [BuddyNavigationMotion.Geometry(width:510,count:3),.init(width:528,count:4)] {
+            for index in 0..<rail.count {
+                let center=rail.center(index)
+                var press=BuddyNavigationMotion(originalIndex:index,startLocationX:center,width:rail.width,count:rail.count)
+                let lifted=press.visual(translationX:0)
+                near(lifted.center,center,"Pressing a tab keeps its center")
+                check(lifted.width>rail.itemWidth,"The glass extends beyond both sides immediately, even at the ends")
+                check(lifted.height > BuddyNavigationMotion.Geometry.tabHeight,"Press expands the glass vertically")
+                for position in [-2*rail.width, -3, 0, 0.3, rail.stride/3, rail.stride, -rail.stride, 2*rail.width] {
+                    let dragging=press.visual(translationX:position)
+                    near(dragging.width,lifted.width,"Glass width stays fixed across stops, reversals and rail edges")
+                    near(dragging.height,lifted.height,"Glass height stays fixed throughout the drag")
+                    bounded(dragging,rail)
+                }
+                bounded(lifted,rail)
+                check(press.release(translationX:0)==index,"A stationary press selects the same tab")
+                near(press.visual(translationX:0).width,rail.itemWidth,"Release returns the lens to tab width")
+                near(press.visual(translationX:0).height,BuddyNavigationMotion.Geometry.tabHeight,"Release returns the lens to tab height")
+            }
+        }
+        check(motion.releasedIndex(translationX:g.stride*1.49)==1,"Release before the midpoint selects the nearer tab")
+        check(motion.releasedIndex(translationX:g.stride*1.51)==2,"Release after the midpoint selects the nearer tab")
+        for x in [-1_000_000.0,0,g.stride*1.5,1_000_000] { bounded(motion.visual(translationX:x),g) }
         let offsetGrab=BuddyNavigationMotion(originalIndex:1,startLocationX:g.center(1)-25,width:400,count:4)
         near(offsetGrab.visual(translationX:0).center,g.center(1),"Grabbing the selected lens edge preserves the initial center")
         near(offsetGrab.visual(translationX:17).center,g.center(1)+17,"Grab offset stays stable")
         let trackGrab=BuddyNavigationMotion(originalIndex:0,startLocationX:g.center(2),width:400,count:4)
         near(trackGrab.visual(translationX:11).center,g.center(2)+11,"Dragging from another part of the bar follows that touch")
         let reduced=BuddyNavigationMotion(originalIndex:0,startLocationX:g.center(0),width:400,count:4,reduceMotion:true)
-        let simple=reduced.visual(translationX:g.stride*1.3,predictedEndTranslationX:g.stride*3)
+        let simple=reduced.visual(translationX:g.stride*1.3)
         near(simple.stretch,1,"Reduce Motion removes stretch")
         near(simple.width,g.itemWidth,"Reduce Motion preserves item size")
+        near(simple.height,BuddyNavigationMotion.Geometry.tabHeight,"Reduce Motion keeps the glass at tab height")
         near(reduced.visual(translationX:-100).center,g.center(0),"Reduce Motion has no leading overshoot")
         near(reduced.visual(translationX:10000).center,g.center(3),"Reduce Motion has no trailing overshoot")
         near(simple.center,motion.visual(translationX:g.stride*1.3).center,"Reduced motion keeps direct pointer tracking")
         // A parent driver updates its page only from a successful first release.
         var page=0,commits=0,drag=motion
         for x in [20.0,160,280,40,210] { _=drag.visual(translationX:x);check(page==0 && commits==0,"Dragging never commits selection") }
-        if let target=drag.release(translationX:210,predictedEndTranslationX:10000),target != page {page=target;commits += 1}
+        if let target=drag.release(translationX:210),target != page {page=target;commits += 1}
         check(page==2 && commits==1,"Exactly one page commit on release")
         check(drag.release(translationX:0)==nil && drag.cancel()==nil,"Repeated completion cannot emit another commit")
         near(drag.visual(translationX:999).center,g.center(2),"Finished lens stays at its released target")
@@ -60,21 +78,23 @@ import Foundation
         check(cancelled.cancel()==1,"Cancel gives the original visual target")
         check(page==1 && commits==0 && cancelled.release(translationX:180)==nil && cancelled.cancel()==nil,"Cancellation never commits a page and finishes once")
         near(cancelled.visual(translationX:180).center,g.center(1),"Cancelled lens returns to the original center")
+        near(cancelled.visual(translationX:180).width,g.itemWidth,"Cancellation removes the lift")
+        near(cancelled.visual(translationX:180).height,BuddyNavigationMotion.Geometry.tabHeight,"Cancellation restores tab height")
         for count in [0,1,4] {
             for width in [0.0,1,10,13,400,Double.nan,Double.infinity,-10] {
                 let geometry=BuddyNavigationMotion.Geometry(width:width,count:count)
                 var value=BuddyNavigationMotion(originalIndex:-99,startLocationX:.nan,width:width,count:count)
-                for x in [Double.nan,Double.infinity,-Double.infinity,-500,0,500] {bounded(value.visual(translationX:x,predictedEndTranslationX:.nan),geometry)}
-                let target=value.release(translationX:100,predictedEndTranslationX:.infinity)
+                for x in [Double.nan,Double.infinity,-Double.infinity,-500,0,500] {bounded(value.visual(translationX:x),geometry)}
+                let target=value.release(translationX:100)
                 check(count==0 ? target==nil : (target != nil && target! >= 0 && target! < count),"Empty/single/narrow/invalid inputs stay safe")
             }
         }
         let single=BuddyNavigationMotion(originalIndex:0,startLocationX:200,width:400,count:1)
-        near(single.visual(translationX:200,predictedEndTranslationX:1000).center,200,"Single item stays centered")
-        near(single.visual(translationX:200,predictedEndTranslationX:1000).stretch,1,"Single item never stretches")
+        near(single.visual(translationX:200).center,200,"Single item stays centered")
+        near(single.visual(translationX:200).stretch,1,"Single item never stretches")
         check(g.index(at:.nan)==nil && g.index(at:.infinity)==nil,"Invalid hit coordinates do not pick a page")
         let extreme=BuddyNavigationMotion(originalIndex:Int.max,startLocationX:Double.greatestFiniteMagnitude,width:Double.greatestFiniteMagnitude,count:Int.max,padding:.infinity,gap:.infinity)
         bounded(extreme.visual(translationX:Double.greatestFiniteMagnitude),extreme.geometry)
-        print("Navigation motion tests passed: continuous multi-item dragging, nearest actual release, bounded stretch, reduced motion, grab offsets, cancellation, once-only commit and invalid geometry")
+        print("Navigation motion tests passed: fixed held width and height across the rail, return to resting size, reduced motion and once-only selection")
     }
 }

@@ -10,6 +10,11 @@ struct BuddyNavigationMotion: Equatable {
         let gap:Double
         let itemWidth:Double
         var stride:Double { itemWidth + gap }
+        static let tabHeight = 48.0
+        static let heldLensHeight = 64.0
+        // The glass may extend past the rail's ends when held. Its visual
+        // allowance does not change the tab widths or the rail's hit area.
+        static let maximumLiftPerSide = 22.0
 
         init(width:Double,count:Int,padding:Double = 6,gap:Double = 4) {
             self.width=width.isFinite ? max(0,width) : 0
@@ -42,8 +47,8 @@ struct BuddyNavigationMotion: Equatable {
     struct VisualState: Equatable {
         let center:Double
         let width:Double
-        // Horizontal scale relative to one item, with the full lens kept in
-        // the bar's content bounds. Rendering may use width directly instead.
+        let height:Double
+        // Horizontal scale relative to one item.
         let stretch:Double
         let previewIndex:Int?
     }
@@ -78,34 +83,28 @@ struct BuddyNavigationMotion: Equatable {
         if candidate.isFinite { return geometry.clampedCenter(candidate) }
         return translation > 0 ? geometry.center(geometry.count-1) : geometry.center(0)
     }
-    func visual(translationX:Double,predictedEndTranslationX:Double? = nil) -> VisualState {
+    func visual(translationX:Double) -> VisualState {
         if phase != .dragging {
             let target=phase == .cancelled ? originalIndex : endIndex
-            return .init(center:geometry.center(target ?? 0),width:geometry.itemWidth,stretch:1,previewIndex:target)
+            return .init(center:geometry.center(target ?? 0),width:geometry.itemWidth,height:Geometry.tabHeight,stretch:1,previewIndex:target)
         }
         let center=trackingCenter(translationX:translationX)
-        var requestedScale=1.0
-        if !reduceMotion,geometry.count > 1,geometry.stride > 0,
-           translationX.isFinite,let predicted=predictedEndTranslationX,predicted.isFinite {
-            let difference=predicted-translationX
-            if difference.isFinite {
-                // This is a bounded predicted displacement cue, not velocity.
-                requestedScale += min(1,abs(difference)/geometry.stride)*0.10
-            }
-        }
-        let availableWidth=max(0,2*min(center-geometry.padding,geometry.width-geometry.padding-center))
-        let width=min(geometry.itemWidth*requestedScale,availableWidth)
+        let lifts = !reduceMotion && geometry.count > 1
+        // Hold a single size from press through drag. Pointer motion only
+        // changes the center, even near the ends of the rail.
+        let lift = lifts ? min(geometry.itemWidth * 0.09, Geometry.maximumLiftPerSide) : 0
+        let width = geometry.itemWidth + 2 * lift
         let stretch=geometry.itemWidth > 0 ? max(1,width/geometry.itemWidth) : 1
-        return .init(center:center,width:width,stretch:stretch,previewIndex:geometry.index(at:center))
+        let height = lifts && geometry.itemWidth > 0 ? Geometry.heldLensHeight : Geometry.tabHeight
+        return .init(center:center,width:width,height:height,stretch:stretch,previewIndex:geometry.index(at:center))
     }
-    func releasedIndex(translationX:Double,predictedEndTranslationX:Double? = nil) -> Int? {
-        // Flick prediction never selects a different page: snap to the actual
-        // displayed center. Prediction is only allowed to deform the lens.
+    func releasedIndex(translationX:Double) -> Int? {
+        // Snap to the nearest tab at the last displayed center.
         geometry.index(at:trackingCenter(translationX:translationX))
     }
-    mutating func release(translationX:Double,predictedEndTranslationX:Double? = nil) -> Int? {
+    mutating func release(translationX:Double) -> Int? {
         guard phase == .dragging else { return nil }
-        endIndex=releasedIndex(translationX:translationX,predictedEndTranslationX:predictedEndTranslationX)
+        endIndex=releasedIndex(translationX:translationX)
         phase = .released
         return endIndex
     }

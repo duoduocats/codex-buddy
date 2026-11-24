@@ -4,7 +4,7 @@
 
 ## 中文
 
-当前测试版为 **2.5.2-beta.2**：[下载 Beta](https://github.com/duoduocats/codex-buddy/releases/tag/v2.5.2-beta.2)。正式版仍为 **2.5.1**，见 [README](../README.md)。
+当前测试版为 **2.5.2-beta.2**：[下载 Beta](https://github.com/duoduocats/codex-buddy/releases/tag/v2.5.2-beta.2)。当前正式版为 **2.5.2**，见 [README](../README.md)。
 
 本版修复点击顶栏用量图标时把主界面带到前台的问题。顶栏只开关用量浮层，主窗口已关闭或最小化时保持原状态；从 Dock、Finder 或浮层设置按钮打开主界面仍正常。
 
@@ -19,7 +19,7 @@
 
 ## English
 
-The current preview is **2.5.2-beta.2**: [Download Beta](https://github.com/duoduocats/codex-buddy/releases/tag/v2.5.2-beta.2). Stable remains **2.5.1**; see [README.en.md](../README.en.md).
+The current preview is **2.5.2-beta.2**: [Download Beta](https://github.com/duoduocats/codex-buddy/releases/tag/v2.5.2-beta.2). The current stable release is **2.5.2**; see [README.en.md](../README.en.md).
 
 This Beta fixes status-bar clicks bringing the main interface forward. The usage icon only toggles its panel, leaving closed or minimized main windows unchanged. Explicit Dock, Finder, and panel-settings actions still open the main interface.
 
