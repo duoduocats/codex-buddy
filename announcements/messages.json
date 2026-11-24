@@ -2,6 +2,576 @@
   "schemaVersion": 1,
   "events": [
     {
+      "id": "tibo-reset-2026-07-09-work-launch-reset",
+      "revision": 1,
+      "type": "message",
+      "status": "completed",
+      "publishedAt": "2026-07-09T21:24:00Z",
+      "expiresAt": "2026-07-10T21:24:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "ChatGPT Work 上线全量重置已启动",
+        "en": "ChatGPT Work launch reset initiated"
+      },
+      "body": {
+        "zh": "Tibo 宣布已启动 ChatGPT Work 和 Codex 的全量用量重置，预计在接下来一小时内推送。",
+        "en": "Tibo said the full ChatGPT Work and Codex quota reset had been triggered and was expected to propagate over the next hour."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2075330198887940337"
+    },
+    {
+      "id": "tibo-reset-2026-07-10-launch-reset-1",
+      "revision": 1,
+      "type": "message",
+      "status": "completed",
+      "publishedAt": "2026-07-10T17:59:00Z",
+      "expiresAt": "2026-07-11T17:59:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "上线后第一次额度重置已完成",
+        "en": "First post-launch quota reset complete"
+      },
+      "body": {
+        "zh": "Tibo 宣布已重置 Codex 和 ChatGPT Work 的用量额度，并预告当天稍后还有第二次。",
+        "en": "Tibo announced that Codex and ChatGPT Work usage limits had been reset, with a second reset to follow later that day."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2075641131002700120"
+    },
+    {
+      "id": "tibo-reset-2026-07-10-launch-reset-2",
+      "revision": 1,
+      "type": "message",
+      "status": "scheduled",
+      "publishedAt": "2026-07-11T05:54:00Z",
+      "expiresAt": "2026-07-12T05:54:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "上线后第二次额度重置",
+        "en": "Second post-launch quota reset"
+      },
+      "body": {
+        "zh": "Tibo 宣布当天第二次重置适用于所有 ChatGPT Work 和 Codex 用户，预计在 30 分钟内推送。",
+        "en": "Tibo announced the second reset of the day for all ChatGPT Work and Codex users, expected to roll out within 30 minutes."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2075820987833274448",
+      "appliesTo": {
+        "zh": "所有 ChatGPT Work 和 Codex 用户",
+        "en": "All ChatGPT Work and Codex users"
+      }
+    },
+    {
+      "id": "tibo-reset-2026-07-12-banked-compensation",
+      "revision": 1,
+      "type": "message",
+      "status": "completed",
+      "publishedAt": "2026-07-12T21:28:00Z",
+      "expiresAt": "2026-07-13T21:28:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "重置失败补发预存重置券",
+        "en": "Banked resets reissued after redemption failures"
+      },
+      "body": {
+        "zh": "Tibo 确认向受影响两小时内点过重置按钮的约 50 万名 Codex 和 ChatGPT Work 用户补发一次预存重置。",
+        "en": "Tibo confirmed a replacement banked reset for about 500,000 Codex and ChatGPT Work users who had clicked reset during the affected two-hour window."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2076418567143408112",
+      "appliesTo": {
+        "zh": "受影响时间内点过重置的用户",
+        "en": "Users who clicked reset in the affected window"
+      }
+    },
+    {
+      "id": "tibo-reset-2026-07-13-7m-banked",
+      "revision": 1,
+      "type": "message",
+      "status": "completed",
+      "publishedAt": "2026-07-13T18:29:00Z",
+      "expiresAt": "2026-07-14T18:29:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "700 万活跃用户预存重置券已发放",
+        "en": "7 million user milestone banked reset granted"
+      },
+      "body": {
+        "zh": "Tibo 宣布已给所有 Codex 和 ChatGPT Work 用户发放一次预存重置，可在桌面或网页兑换，补满周额度。",
+        "en": "Tibo announced a banked reset for all Codex and ChatGPT Work users. Redeeming it on desktop or web replenished weekly usage."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2076735790567338203",
+      "appliesTo": {
+        "zh": "所有 Codex 和 ChatGPT Work 用户",
+        "en": "All Codex and ChatGPT Work users"
+      }
+    },
+    {
+      "id": "tibo-reset-2026-07-14-8m-reset",
+      "revision": 1,
+      "type": "message",
+      "status": "scheduled",
+      "publishedAt": "2026-07-14T19:34:00Z",
+      "expiresAt": "2026-07-15T19:34:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "800 万活跃用户庆祝重置",
+        "en": "8 million user milestone reset"
+      },
+      "body": {
+        "zh": "Tibo 宣布正在为所有 Codex 和 ChatGPT Work 用户再次重置用量额度。",
+        "en": "Tibo announced another usage limit reset in progress for all Codex and ChatGPT Work users."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2077114635308986427",
+      "appliesTo": {
+        "zh": "所有 Codex 和 ChatGPT Work 用户",
+        "en": "All Codex and ChatGPT Work users"
+      }
+    },
+    {
+      "id": "tibo-reset-2026-07-15-9m-reset",
+      "revision": 1,
+      "type": "message",
+      "status": "scheduled",
+      "publishedAt": "2026-07-16T04:14:00Z",
+      "expiresAt": "2026-07-17T04:14:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "900 万活跃用户庆祝重置",
+        "en": "9 million user milestone reset"
+      },
+      "body": {
+        "zh": "Tibo 宣布为 Codex 和 ChatGPT Work 用户再次重置周额度，预计几分钟内恢复。",
+        "en": "Tibo announced another weekly quota reset for Codex and ChatGPT Work users, expected to reach them in a few minutes."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2077607697487188198",
+      "appliesTo": {
+        "zh": "Codex 和 ChatGPT Work 用户",
+        "en": "Codex and ChatGPT Work users"
+      }
+    },
+    {
+      "id": "tibo-reset-2026-07-17-paid-reset",
+      "revision": 1,
+      "type": "message",
+      "status": "completed",
+      "publishedAt": "2026-07-18T03:28:00Z",
+      "expiresAt": "2026-07-19T03:28:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "付费 Codex 和 ChatGPT Work 周末重置",
+        "en": "Weekend reset for paid Codex and ChatGPT Work users"
+      },
+      "body": {
+        "zh": "Tibo 宣布已重置所有付费 Codex 和 ChatGPT Work 用户的用量额度。",
+        "en": "Tibo announced refreshed usage limits for all paid Codex and ChatGPT Work users."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2078320950488297917",
+      "appliesTo": {
+        "zh": "所有付费 Codex 和 ChatGPT Work 用户",
+        "en": "All paid Codex and ChatGPT Work users"
+      }
+    },
+    {
+      "id": "tibo-reset-2026-07-21-10m-reset",
+      "revision": 1,
+      "type": "message",
+      "status": "scheduled",
+      "publishedAt": "2026-07-21T16:47:00Z",
+      "expiresAt": "2026-07-22T16:47:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "1,000 万活跃用户庆祝重置",
+        "en": "10 million user milestone reset"
+      },
+      "body": {
+        "zh": "Tibo 宣布为付费 Codex 和 ChatGPT Work 用户重置额度，预计在接下来一小时内推送。",
+        "en": "Tibo announced a reset for paid Codex and ChatGPT Work users and expected it to roll out within the next hour."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2079609157934886975",
+      "appliesTo": {
+        "zh": "付费 Codex 和 ChatGPT Work 用户",
+        "en": "Paid Codex and ChatGPT Work users"
+      }
+    },
+    {
+      "id": "tibo-reset-2026-07-25-outage-reset",
+      "revision": 1,
+      "type": "message",
+      "status": "completed",
+      "publishedAt": "2026-07-25T19:17:00Z",
+      "expiresAt": "2026-07-26T19:17:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "服务中断恢复后额度已重置",
+        "en": "Quota reset after outage recovery"
+      },
+      "body": {
+        "zh": "Tibo 宣布服务恢复，并已为所有 Codex 和 ChatGPT Work 用户重置额度。",
+        "en": "Tibo said service had recovered and usage limits had been reset for all Codex and ChatGPT Work users."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2081096447718723984",
+      "appliesTo": {
+        "zh": "所有 Codex 和 ChatGPT Work 用户",
+        "en": "All Codex and ChatGPT Work users"
+      }
+    },
+    {
+      "id": "tibo-reset-2026-07-27-paid-reset",
+      "revision": 1,
+      "type": "message",
+      "status": "completed",
+      "publishedAt": "2026-07-28T03:09:00Z",
+      "expiresAt": "2026-07-29T03:09:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "付费 Codex 和 ChatGPT Work 额度已重置",
+        "en": "Paid Codex and ChatGPT Work quota reset"
+      },
+      "body": {
+        "zh": "Tibo 确认已为所有付费 Codex 和 ChatGPT Work 用户重置额度。",
+        "en": "Tibo confirmed a usage reset for all paid Codex and ChatGPT Work users."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2081940052154933696",
+      "appliesTo": {
+        "zh": "所有付费 Codex 和 ChatGPT Work 用户",
+        "en": "All paid Codex and ChatGPT Work users"
+      }
+    },
+    {
+      "id": "tibo-reset-2026-07-28-sol-efficiency-reset",
+      "revision": 1,
+      "type": "message",
+      "status": "completed",
+      "publishedAt": "2026-07-29T04:09:00Z",
+      "expiresAt": "2026-07-30T04:09:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "Sol 用量优化后额度已重置",
+        "en": "Quota reset after Sol usage improvements"
+      },
+      "body": {
+        "zh": "Tibo 宣布已为所有 ChatGPT Work 和 Codex 用户重置额度，并介绍了 Sol 的用量效率改进。",
+        "en": "Tibo announced a usage reset for all ChatGPT Work and Codex users alongside Sol efficiency improvements."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2082317452755751098",
+      "appliesTo": {
+        "zh": "所有 ChatGPT Work 和 Codex 用户",
+        "en": "All ChatGPT Work and Codex users"
+      }
+    },
+    {
+      "id": "tibo-reset-2026-07-31-weekend-reset",
+      "revision": 1,
+      "type": "message",
+      "status": "completed",
+      "publishedAt": "2026-08-01T03:32:00Z",
+      "expiresAt": "2026-08-02T03:32:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "周末 Codex 和 ChatGPT Work 额度重置",
+        "en": "Weekend Codex and ChatGPT Work reset"
+      },
+      "body": {
+        "zh": "Tibo 宣布已重置 Codex 和 ChatGPT Work 的用量额度。",
+        "en": "Tibo announced that he had reset usage limits for Codex and ChatGPT Work."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2083395449814229287"
+    },
+    {
+      "id": "tibo-reset-2026-08-08-sol-paid-reset",
+      "revision": 1,
+      "type": "message",
+      "status": "completed",
+      "publishedAt": "2026-08-08T20:29:00Z",
+      "expiresAt": "2026-08-09T20:29:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "Sol 庆祝重置已完成",
+        "en": "Sol celebration reset complete"
+      },
+      "body": {
+        "zh": "Tibo 宣布已重置所有付费 ChatGPT Work 和 Codex 用户的用量额度。",
+        "en": "Tibo announced a usage reset for all paid ChatGPT Work and Codex users."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2086188036493344823",
+      "appliesTo": {
+        "zh": "所有付费 ChatGPT Work 和 Codex 用户",
+        "en": "All paid ChatGPT Work and Codex users"
+      }
+    },
+    {
+      "id": "tibo-reset-2026-08-10-follow-up-reset",
+      "revision": 1,
+      "type": "message",
+      "status": "completed",
+      "publishedAt": "2026-08-11T00:27:00Z",
+      "expiresAt": "2026-08-12T00:27:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "周一追加额度重置已完成",
+        "en": "Monday follow-up reset complete"
+      },
+      "body": {
+        "zh": "Tibo 确认完成了此前承诺的周一追加额度重置。",
+        "en": "Tibo confirmed completion of the additional Monday reset that he had previously announced."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2086972802457063486"
+    },
+    {
+      "id": "tibo-reset-2026-08-12-15m-reset",
+      "revision": 1,
+      "type": "message",
+      "status": "scheduled",
+      "publishedAt": "2026-08-13T01:01:00Z",
+      "expiresAt": "2026-08-14T01:01:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "1,500 万活跃用户庆祝重置",
+        "en": "15 million user milestone reset"
+      },
+      "body": {
+        "zh": "Tibo 宣布突破 1,500 万活跃用户后将提供一次重置，预计约一小时内推送。",
+        "en": "Tibo announced a reset after reaching 15 million active users and expected it to roll out in about an hour."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2087706104814023111"
+    },
+    {
+      "id": "tibo-reset-2026-08-21-20m-banked",
+      "revision": 1,
+      "type": "message",
+      "status": "scheduled",
+      "publishedAt": "2026-08-21T11:43:00Z",
+      "expiresAt": "2026-08-22T11:43:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "2,000 万活跃用户庆祝重置券",
+        "en": "20 million user milestone banked reset"
+      },
+      "body": {
+        "zh": "Tibo 宣布当天将为每位 Codex 和 ChatGPT Work 用户发放一次可自行使用的预存重置。",
+        "en": "Tibo announced a banked reset for every Codex and ChatGPT Work user that day, redeemable at a time of their choice."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2090766694897619318",
+      "appliesTo": {
+        "zh": "所有 Codex 和 ChatGPT Work 用户",
+        "en": "All Codex and ChatGPT Work users"
+      }
+    },
+    {
+      "id": "tibo-reset-2026-08-23-usage-fix-reset",
+      "revision": 1,
+      "type": "message",
+      "status": "completed",
+      "publishedAt": "2026-08-24T00:46:00Z",
+      "expiresAt": "2026-08-25T00:46:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "用量问题修复后的重置已推送",
+        "en": "Reset propagated after usage fixes"
+      },
+      "body": {
+        "zh": "Tibo 引用此前的付费订阅重置计划，确认重置已推送至账户，同时落实了用量修复。",
+        "en": "Quoting the prior reset plan for paid subscriptions, Tibo confirmed the reset had propagated to accounts alongside usage fixes."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2091688655828246890",
+      "appliesTo": {
+        "zh": "所有付费订阅",
+        "en": "All paid subscriptions"
+      }
+    },
+    {
+      "id": "tibo-reset-2026-08-27-usage-reset",
+      "revision": 1,
+      "type": "message",
+      "status": "completed",
+      "publishedAt": "2026-08-27T16:35:00Z",
+      "expiresAt": "2026-08-28T16:35:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "Codex 和 ChatGPT Work 额度已重置",
+        "en": "Codex and ChatGPT Work quota reset"
+      },
+      "body": {
+        "zh": "Tibo 宣布为所有 ChatGPT Work 和 Codex 用户重置用量额度。",
+        "en": "Tibo announced refreshed usage for all ChatGPT Work and Codex users."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2093014447833116908",
+      "appliesTo": {
+        "zh": "所有 ChatGPT Work 和 Codex 用户",
+        "en": "All ChatGPT Work and Codex users"
+      }
+    },
+    {
+      "id": "tibo-reset-2026-08-29-usage-fix-reset",
+      "revision": 1,
+      "type": "message",
+      "status": "scheduled",
+      "publishedAt": "2026-08-29T20:43:00Z",
+      "expiresAt": "2026-08-30T20:43:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "用量修复后的付费额度重置",
+        "en": "Paid quota reset after usage fixes"
+      },
+      "body": {
+        "zh": "Tibo 宣布正在为所有付费 Codex 和 ChatGPT Work 用户重置用量。随后，他在回复中给出了预计推送时间。",
+        "en": "Tibo announced that usage was being reset for all paid Codex and ChatGPT Work users. He gave the expected rollout time in a follow-up reply."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2093801758665715784",
+      "appliesTo": {
+        "zh": "所有付费 Codex 和 ChatGPT Work 用户",
+        "en": "All paid Codex and ChatGPT Work users"
+      }
+    },
+    {
+      "id": "tibo-reset-2026-08-30-25m-reset",
+      "revision": 1,
+      "type": "message",
+      "status": "completed",
+      "publishedAt": "2026-08-31T02:29:00Z",
+      "expiresAt": "2026-09-01T02:29:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "2,500 万活跃用户庆祝重置已完成",
+        "en": "25 million user milestone reset complete"
+      },
+      "body": {
+        "zh": "Tibo 宣布为所有付费 ChatGPT Work 和 Codex 订阅重置用量额度，庆祝达到 2,500 万活跃用户。",
+        "en": "Tibo announced that usage had been reset for all paid ChatGPT Work and Codex subscriptions to celebrate reaching 25 million active users."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2094251180121854309",
+      "appliesTo": {
+        "zh": "所有付费 ChatGPT Work 和 Codex 订阅",
+        "en": "All paid ChatGPT Work and Codex subscriptions"
+      }
+    },
+    {
+      "id": "tibo-reset-2026-09-03-astra-access-banked-plan",
+      "revision": 1,
+      "type": "message",
+      "status": "scheduled",
+      "publishedAt": "2026-09-03T23:12:00Z",
+      "expiresAt": "2026-09-04T23:12:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "Astra 访问补偿重置券计划",
+        "en": "Banked reset plan for delayed Astra access"
+      },
+      "body": {
+        "zh": "Tibo 宣布从当天起，付费 ChatGPT 用户每有一天无法使用 Astra，就可获得一次预存重置。首批预计约三小时后发放。",
+        "en": "Tibo announced one banked reset for each day a paid ChatGPT user lacked access to Astra, starting that day. The first grant was expected in about three hours."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2095651088502591861",
+      "appliesTo": {
+        "zh": "当时无法使用 Astra 的付费 ChatGPT 用户",
+        "en": "Paid ChatGPT users without Astra access at the time"
+      }
+    },
+    {
+      "id": "tibo-reset-2026-09-04-astra-banked",
+      "revision": 1,
+      "type": "message",
+      "status": "completed",
+      "publishedAt": "2026-09-05T00:39:00Z",
+      "expiresAt": "2026-09-06T00:39:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "Astra 上线重置券已按计划到期标记完成",
+        "en": "Astra launch banked reset marked complete after EOD"
+      },
+      "body": {
+        "zh": "已按 EOD 计划到期自动标记完成。Tibo 宣布为 Plus、Pro 和 Business 用户发放预存重置券，并包含太平洋时间当晚 8 点前创建账户或升级的用户。个人实际到账时间以账户为准。",
+        "en": "Automatically marked complete after the estimated EOD deadline. Tibo announced a banked reset for Plus, Pro and Business, including eligible users who created or upgraded an account before 8 p.m. Pacific. Individual receipt times may vary."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2096035437299237298",
+      "appliesTo": {
+        "zh": "Plus、Pro 和 Business 用户",
+        "en": "Plus, Pro and Business users"
+      }
+    },
+    {
+      "id": "tibo-reset-2026-09-07-paid-astra-reset",
+      "revision": 1,
+      "type": "message",
+      "status": "completed",
+      "publishedAt": "2026-09-08T04:05:00Z",
+      "expiresAt": "2026-09-09T04:05:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "Astra 付费订阅额度重置已完成",
+        "en": "Paid subscription reset for Astra complete"
+      },
+      "body": {
+        "zh": "Tibo 引用面向所有付费订阅的全球额度重置计划，确认重置完成。",
+        "en": "Quoting the global reset plan for all paid subscriptions, Tibo confirmed it was complete."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2097174560412246215",
+      "appliesTo": {
+        "zh": "所有付费订阅",
+        "en": "All paid subscriptions"
+      }
+    },
+    {
+      "id": "tibo-reset-2026-09-12-astra-propagated",
+      "revision": 1,
+      "type": "message",
+      "status": "completed",
+      "publishedAt": "2026-09-12T08:09:00Z",
+      "expiresAt": "2026-09-13T08:09:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "Astra 额度重置已推送",
+        "en": "Astra quota reset propagated"
+      },
+      "body": {
+        "zh": "Tibo 引用了面向 Astra 用户的质量更新及重置计划，确认重置已全部推送。",
+        "en": "Quoting the Astra quality update and reset plan, Tibo confirmed that the reset had fully propagated."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2098685367058612394",
+      "appliesTo": {
+        "zh": "Astra 用户",
+        "en": "Astra users"
+      }
+    },
+    {
+      "id": "tibo-reset-2026-09-22-sol-luna-banked",
+      "revision": 1,
+      "type": "message",
+      "status": "scheduled",
+      "publishedAt": "2026-09-22T18:23:00Z",
+      "expiresAt": "2026-09-23T18:23:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "Sol 与 Luna 上线预存重置券",
+        "en": "Banked reset for the Sol and Luna launch"
+      },
+      "body": {
+        "zh": "Tibo 宣布正在为 Plus、Pro 和 Business 账户发放一次预存重置。",
+        "en": "Tibo announced that one banked reset was being added to Plus, Pro and Business accounts."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2102463847714247142",
+      "appliesTo": {
+        "zh": "Plus、Pro 和 Business 用户",
+        "en": "Plus, Pro and Business users"
+      }
+    },
+    {
+      "id": "tibo-reset-2026-09-26-propagated",
+      "revision": 1,
+      "type": "message",
+      "status": "completed",
+      "publishedAt": "2026-09-26T18:17:00Z",
+      "expiresAt": "2026-09-27T18:17:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "额度重置已全部推送",
+        "en": "Quota reset fully propagated"
+      },
+      "body": {
+        "zh": "Tibo 确认重置已全部推送。",
+        "en": "Tibo confirmed that the resets had fully propagated."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2103911959544610829"
+    },
+    {
       "id": "chatgpt-global-reset-2026-10-02",
       "revision": 2,
       "type": "message",
@@ -295,6 +865,24 @@
         "en": "Tibo announced “Day 28/ Banked 2/2”, following the Day 26 plan for two days of banked resets. Eligibility, redemption and expiry rules were not specified. The announcement does not establish each account’s actual arrival time."
       },
       "sourceURL": "https://x.com/thsottiaux/status/2117035794678546764"
+    },
+    {
+      "id": "tibo-reset-2026-11-12-banked-activation",
+      "revision": 1,
+      "type": "message",
+      "status": "completed",
+      "publishedAt": "2026-11-12T21:59:00Z",
+      "expiresAt": "2026-11-13T21:59:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "预存重置券已激活",
+        "en": "Banked reset activated"
+      },
+      "body": {
+        "zh": "Tibo 宣布预存重置券已激活，预计随后陆续入账。",
+        "en": "Tibo said the banked reset had been activated and should reach accounts soon."
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2120999993079451919"
     }
   ]
 }
