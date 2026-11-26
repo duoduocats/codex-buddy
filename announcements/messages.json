@@ -883,6 +883,28 @@
         "en": "Tibo said the banked reset had been activated and should reach accounts soon."
       },
       "sourceURL": "https://x.com/thsottiaux/status/2120999993079451919"
+    },
+    {
+      "id": "tibo-business-banked-reset-2026-11-24",
+      "revision": 1,
+      "type": "message",
+      "status": "completed",
+      "publishedAt": "2026-11-24T18:43:00Z",
+      "expiresAt": "2026-11-25T18:43:00Z",
+      "timestampBasis": "source",
+      "title": {
+        "zh": "ChatGPT Business 团队获赠预存重置",
+        "en": "Banked reset for ChatGPT Business teams"
+      },
+      "body": {
+        "zh": "Tibo 宣布向 ChatGPT Business 团队赠送一次可自行兑换的预存重置。具体到账情况以团队账户为准。",
+        "en": "Tibo announced one banked reset for ChatGPT Business teams to redeem when they choose. Check your team account for availability."
+      },
+      "appliesTo": {
+        "zh": "ChatGPT Business 团队",
+        "en": "ChatGPT Business teams"
+      },
+      "sourceURL": "https://x.com/thsottiaux/status/2125299248782778588"
     }
   ]
 }
